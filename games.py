@@ -42,7 +42,7 @@ def send_photo_and_delete(bot, chat_id, photo, caption="", reply_markup=None, pa
     return msg
 
 # ---------------------------------------------------------------------------
-# IMAGE SYSTEM
+# IMAGE SYSTEM (with GitHub fallback)
 # ---------------------------------------------------------------------------
 
 IMAGE_CACHE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "game_image_cache")
@@ -80,7 +80,7 @@ def _get_cached_url_path(url):
 def _download_image(url, retries=3):
     for attempt in range(1, retries + 1):
         try:
-            r = requests.get(url, headers=_IMG_HEADERS, timeout=15, proxies={})  # proxy fix
+            r = requests.get(url, headers=_IMG_HEADERS, timeout=15, proxies={})
             if r.status_code == 429:
                 wait = int(r.headers.get("Retry-After", 10 * attempt))
                 time.sleep(wait)
@@ -215,11 +215,11 @@ def precache_assets(bot):
 # ACTIVE GAME STATE
 # ---------------------------------------------------------------------------
 
-active_games = {}          # chat_id -> session
-versus_games = {}          # chat_id -> versus session
-last_game_type = {}        # chat_id -> "character" | "year" | "trivia" | "picture"
-last_game_category = {}    # chat_id -> category name (or "random")
-pending_admin_actions = {} # chat_id -> {'type': ..., 'category': ...}
+active_games = {}
+versus_games = {}
+last_game_type = {}
+last_game_category = {}
+pending_admin_actions = {}
 
 def _get_time_limit():
     try:
@@ -232,18 +232,14 @@ def _is_game_active(chat_id):
     return chat_id in active_games
 
 def _check_one_game_lock(bot, chat_id, user_id, game_type=None, category=None):
-    """Returns True if a game (or versus) is active and should block.
-       For admin, stores pending action and asks for confirmation."""
-    # Check if user is muted
     if database.is_muted(chat_id, user_id):
         bot.send_message(chat_id, "🔇 You are muted! Wait until your mute expires.")
         return True
 
     if not _is_game_active(chat_id) and chat_id not in versus_games:
-        return False  # No active game, proceed
+        return False
 
     if user_id == config.ADMIN_ID:
-        # Admin wants to start, but game is active -> store pending action and ask
         pending_admin_actions[chat_id] = {'type': game_type, 'category': category}
         import telebot
         markup = telebot.types.InlineKeyboardMarkup()
@@ -254,14 +250,12 @@ def _check_one_game_lock(bot, chat_id, user_id, game_type=None, category=None):
         bot.send_message(chat_id,
                          "⚠️ A game is already in progress. Do you want to stop it and start a new one?",
                          reply_markup=markup, parse_mode="Markdown")
-        return True  # Block immediate start
+        return True
 
-    # Non-admin: if a versus is active, send specific message
     if chat_id in versus_games:
         bot.send_message(chat_id, "⚠️ A versus match is currently in progress. Please wait until it finishes.")
         return True
 
-    # Otherwise, generic active game message
     bot.send_message(chat_id, "⚠️ A game is already in progress! Answer it, use /stop to cancel, or wait for the timer.")
     return True
 
@@ -375,7 +369,6 @@ def process_hint(bot, message=None, call=None):
         username = message.from_user.username or message.from_user.first_name
         def reply(t): bot.reply_to(message, t, parse_mode="Markdown")
 
-    # Check if muted
     if database.is_muted(chat_id, user_id):
         reply("🔇 You are muted! Wait until your mute expires.")
         return
@@ -410,24 +403,18 @@ def process_hint(bot, message=None, call=None):
 # ---------------------------------------------------------------------------
 
 def is_character_match(guess, answer, aliases=None):
-    """Check if guess matches the character name or any alias with lenient rules."""
     guess = guess.lower().strip()
     answer = answer.lower().strip()
-    # 1. Exact match
     if guess == answer:
         return True
-    # 2. Substring match
     if guess in answer or answer in guess:
         return True
-    # 3. Word match (any word in guess matches any word in answer)
     guess_words = set(guess.split())
     answer_words = set(answer.split())
     if guess_words & answer_words:
         return True
-    # 4. Fuzzy match (85% similarity)
     if SequenceMatcher(None, guess, answer).ratio() >= 0.85:
         return True
-    # 5. Aliases
     if aliases:
         for alias in aliases:
             alias_lower = alias.lower()
@@ -471,7 +458,6 @@ def start_character_game(bot, chat_id, category=None, user_id=None):
         "aliases":    [a.lower() for a in aliases],
     }
 
-    # Store last game info for "Next" button
     last_game_type[chat_id] = "character"
     last_game_category[chat_id] = category if category else "random"
 
@@ -512,7 +498,6 @@ def start_year_game(bot, chat_id, category=None, user_id=None):
     img_url    = q.get('image') or q.get('image_url') or q.get('img') or q.get('poster')
     cat_label  = category.replace("_", " ").title() if category and category != "random" else media_type
 
-    # Generate 4 options: correct year + 3 distractors
     all_years = [item.get('year') for item in items if item.get('year') and item.get('year') != year]
     random.shuffle(all_years)
     distractors = all_years[:3]
@@ -520,7 +505,6 @@ def start_year_game(bot, chat_id, category=None, user_id=None):
     random.shuffle(options)
     correct_index = options.index(year)
 
-    # Store session
     active_games[chat_id] = {
         "type":          "year",
         "answer":        year,
@@ -531,10 +515,9 @@ def start_year_game(bot, chat_id, category=None, user_id=None):
         "options":       options,
         "correct_index": correct_index,
         "title":         title,
-        "answered":      set(),  # track who answered already
+        "answered":      set(),
     }
 
-    # Store last game info for "Next" button
     last_game_type[chat_id] = "year"
     last_game_category[chat_id] = category if category else "random"
 
@@ -601,7 +584,6 @@ def handle_year_answer(bot, call):
             f"+{final} pts{streak_txt}",
             reply_markup=markup, parse_mode="Markdown"
         )
-        # Delete session after correct answer
         del active_games[chat_id]
     else:
         database.penalise_wrong(bot, chat_id, user_id, username)
@@ -612,7 +594,6 @@ def handle_year_answer(bot, call):
 # ---------------------------------------------------------------------------
 
 def start_picture_game(bot, chat_id, category=None, user_id=None):
-    """Starts a picture guessing game – shows a scrambled image."""
     if user_id and _check_one_game_lock(bot, chat_id, user_id, game_type="picture", category=category):
         return None
 
@@ -630,13 +611,11 @@ def start_picture_game(bot, chat_id, category=None, user_id=None):
     hints = q.get('hints') or q.get('hint', 'No hints available.')
     hints_list = hints if isinstance(hints, list) else [hints]
 
-    # Get the image and scramble it
     img_data = get_image_bytes(bot, name, LOCAL_CHAR_DIR, img_url)
     if not img_data:
         send_and_delete(bot, chat_id, "❌ Could not load image for this character.")
         return None
 
-    # Scramble: pixelate (downscale then upscale)
     from PIL import Image
     img = Image.open(img_data)
     w, h = img.size
@@ -657,7 +636,6 @@ def start_picture_game(bot, chat_id, category=None, user_id=None):
         "hints_list": hints_list,
     }
 
-    # Store last game info for "Next" button
     last_game_type[chat_id] = "picture"
     last_game_category[chat_id] = category if category else "random"
 
@@ -680,7 +658,6 @@ def _start_timer(bot, chat_id, seconds):
     def timeout():
         time.sleep(seconds)
         if chat_id in active_games and active_games[chat_id].get("answer") == session_snapshot.get("answer"):
-            # If it's a year game, we may have a session; delete it and show timeout
             if active_games[chat_id].get("type") == "year":
                 correct = active_games[chat_id].get("answer")
                 title = active_games[chat_id].get("title", "")
@@ -691,7 +668,6 @@ def _start_timer(bot, chat_id, seconds):
                     parse_mode="Markdown"
                 )
             elif active_games[chat_id].get("type") in ("character", "picture"):
-                # Reveal the answer
                 answer = active_games[chat_id].get("display", "Unknown")
                 send_and_delete(
                     bot,
@@ -733,19 +709,15 @@ def start_trivia_game(bot, chat_id, category=None, user_id=None):
     options = q["options"]
     answer  = q["answer"]
 
-    # Check for 50/50 powerup
     fifty_fifty_used = False
     if user_id:
         if database.use_powerup(bot, chat_id, user_id, "fifty_fifty", username if username else "User"):
             fifty_fifty_used = True
-            # Remove two wrong options
             correct_option = options[ord(answer) - ord("A")]
             wrong_options = [opt for opt in options if opt != correct_option]
             random.shuffle(wrong_options)
-            # Keep only the correct and one wrong option
             trimmed_options = [correct_option] + wrong_options[:1]
             random.shuffle(trimmed_options)
-            # Update options and answer
             options = trimmed_options
             answer = chr(ord('A') + options.index(correct_option))
             send_and_delete(bot, chat_id, "✂️ *50/50 activated!* Two wrong answers removed.", parse_mode="Markdown")
@@ -762,7 +734,6 @@ def start_trivia_game(bot, chat_id, category=None, user_id=None):
         "fifty_fifty_used": fifty_fifty_used,
     }
 
-    # Store last game info for "Next" button
     last_game_type[chat_id] = "trivia"
     last_game_category[chat_id] = category if category else "random"
 
@@ -790,19 +761,16 @@ def start_trivia_game(bot, chat_id, category=None, user_id=None):
 
     send_and_delete(bot, chat_id, text, reply_markup=markup, parse_mode="Markdown")
 
-    # Auto-reveal after time limit
     session_snapshot = active_games[chat_id].copy()
     def auto_reveal():
         time.sleep(time_limit)
         if chat_id in active_games and active_games[chat_id].get("answer") == session_snapshot.get("answer"):
-            # Show correct answer
             send_and_delete(
                 bot,
                 chat_id,
                 f"⏰ *Time's up!*\nThe answer was: *{session_snapshot['answer']}. {session_snapshot['display']}*",
                 parse_mode="Markdown"
             )
-            # Delete session
             if chat_id in active_games:
                 del active_games[chat_id]
     threading.Thread(target=auto_reveal, daemon=True).start()
@@ -832,7 +800,6 @@ def handle_trivia_answer(bot, call):
             bot, chat_id, user_id, username, config.POINTS_TRIVIA)
         streak_txt = f" 🔥 Streak x{int(mult)}!" if streak > 1 else ""
 
-        # Track trivia correct for achievements
         data = database.load_json(config.GROUP_DATA_FILE, {})
         chat_str = str(chat_id)
         user_str = str(user_id)
@@ -856,7 +823,6 @@ def handle_trivia_answer(bot, call):
             f"+{final} pts{streak_txt}",
             reply_markup=markup, parse_mode="Markdown"
         )
-        # Delete session
         del active_games[chat_id]
     else:
         database.penalise_wrong(bot, chat_id, user_id, username)
@@ -869,19 +835,16 @@ def handle_trivia_answer(bot, call):
 def handle_next_game(bot, call):
     parts     = call.data.split("_")
     chat_id   = int(parts[1])
-    game_type = parts[2]  # "character", "year", "trivia", or "picture"
+    game_type = parts[2]
 
-    # Clean up any existing session
     if chat_id in active_games:
         del active_games[chat_id]
 
     bot.answer_callback_query(call.id)
     send_and_delete(bot, chat_id, "⏭️ *Moving to the next round...*", parse_mode="Markdown")
 
-    # Get the stored category for this chat (default to "random")
     cat = last_game_category.get(chat_id, "random")
 
-    # Start a fresh game of the same type with the same category
     if game_type == "character":
         start_character_game(bot, chat_id, category=cat)
     elif game_type == "year":
@@ -903,7 +866,6 @@ def start_versus(bot, chat_id, challenger_id, challenger_name, target_id, target
         send_and_delete(bot, chat_id, "⚔️ A versus match is already in progress!")
         return
 
-    # Check if either player is muted
     if database.is_muted(chat_id, challenger_id):
         send_and_delete(bot, chat_id, "🔇 You are muted! You cannot start a versus match.")
         return
@@ -1212,7 +1174,6 @@ def _evaluate_round(bot, chat_id):
         database.reward_user(bot, chat_id, winner_id, username,
                              amount=config.POINTS_VERSUS_WIN // 3)
 
-        # Track versus wins for achievements
         if winner_id:
             data = database.load_json(config.GROUP_DATA_FILE, {})
             chat_str = str(chat_id)
@@ -1424,7 +1385,6 @@ def post_daily_challenge(bot):
             members  = database.get_all_members(group_id)
             tag_line = " ".join([f"[{name}](tg://user?id={uid})" for uid, name in members])
             full_msg = f"{text}\n\n🌱 _Tagging the whole family:_\n{tag_line}"
-            # Send without auto-delete (this is a permanent announcement)
             bot.send_message(group_id, full_msg, reply_markup=markup, parse_mode="Markdown")
         except Exception as e:
             print(f"Daily challenge post failed for {group_id}: {e}")
@@ -1435,7 +1395,6 @@ def handle_daily_answer(bot, call):
     chat_id  = call.message.chat.id
     username = call.from_user.username or call.from_user.first_name
 
-    # Check if muted
     if database.is_muted(chat_id, user_id):
         bot.answer_callback_query(call.id, "🔇 You are muted!", show_alert=True)
         return
@@ -1455,7 +1414,6 @@ def handle_daily_answer(bot, call):
         pts, streak, mult, final = database.reward_user(
             bot, chat_id, user_id, username, config.POINTS_DAILY_CHALLENGE)
 
-        # Track daily wins for achievements
         data = database.load_json(config.GROUP_DATA_FILE, {})
         chat_str = str(chat_id)
         user_str = str(user_id)
@@ -1484,7 +1442,6 @@ def check_user_answer(bot, message):
 
     database.track_member(bot, chat_id, user_id, username)
 
-    # Check if muted
     if database.is_muted(chat_id, user_id):
         send_and_delete(bot, chat_id, "🔇 You are muted! Wait until your mute expires.")
         return True
@@ -1504,21 +1461,17 @@ def check_user_answer(bot, message):
         return False
 
     if active_games[chat_id].get("type") == "trivia":
-        return True  # Trivia uses buttons only
+        return True
 
-    # Character game, picture game, or year game (button-based now)
     user_guess = message.text.strip().lower()
     session    = active_games[chat_id]
 
-    # If it's a year game, ignore typed answers (buttons only)
     if session.get("type") == "year":
         send_and_delete(bot, chat_id, "⚠️ Please use the buttons to select a year!")
         return True
 
-    # Check for Double Down powerup
     double_down_active = False
     if session.get("type") in ("character", "picture"):
-        # Check if user has double down active
         data = database.load_json(config.GROUP_DATA_FILE, {})
         chat_str = str(chat_id)
         user_str = str(user_id)
@@ -1526,15 +1479,12 @@ def check_user_answer(bot, message):
         if u.get("powerups", {}).get("double_down", 0) > 0:
             double_down_active = True
 
-    # Character or picture game with lenient matching
     aliases = session.get("aliases", [])
     if is_character_match(user_guess, session["answer"], aliases):
         base_pts = config.POINTS_CHARACTER_GAME
 
-        # Apply double down if active
         if double_down_active:
             base_pts *= 2
-            # Use one double down
             database.use_powerup(bot, chat_id, user_id, "double_down", username)
 
         pts, streak, mult, final = database.reward_user(bot, chat_id, user_id, username, base_pts)
@@ -1558,17 +1508,13 @@ def check_user_answer(bot, message):
         del active_games[chat_id]
         return True
 
-    # Wrong answer – handle streak freeze
     data = database.load_json(config.GROUP_DATA_FILE, {})
     chat_str = str(chat_id)
     user_str = str(user_id)
     u = database.get_user(data, chat_str, user_str, username)
 
-    # Check if user has streak freeze
     if u.get("powerups", {}).get("streak_freeze", 0) > 0:
-        # Use one streak freeze
         database.use_powerup(bot, chat_id, user_id, "streak_freeze", username)
-        # Don't break streak, just consume the powerup
         send_and_delete(bot, chat_id, "🧊 *Streak Freeze activated!* Your streak is safe this time.")
     else:
         database.penalise_wrong(bot, chat_id, user_id, username)
