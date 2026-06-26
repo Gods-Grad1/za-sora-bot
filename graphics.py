@@ -262,7 +262,7 @@ def build_table_image_raw(bot, rows_data):
         HDR_H  = 90
         COL_H  = 32
         rows   = rows_data[1:]
-        IMG_H  = HDR_H + COL_H + len(rows) * ROW_H + 20 + 30  # extra for footer
+        IMG_H  = HDR_H + COL_H + len(rows) * ROW_H + 20 + 30
 
         # Dark theme with gradient background
         bg = Image.new("RGB", (IMG_W, IMG_H), hex_to_rgb(config.THEME_BG))
@@ -387,7 +387,7 @@ def build_table_image_raw(bot, rows_data):
         return None
 
 # ---------------------------------------------------------------------------
-# FIXTURES IMAGE (kept as is – already dark theme)
+# FIXTURES IMAGE
 # ---------------------------------------------------------------------------
 
 def generate_fixtures_image(bot, rows, status_filter, player_filter,
@@ -804,19 +804,20 @@ def draw_badge_icon(draw, x, y, badge_id, size=24):
     return x + size + 4
 
 # ---------------------------------------------------------------------------
-# PROFILE CARD (New design with avatar)
+# PROFILE CARD (Group-based, no avatar)
 # ---------------------------------------------------------------------------
 
 def build_profile_card(chat_id, user_id, username=None, bot=None):
-    """Generates a modern, gaming‑style profile card with avatar."""
+    """Generates a profile card using group-based stats (no avatar)."""
     from PIL import Image, ImageDraw, ImageFont
     from io import BytesIO
 
-    data = database.load_json(config.USER_DATA_FILE, {})
+    data = database.load_json(config.GROUP_DATA_FILE, {})
+    chat_str = str(chat_id)
     user_str = str(user_id)
-    if user_str not in data:
+    if chat_str not in data or user_str not in data[chat_str]:
         return None
-    u = data[user_str]
+    u = data[chat_str][user_str]
     username = username or u.get("username", "Player")
 
     # Gather stats
@@ -828,10 +829,10 @@ def build_profile_card(chat_id, user_id, username=None, bot=None):
     played = u.get("games_played", 0)
     correct = u.get("correct", 0)
     accuracy = f"{int((correct / played) * 100)}%" if played > 0 else "N/A"
-    badges = u.get("badges", [])[:6]  # Show max 6 badges
+    badges = u.get("badges", [])[:6]
 
     W = 650
-    H = 650  # Fixed height
+    H = 650
     bg = Image.new("RGB", (W, H), hex_to_rgb(config.THEME_BG))
     draw = ImageDraw.Draw(bg)
 
@@ -847,55 +848,32 @@ def build_profile_card(chat_id, user_id, username=None, bot=None):
     # Top accent bar (gold)
     draw.rectangle([0, 0, W, 4], fill=hex_to_rgb(config.THEME_ACCENT_GOLD))
 
-    # Avatar circle
+    # Avatar circle with initial
     avatar_radius = 45
     avatar_center = (70, 80)
-    # Try to fetch avatar from Telegram
-    avatar_img = None
-    if bot:
-        try:
-            photos = bot.get_user_profile_photos(user_id, limit=1)
-            if photos.total_count > 0:
-                file_id = photos.photos[0][-1].file_id
-                file_info = bot.get_file(file_id)
-                downloaded_file = bot.download_file(file_info.file_path)
-                avatar_img = Image.open(BytesIO(downloaded_file))
-        except Exception:
-            pass
-
-    if avatar_img:
-        # Resize and circle-crop avatar
-        avatar_img = avatar_img.resize((avatar_radius*2, avatar_radius*2), Image.Resampling.LANCZOS)
-        mask = Image.new('L', (avatar_radius*2, avatar_radius*2), 0)
-        mask_draw = ImageDraw.Draw(mask)
-        mask_draw.ellipse((0, 0, avatar_radius*2, avatar_radius*2), fill=255)
-        avatar_img.putalpha(mask)
-        bg.paste(avatar_img, (avatar_center[0]-avatar_radius, avatar_center[1]-avatar_radius), avatar_img)
-    else:
-        # Fallback: colored circle with initial
-        draw.ellipse(
-            (avatar_center[0]-avatar_radius, avatar_center[1]-avatar_radius,
-             avatar_center[0]+avatar_radius, avatar_center[1]+avatar_radius),
-            fill=hex_to_rgb(config.THEME_ACCENT)
-        )
-        f_avatar = get_font(30, bold=True)
-        tw = text_w(draw, username[0].upper(), f_avatar)
-        draw.text(
-            (avatar_center[0] - tw//2, avatar_center[1] - 15),
-            username[0].upper(),
-            fill=hex_to_rgb(config.THEME_TEXT_PRIMARY),
-            font=f_avatar
-        )
+    draw.ellipse(
+        (avatar_center[0]-avatar_radius, avatar_center[1]-avatar_radius,
+         avatar_center[0]+avatar_radius, avatar_center[1]+avatar_radius),
+        fill=hex_to_rgb(config.THEME_ACCENT)
+    )
+    f_avatar = get_font(30, bold=True)
+    tw = text_w(draw, username[0].upper(), f_avatar)
+    draw.text(
+        (avatar_center[0] - tw//2, avatar_center[1] - 15),
+        username[0].upper(),
+        fill=hex_to_rgb(config.THEME_TEXT_PRIMARY),
+        font=f_avatar
+    )
 
     # Username
     f_name = get_font(22, bold=True)
     draw.text((140, 55), username, fill=hex_to_rgb(config.THEME_TEXT_PRIMARY), font=f_name)
 
-    # Title (below username)
+    # Title
     f_title = get_font(14)
     draw.text((140, 90), f"🏅 {title}", fill=hex_to_rgb(config.THEME_TEXT_MUTED), font=f_title)
 
-    # Stats grid (4 boxes)
+    # Stats grid
     stats = [
         ("💰 Points", str(points)),
         ("🔥 Streak", f"{streak} (Best {best_streak})"),
@@ -930,7 +908,6 @@ def build_profile_card(chat_id, user_id, username=None, bot=None):
             badge = config.ACHIEVEMENTS.get(badge_id, {})
             icon = badge.get("icon", "🏅")
             name = badge.get("name", badge_id)
-            # Draw badge circle
             draw.ellipse(
                 [badge_x, badge_y+30, badge_x+40, badge_y+70],
                 fill=hex_to_rgb(config.THEME_ACCENT_PURPLE)
@@ -938,7 +915,6 @@ def build_profile_card(chat_id, user_id, username=None, bot=None):
             f_badge = get_font(18)
             tw = text_w(draw, icon, f_badge)
             draw.text((badge_x + (40 - tw)//2, badge_y + 36), icon, fill=(255,255,255), font=f_badge)
-            # Badge name below
             f_name_small = get_font(9)
             tw2 = text_w(draw, name[:10], f_name_small)
             draw.text((badge_x + (40 - tw2)//2, badge_y + 72), name[:10], fill=hex_to_rgb(config.THEME_TEXT_MUTED), font=f_name_small)
@@ -946,10 +922,9 @@ def build_profile_card(chat_id, user_id, username=None, bot=None):
     else:
         draw.text((30, badge_y+35), "None yet. Keep playing!", fill=hex_to_rgb(config.THEME_TEXT_MUTED), font=get_font(14))
 
-    # Status / Bio (bottom)
+    # Status / Bio
     status_y = 340
     draw.rectangle([20, status_y, W-20, status_y+60], fill=hex_to_rgb(config.THEME_CARD_BG))
-    # Use a random quote or the user's title
     quote = database.get_random_quote()
     if quote:
         status_text = f"💬 {quote['text'][:60]}"
@@ -973,84 +948,10 @@ def build_profile_card(chat_id, user_id, username=None, bot=None):
     return bio
 
 # ---------------------------------------------------------------------------
-# CREW BANNER (Collage of group members)
-# ---------------------------------------------------------------------------
-
-def build_crew_banner(chat_id, bot):
-    """Generates a collage of all members' profile pictures in a group."""
-    from PIL import Image, ImageDraw, ImageFont
-    from io import BytesIO
-    import requests
-
-    members = database.get_all_members(chat_id)
-    if not members:
-        return None
-
-    # We'll create a grid of avatars (max 9 shown)
-    # For each member, try to fetch their profile photo
-    avatars = []
-    for uid, uname in members[:9]:
-        try:
-            photos = bot.get_user_profile_photos(uid, limit=1)
-            if photos.total_count > 0:
-                file_id = photos.photos[0][-1].file_id
-                file_info = bot.get_file(file_id)
-                downloaded_file = bot.download_file(file_info.file_path)
-                avatar = Image.open(BytesIO(downloaded_file))
-                avatar = avatar.resize((100, 100), Image.Resampling.LANCZOS)
-                avatars.append(avatar)
-            else:
-                # Placeholder
-                avatar = Image.new('RGB', (100, 100), hex_to_rgb(config.THEME_CARD_BG))
-                draw = ImageDraw.Draw(avatar)
-                draw.text((30, 40), uname[0].upper(), fill=hex_to_rgb(config.THEME_ACCENT))
-                avatars.append(avatar)
-        except Exception:
-            avatar = Image.new('RGB', (100, 100), hex_to_rgb(config.THEME_CARD_BG))
-            draw = ImageDraw.Draw(avatar)
-            draw.text((30, 40), uname[0].upper(), fill=hex_to_rgb(config.THEME_ACCENT))
-            avatars.append(avatar)
-
-    if not avatars:
-        return None
-
-    # Grid layout
-    cols = 3
-    rows = (len(avatars) + cols - 1) // cols
-    grid_w = 100 * cols
-    grid_h = 100 * rows
-    bg = Image.new("RGB", (grid_w + 40, grid_h + 70), hex_to_rgb(config.THEME_BG))
-    draw = ImageDraw.Draw(bg)
-    draw.rectangle([0, 0, bg.width, bg.height], fill=hex_to_rgb(config.THEME_BG))
-
-    # Header
-    f_title = get_font(18, bold=True)
-    draw.text((20, 15), "👥 CREW BANNER", fill=hex_to_rgb(config.THEME_ACCENT_GOLD), font=f_title)
-    draw.text((20, 42), f"{len(avatars)} members", fill=hex_to_rgb(config.THEME_TEXT_MUTED), font=get_font(12))
-
-    x = 20
-    y = 70
-    for i, avatar in enumerate(avatars):
-        bg.paste(avatar, (x, y))
-        x += 100
-        if (i + 1) % cols == 0:
-            x = 20
-            y += 100
-
-    bio = BytesIO()
-    bg.save(bio, 'PNG')
-    bio.seek(0)
-    return bio
-
-# ---------------------------------------------------------------------------
-# LEADERBOARD (with pagination)
+# LEADERBOARD
 # ---------------------------------------------------------------------------
 
 def build_leaderboard_image(chat_id, mode="monthly", page=1):
-    """
-    Generates a leaderboard image with pagination support.
-    page: 1-based page number (shows 10 entries per page)
-    """
     try:
         ENTRIES_PER_PAGE = 10
         offset = (page - 1) * ENTRIES_PER_PAGE
