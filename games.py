@@ -42,7 +42,7 @@ def send_photo_and_delete(bot, chat_id, photo, caption="", reply_markup=None, pa
     return msg
 
 # ---------------------------------------------------------------------------
-# IMAGE SYSTEM (with GitHub fallback)
+# IMAGE SYSTEM (GitHub → URL, with upload)
 # ---------------------------------------------------------------------------
 
 IMAGE_CACHE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "game_image_cache")
@@ -61,21 +61,6 @@ def _ensure_dirs():
 
 def _name_to_filename(name):
     return re.sub(r'[^a-zA-Z0-9._-]', '_', name).strip('_')
-
-def _find_local_image(name, folder):
-    base = _name_to_filename(name)
-    for ext in SUPPORTED_EXTS:
-        path = os.path.join(folder, base + ext)
-        if os.path.exists(path):
-            return path
-    return None
-
-def _url_to_cache_filename(url):
-    safe = re.sub(r'[^a-zA-Z0-9._-]', '_', url)
-    return safe[-180:]
-
-def _get_cached_url_path(url):
-    return os.path.join(IMAGE_CACHE_DIR, _url_to_cache_filename(url))
 
 def _download_image(url, retries=3):
     for attempt in range(1, retries + 1):
@@ -98,56 +83,42 @@ def _download_image(url, retries=3):
 
 def get_image_bytes(bot, name, folder, url):
     _ensure_dirs()
-    # 1. Local file first
-    local = _find_local_image(name, folder)
-    if local:
-        with open(local, "rb") as f:
-            bio = BytesIO(f.read())
-        bio.name = "image.jpg"
-        bio.seek(0)
-        return bio
-
-    # 2. GitHub fallback
     safe_name = _name_to_filename(name)
+
+    # Determine remote folder
     if folder == config.LOCAL_CHAR_IMAGES_DIR:
         remote_folder = "characters"
     elif folder == config.LOCAL_MEDIA_IMAGES_DIR:
         remote_folder = "media"
     else:
         remote_folder = folder
+
+    # 1. Try GitHub first
     github_url = f"{config.GITHUB_RAW_BASE_URL}{remote_folder}/{safe_name}.jpg"
     data = _download_image(github_url)
     if data:
-        local_path = os.path.join(folder, f"{safe_name}.jpg")
-        try:
-            with open(local_path, "wb") as f:
-                f.write(data)
-        except Exception:
-            pass
         bio = BytesIO(data)
         bio.name = "image.jpg"
         bio.seek(0)
         return bio
 
-    # 3. URL cache
+    # 2. Fallback to original URL (and upload to GitHub)
     if url:
-        cache_path = _get_cached_url_path(url)
-        if os.path.exists(cache_path):
-            with open(cache_path, "rb") as f:
-                bio = BytesIO(f.read())
-            bio.name = "image.jpg"
-            bio.seek(0)
-            return bio
         data = _download_image(url)
         if data:
-            with open(cache_path, "wb") as f:
-                f.write(data)
+            # Upload to GitHub in the background
+            import threading
+            from github_uploader import upload_image_to_github
+            def upload():
+                upload_image_to_github(bot, data, f"{safe_name}.jpg", remote_folder)
+            threading.Thread(target=upload, daemon=True).start()
+
             bio = BytesIO(data)
             bio.name = "image.jpg"
             bio.seek(0)
             return bio
 
-    # 4. Total failure – notify admin
+    # 3. Total failure – notify admin
     try:
         bot.send_message(config.ADMIN_ID,
             f"❌ *Image unavailable:* `{name}` — sending text only.",
@@ -194,19 +165,26 @@ def _precache_all_images(bot):
                    entry.get('img') or entry.get('poster'))
             if not url:
                 continue
-            path = _get_cached_url_path(url)
-            if os.path.exists(path):
+            # Try to get from GitHub
+            safe_name = _name_to_filename(entry.get('name') or entry.get('title'))
+            if entry in config.CHAR_ALL_DBS:
+                remote_folder = "characters"
+            else:
+                remote_folder = "media"
+            github_url = f"{config.GITHUB_RAW_BASE_URL}{remote_folder}/{safe_name}.jpg"
+            if _download_image(github_url):
                 skipped += 1
                 continue
+            # If not on GitHub, download from URL and upload
             data = _download_image(url)
             if data:
-                with open(path, "wb") as f:
-                    f.write(data)
+                from github_uploader import upload_image_to_github
+                upload_image_to_github(bot, data, f"{safe_name}.jpg", remote_folder)
                 total += 1
                 time.sleep(0.3)
             else:
                 failed += 1
-    print(f"✅ [IMG CACHE] Done — downloaded:{total} cached:{skipped} failed:{failed}")
+    print(f"✅ [IMG CACHE] Done — uploaded:{total} cached:{skipped} failed:{failed}")
 
 def precache_assets(bot):
     threading.Thread(target=_precache_all_images, args=(bot,), daemon=True).start()
@@ -321,7 +299,6 @@ def send_year_category_picker(bot, chat_id):
                      reply_markup=markup, parse_mode="Markdown")
 
 def send_trivia_category_picker(bot, chat_id):
-    """Used by /trivia command to let users choose a category."""
     import telebot
     markup = telebot.types.InlineKeyboardMarkup(row_width=2)
     icons  = ["🎮","👤","🎬","🌍","🍕","⚽","💻","📖"]
@@ -387,8 +364,11 @@ def process_hint(bot, message=None, call=None):
 
     has_token = database.use_hint_token(bot, chat_id, user_id, username)
     if not has_token:
-        user = database.get_user(user_id)
-        current_pts = user.get("points", 0)
+        data = database.load_json(config.GROUP_DATA_FILE, {})
+        chat_str = str(chat_id)
+        user_str = str(user_id)
+        u = database.get_user(data, chat_str, user_str, username)
+        current_pts = u.get("points", 0)
         if current_pts < config.POINTS_HINT_PENALTY:
             reply(f"❌ Not enough points for a hint. You have *{current_pts}* pts but need *{config.POINTS_HINT_PENALTY}* pts.")
             return
@@ -801,11 +781,13 @@ def handle_trivia_answer(bot, call):
             bot, chat_id, user_id, username, config.POINTS_TRIVIA)
         streak_txt = f" 🔥 Streak x{int(mult)}!" if streak > 1 else ""
 
-        # Track trivia correct
-        user = database.get_user(user_id, username)
-        user["trivia_correct"] = user.get("trivia_correct", 0) + 1
-        database.save_user(bot, user_id, user)
-        database.check_achievements(bot, user_id, username)
+        data = database.load_json(config.GROUP_DATA_FILE, {})
+        chat_str = str(chat_id)
+        user_str = str(user_id)
+        u = database.get_user(data, chat_str, user_str, username)
+        u["trivia_correct"] = u.get("trivia_correct", 0) + 1
+        database.save_json(bot, config.GROUP_DATA_FILE, data)
+        database.check_achievements(bot, chat_id, user_id, username)
 
         bot.answer_callback_query(call.id, f"✅ CORRECT! +{final} pts{streak_txt}", show_alert=True)
 
@@ -987,8 +969,11 @@ def handle_versus_bet(bot, call):
             f"⚠️ Already bet {existing['amount']} pts on {pname}!", show_alert=True)
         return
 
-    user = database.get_user(user_id, username)
-    user_pts = user.get("points", 0)
+    data = database.load_json(config.GROUP_DATA_FILE, {})
+    chat_str = str(chat_id)
+    user_str = str(user_id)
+    u = database.get_user(data, chat_str, user_str, username)
+    user_pts = u.get("points", 0)
     if user_pts < amount:
         bot.answer_callback_query(call.id,
             f"❌ Not enough points! You have {user_pts} pts.", show_alert=True)
@@ -1174,10 +1159,13 @@ def _evaluate_round(bot, chat_id):
                              amount=config.POINTS_VERSUS_WIN // 3)
 
         if winner_id:
-            user = database.get_user(winner_id, username)
-            user["versus_wins"] = user.get("versus_wins", 0) + 1
-            database.save_user(bot, winner_id, user)
-            database.check_achievements(bot, winner_id, username)
+            data = database.load_json(config.GROUP_DATA_FILE, {})
+            chat_str = str(chat_id)
+            user_str = str(winner_id)
+            u = database.get_user(data, chat_str, user_str, username)
+            u["versus_wins"] = u.get("versus_wins", 0) + 1
+            database.save_json(bot, config.GROUP_DATA_FILE, data)
+            database.check_achievements(bot, chat_id, winner_id, username)
 
     correct_reveal = ""
     if not (c_correct or t_correct):
@@ -1301,9 +1289,12 @@ def _payout_bets(bot, chat_id, winner_pick):
     if winner_pick is None:
         total = 0
         for uid, bet in bets.items():
-            user = database.get_user(uid, bet["username"])
-            user["points"] += bet["amount"]
-            database.save_user(bot, uid, user)
+            data = database.load_json(config.GROUP_DATA_FILE, {})
+            chat_str = str(chat_id)
+            user_str = str(uid)
+            u = database.get_user(data, chat_str, user_str, bet["username"])
+            u["points"] += bet["amount"]
+            database.save_json(bot, config.GROUP_DATA_FILE, data)
             total += bet["amount"]
         send_and_delete(bot, chat_id,
             f"🔁 *All bets refunded.* ({total} pts total)",
@@ -1324,9 +1315,12 @@ def _payout_bets(bot, chat_id, winner_pick):
     msg = "💰 *BET RESULTS*\n\n"
     for uid, bet in winners.items():
         winnings = bet["amount"] + int(pot * (bet["amount"] / total_stake))
-        user = database.get_user(uid, bet["username"])
-        user["points"] += winnings
-        database.save_user(bot, uid, user)
+        data = database.load_json(config.GROUP_DATA_FILE, {})
+        chat_str = str(chat_id)
+        user_str = str(uid)
+        u = database.get_user(data, chat_str, user_str, bet["username"])
+        u["points"] += winnings
+        database.save_json(bot, config.GROUP_DATA_FILE, data)
         msg += f"✅ *{bet['username']}* — bet {bet['amount']} pts, won *{winnings} pts*!\n"
     for uid, bet in losers.items():
         msg += f"❌ *{bet['username']}* — lost {bet['amount']} pts\n"
@@ -1408,10 +1402,13 @@ def handle_daily_answer(bot, call):
         pts, streak, mult, final = database.reward_user(
             bot, chat_id, user_id, username, config.POINTS_DAILY_CHALLENGE)
 
-        user = database.get_user(user_id, username)
-        user["daily_wins"] = user.get("daily_wins", 0) + 1
-        database.save_user(bot, user_id, user)
-        database.check_achievements(bot, user_id, username)
+        data = database.load_json(config.GROUP_DATA_FILE, {})
+        chat_str = str(chat_id)
+        user_str = str(user_id)
+        u = database.get_user(data, chat_str, user_str, username)
+        u["daily_wins"] = u.get("daily_wins", 0) + 1
+        database.save_json(bot, config.GROUP_DATA_FILE, data)
+        database.check_achievements(bot, chat_id, user_id, username)
 
         bot.answer_callback_query(call.id, f"✅ CORRECT! +{final} pts!", show_alert=True)
         send_and_delete(bot, chat_id,
@@ -1463,8 +1460,11 @@ def check_user_answer(bot, message):
 
     double_down_active = False
     if session.get("type") in ("character", "picture"):
-        user = database.get_user(user_id, username)
-        if user.get("powerups", {}).get("double_down", 0) > 0:
+        data = database.load_json(config.GROUP_DATA_FILE, {})
+        chat_str = str(chat_id)
+        user_str = str(user_id)
+        u = database.get_user(data, chat_str, user_str, username)
+        if u.get("powerups", {}).get("double_down", 0) > 0:
             double_down_active = True
 
     aliases = session.get("aliases", [])
@@ -1497,8 +1497,11 @@ def check_user_answer(bot, message):
         return True
 
     # Wrong answer – handle streak freeze
-    user = database.get_user(user_id, username)
-    if user.get("powerups", {}).get("streak_freeze", 0) > 0:
+    data = database.load_json(config.GROUP_DATA_FILE, {})
+    chat_str = str(chat_id)
+    user_str = str(user_id)
+    u = database.get_user(data, chat_str, user_str, username)
+    if u.get("powerups", {}).get("streak_freeze", 0) > 0:
         database.use_powerup(bot, chat_id, user_id, "streak_freeze", username)
         send_and_delete(bot, chat_id, "🧊 *Streak Freeze activated!* Your streak is safe this time.")
     else:
