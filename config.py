@@ -36,12 +36,12 @@ LOCAL_MEDIA_IMAGES_DIR = "local_images/media"
 
 # --- TIMEZONE ---
 TIMEZONE         = "Africa/Johannesburg"   # UTC+2
-MORNING_MSG_HOUR = 8     # 8:00 AM local
+MORNING_MSG_HOUR = 8
 MORNING_MSG_MIN  = 0
-DAILY_CHALLENGE_HOUR = 14  # 2:00 PM local
+DAILY_CHALLENGE_HOUR = 14
 DAILY_CHALLENGE_MIN  = 0
-SCHEDULER_WINDOW_START = 18  # 6:00 PM local
-SCHEDULER_WINDOW_END   = 23  # 11:00 PM local
+SCHEDULER_WINDOW_START = 18
+SCHEDULER_WINDOW_END   = 23
 
 # --- POINTS ECONOMY ---
 POINTS_CHARACTER_GAME  = 50
@@ -54,31 +54,31 @@ POINTS_HINT_MAX        = 3
 
 # --- STREAK MULTIPLIERS ---
 STREAK_MULTIPLIERS = {
-    0:  1.0,   # no streak
-    3:  2.0,   # 3 correct in a row
-    5:  3.0,   # 5 correct in a row
-    10: 5.0,   # 10 correct in a row
+    0:  1.0,
+    3:  2.0,
+    5:  3.0,
+    10: 5.0,
 }
 
 # --- VERSUS MODE ---
-VERSUS_ACCEPT_TIMEOUT  = 60   # seconds to accept a challenge
-VERSUS_QUESTION_TIME   = 30   # seconds to answer
-VERSUS_BET_WINDOW      = 30   # seconds for spectators to bet
-VERSUS_MAX_BET         = 20   # max points per spectator bet
+VERSUS_ACCEPT_TIMEOUT  = 60
+VERSUS_QUESTION_TIME   = 30
+VERSUS_BET_WINDOW      = 30
+VERSUS_MAX_BET         = 20
 
 # --- TAG ALL ---
 TAGALL_COOLDOWN_HOURS  = 6
 
 # --- SCHEDULER ---
-SCHEDULE_INTERVALS = [30, 60, 120, 240, 360]  # minutes
+SCHEDULE_INTERVALS = [30, 60, 120, 240, 360]
 
 # --- SHOP ---
-SHOP_TITLE_DURATION_DAYS = 30   # titles expire after 30 days
+SHOP_TITLE_DURATION_DAYS = 30
 
 # --- AUTO-DELETE ---
-AUTO_DELETE_DELAY = 300   # seconds (5 minutes)
+AUTO_DELETE_DELAY = 300
 
-# --- DESIGN PALETTE (ZA SORA THEME) ---
+# --- DESIGN PALETTE ---
 THEME_BG            = "#0d0d0f"
 THEME_BG_GRADIENT   = "#1a1a1f"
 THEME_HEADER_BG     = "#111116"
@@ -131,17 +131,20 @@ CHAR_CATEGORIES = {
     "gaming":  "characters_gaming_db.json",
 }
 
-DEFAULT_ANSWER_TIME  = 60    # seconds
+DEFAULT_ANSWER_TIME = 60
 
 WELCOME_MSG = (
     "👋 *Welcome to Za Sora Game Club!*\n\n"
     "🎮 *Games available:*\n"
     "/game — Guess the Character\n"
     "/year — Guess the Release Year\n"
+    "/picture — Scrambled Image Guessing\n"
     "/trivia — Trivia Quiz\n"
+    "/spin — Wheel of Fortune\n"
     "/versus @user — Challenge someone\n\n"
     "🏆 /leaderboard — Rankings\n"
     "📊 /mystats — Your stats\n"
+    "👤 /profile — Your profile card\n"
     "🛒 /shop — Spend your points\n"
     "📖 /help — Full command list\n\n"
     "_Good luck and have fun!_ 🔥"
