@@ -3,7 +3,7 @@
 # ============================================================
 
 # --- CORE API & SECURITY ---
-API_TOKEN   = "8359703884:AAE5UTOPcRzwHVwLVSXNSWovrnGwNAWrxr8"
+API_TOKEN   = "8359703884:AAGkMAs6bedD3lelIi44ZvOxV98bn2npF6o"
 ADMIN_ID    = 8234402535
 
 # --- GOOGLE SHEETS ---
