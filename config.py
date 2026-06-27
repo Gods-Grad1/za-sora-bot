@@ -420,6 +420,9 @@ def purchase_item(bot, chat_id, user_id, username, item_id):
     else:
         u["title"] = item["name"]
         u["title_expires"] = time.time() + (config.SHOP_TITLE_DURATION_DAYS * 86400)
+       
+# --- AUTO-DELETE ---
+AUTO_DELETE_DELAY = 300   # seconds (5 minutes)
 
     save_json(bot, config.GROUP_DATA_FILE, data)
     return True, f"✅ Purchased *{item['name']}* for {item['cost']} points!"
