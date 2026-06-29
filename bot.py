@@ -21,6 +21,9 @@ apihelper.proxy = None
 
 bot = telebot.TeleBot(config.API_TOKEN)
 
+# Global start time for uptime tracking
+BOT_START_TIME = time.time()
+
 # ---------------------------------------------------------------------------
 # SCHEDULER STATE
 # ---------------------------------------------------------------------------
@@ -64,6 +67,37 @@ def schedule_delete(chat_id, message_id, delay=config.AUTO_DELETE_DELAY):
     timer = threading.Timer(delay, delete)
     timer.daemon = True
     timer.start()
+
+# Menu state tracking for "Back" button
+last_menu_state = {}  # chat_id -> "main" | "games" | "rankings" | "shop" | "info" | "admin"
+
+# Welcome helper (MP4 first)
+def send_welcome(bot, chat_id, caption):
+    """Sends welcome animation – tries MP4 first, then GIF, then text."""
+    import requests
+    mp4_url = f"{config.GITHUB_RAW_BASE_URL}welcome.mp4"
+    gif_url = f"{config.GITHUB_RAW_BASE_URL}welcome.gif"
+    
+    # Try MP4 first
+    try:
+        r = requests.head(mp4_url, timeout=5)
+        if r.status_code == 200:
+            bot.send_video(chat_id, mp4_url, caption=caption, parse_mode="Markdown", supports_streaming=True)
+            return
+    except Exception:
+        pass
+    
+    # Try GIF as fallback
+    try:
+        r = requests.head(gif_url, timeout=5)
+        if r.status_code == 200:
+            bot.send_animation(chat_id, gif_url, caption=caption, parse_mode="Markdown")
+            return
+    except Exception:
+        pass
+    
+    # Fallback to text only
+    bot.send_message(chat_id, caption, parse_mode="Markdown")
 
 # ---------------------------------------------------------------------------
 # HELP MENU (5 Categories)
@@ -124,7 +158,8 @@ def _get_help_text(category):
             "/checkimages — Check for missing images\n"
             "/testbroadcast — Test broadcast system\n"
             "/rebuildcache — Rebuild image cache\n"
-            "/testmorning — Test morning message"
+            "/testmorning — Test morning message\n"
+            "/status — Bot status"
         ),
     }
     return texts.get(category, "Unknown category.")
@@ -576,19 +611,7 @@ def welcome_new_member(message):
             f"👋 *Welcome [{username}](tg://user?id={member.id})!* "
             f"Say hi to the family 🌱\n{tag_line}"
         )
-        # Send welcome GIF if available
-        try:
-            # Try GitHub first
-            import requests
-            gif_url = f"{config.GITHUB_RAW_BASE_URL}welcome.gif"
-            response = requests.get(gif_url, timeout=5)
-            if response.status_code == 200:
-                bot.send_animation(message.chat.id, gif_url, caption=welcome, parse_mode="Markdown")
-            else:
-                bot.send_message(message.chat.id, welcome, parse_mode="Markdown")
-        except Exception as e:
-            print(f"Welcome GIF failed: {e}")
-            bot.send_message(message.chat.id, welcome, parse_mode="Markdown")
+        send_welcome(bot, message.chat.id, welcome)
 
 @bot.message_handler(func=lambda message: True)
 def handle_all_messages(message):
@@ -612,17 +635,7 @@ def handle_all_messages(message):
     args = message.text.split()[1:] if len(message.text.split()) > 1 else []
 
     if cmd == '/start':
-        try:
-            import requests
-            gif_url = f"{config.GITHUB_RAW_BASE_URL}welcome.gif"
-            response = requests.get(gif_url, timeout=5)
-            if response.status_code == 200:
-                bot.send_animation(chat_id, gif_url, caption=config.WELCOME_MSG, parse_mode="Markdown")
-            else:
-                bot.reply_to(message, config.WELCOME_MSG, parse_mode="Markdown")
-        except Exception as e:
-            print(f"Start GIF failed: {e}")
-            bot.reply_to(message, config.WELCOME_MSG, parse_mode="Markdown")
+        send_welcome(bot, chat_id, config.WELCOME_MSG)
 
     elif cmd == '/help':
         show_help(message)
@@ -642,6 +655,12 @@ def handle_all_messages(message):
             show_my_stats(message, target_id, target_name)
         else:
             bot.reply_to(message, "Usage: /viewstats @username")
+
+    elif cmd == '/status':
+        if is_admin(user_id):
+            handle_status(message)
+        else:
+            bot.reply_to(message, "❌ Admin only.")
 
     elif cmd == '/table':
         show_league_table(message)
@@ -728,6 +747,18 @@ def handle_all_messages(message):
             bot.reply_to(message, "✅ Morning message sent (test).")
         else:
             bot.reply_to(message, "❌ Admin only.")
+
+    elif cmd == '/listbroadcasts' and is_admin(user_id):
+        broadcasts = database.load_broadcasts()
+        if not broadcasts:
+            bot.reply_to(message, "📭 No broadcasts scheduled.")
+            return
+        text = "📋 *Scheduled Broadcasts*\n\n"
+        for i, b in enumerate(broadcasts):
+            status = "✅ Sent" if b.get("sent") else "⏳ Pending"
+            dt = datetime.datetime.fromtimestamp(b["send_time"]).strftime("%Y-%m-%d %H:%M")
+            text += f"{i+1}. {dt} – {b['message'][:30]}... ({status}) – Chat: {b['chat_id']}\n"
+        bot.reply_to(message, text, parse_mode="Markdown")
 
     elif cmd == '/checkimages' and is_admin(user_id):
         bot.reply_to(message, "🔍 Checking for missing images...")
@@ -865,6 +896,33 @@ def handle_all_messages(message):
 
     elif cmd == '/setschedule' and is_admin(user_id):
         show_schedule_panel(chat_id)
+
+# ---------------------------------------------------------------------------
+# STATUS COMMAND
+# ---------------------------------------------------------------------------
+
+def handle_status(message):
+    chat_id = message.chat.id
+    uptime_seconds = int(time.time() - BOT_START_TIME)
+    uptime = str(datetime.timedelta(seconds=uptime_seconds))
+    groups = database.get_all_groups()
+    total_members = 0
+    for gid in groups:
+        total_members += len(database.get_all_members(gid))
+    data = database.load_json(config.GROUP_DATA_FILE, {})
+    total_entries = sum(len(u) for u in data.values())
+    status_text = (
+        f"🤖 *Bot Status*\n\n"
+        f"✅ *Status:* Online\n"
+        f"⏱️ *Uptime:* {uptime}\n"
+        f"📊 *Groups:* {len(groups)}\n"
+        f"👥 *Tracked members:* {total_members}\n"
+        f"📦 *Total user entries:* {total_entries}\n"
+        f"⏰ *Local time:* {local_now().strftime('%Y-%m-%d %H:%M:%S')}\n"
+        f"🔄 *Scheduler:* {'✅ Running' if load_scheduler().get('enabled') else '⏸️ Paused'}\n"
+        f"🔗 *GitHub repo:* [za-sora-bot](https://github.com/Gods-Grad1/za-sora-bot)"
+    )
+    bot.send_message(chat_id, status_text, parse_mode="Markdown", disable_web_page_preview=True)
 
 # ---------------------------------------------------------------------------
 # SPIN WHEEL HANDLER
@@ -1156,14 +1214,12 @@ def handle_all_callbacks(call):
             bot.answer_callback_query(call.id)
             return
 
+        # ── Help menu with state tracking ──────────────────────────────────
         if data.startswith("help_"):
             category = data.replace("help_", "")
-            current_text = call.message.text
-            new_text = _get_help_text(category)
-            if current_text == new_text:
-                bot.answer_callback_query(call.id, "Already on this menu.")
-                return
-            text = new_text
+            # Update state
+            last_menu_state[chat_id] = category
+            text = _get_help_text(category)
             markup = telebot.types.InlineKeyboardMarkup()
             markup.add(telebot.types.InlineKeyboardButton("🔙 Back", callback_data="help_main"))
             bot.edit_message_text(text, chat_id, call.message.message_id,
@@ -1172,14 +1228,15 @@ def handle_all_callbacks(call):
             return
 
         if data == "help_main":
-            text = "📖 *ZA SORA GAME CLUB — HELP*\n\nChoose a category below:"
-            current_text = call.message.text
-            if current_text == text:
+            # Check if already on main menu
+            if last_menu_state.get(chat_id) == "main":
                 bot.answer_callback_query(call.id, "Already on main menu.")
                 return
+            text = "📖 *ZA SORA GAME CLUB — HELP*\n\nChoose a category below:"
             markup = _build_help_menu()
             bot.edit_message_text(text, chat_id, call.message.message_id,
                                   reply_markup=markup, parse_mode="Markdown")
+            last_menu_state[chat_id] = "main"
             bot.answer_callback_query(call.id)
             return
 
@@ -1412,16 +1469,19 @@ def background_scheduler():
 
             # Broadcast scheduler
             pending = database.get_pending_broadcasts()
-            for broadcast in pending:
-                try:
-                    bot.send_message(broadcast["chat_id"], broadcast["message"], parse_mode="Markdown")
-                    all_broadcasts = database.load_broadcasts()
-                    for i, b in enumerate(all_broadcasts):
-                        if b.get("sent") == False and b.get("send_time") == broadcast["send_time"]:
-                            database.mark_broadcast_sent(bot, i)
-                            break
-                except Exception as e:
-                    print(f"Broadcast failed: {e}")
+            if pending:
+                print(f"📢 Found {len(pending)} pending broadcasts")
+                for broadcast in pending:
+                    try:
+                        print(f"➡️ Sending to {broadcast['chat_id']}: {broadcast['message'][:30]}")
+                        bot.send_message(broadcast["chat_id"], broadcast["message"], parse_mode="Markdown")
+                        all_broadcasts = database.load_broadcasts()
+                        for i, b in enumerate(all_broadcasts):
+                            if b.get("sent") == False and b.get("send_time") == broadcast["send_time"]:
+                                database.mark_broadcast_sent(bot, i)
+                                break
+                    except Exception as e:
+                        print(f"Broadcast failed: {e}")
 
             if sched.get("enabled"):
                 window_start = sched.get("window_start", config.SCHEDULER_WINDOW_START)
@@ -1668,6 +1728,8 @@ def register_commands():
         telebot.types.BotCommand("testbroadcast","🧪 Test broadcast system"),
         telebot.types.BotCommand("rebuildcache", "🔄 Rebuild image cache"),
         telebot.types.BotCommand("testmorning",  "🧪 Test morning message"),
+        telebot.types.BotCommand("status",       "🤖 Bot status"),
+        telebot.types.BotCommand("listbroadcasts","📋 List scheduled broadcasts"),
         telebot.types.BotCommand("addquote",     "➕ Add a quote (DM only)"),
         telebot.types.BotCommand("listquotes",   "📝 List all quotes (DM only)"),
         telebot.types.BotCommand("editquote",    "✏️ Edit a quote (DM only)"),
@@ -1691,6 +1753,7 @@ def register_commands():
 
 def show_help(message):
     chat_id = message.chat.id
+    last_menu_state[chat_id] = "main"  # set initial state
     text = "📖 *ZA SORA GAME CLUB — HELP*\n\nChoose a category below:"
     markup = _build_help_menu()
     bot.send_message(chat_id, text, reply_markup=markup, parse_mode="Markdown")
