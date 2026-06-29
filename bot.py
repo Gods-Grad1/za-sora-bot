@@ -25,6 +25,9 @@ bot = telebot.TeleBot(config.API_TOKEN)
 # Global start time for uptime tracking
 BOT_START_TIME = time.time()
 
+# Initialize broadcast database
+database.init_broadcast_db()
+
 # ---------------------------------------------------------------------------
 # SCHEDULER STATE
 # ---------------------------------------------------------------------------
@@ -71,6 +74,38 @@ def schedule_delete(chat_id, message_id, delay=config.AUTO_DELETE_DELAY):
 
 # Menu state tracking for "Back" button
 last_menu_state = {}  # chat_id -> "main" | "games" | "rankings" | "shop" | "info" | "admin"
+
+# Safe edit tracking – stores last message text per (chat_id, message_id)
+_safe_edit_cache = {}
+
+def safe_edit_message(chat_id, message_id, text, reply_markup=None, parse_mode="Markdown"):
+    """Edits a message only if the new text differs from the last known text."""
+    key = (chat_id, message_id)
+    current_text = _safe_edit_cache.get(key)
+    if current_text == text:
+        # No change needed
+        return
+    try:
+        bot.edit_message_text(text, chat_id, message_id,
+                              reply_markup=reply_markup, parse_mode=parse_mode)
+        _safe_edit_cache[key] = text
+    except ApiTelegramException as e:
+        if "message is not modified" in str(e):
+            # Update cache to prevent future attempts
+            _safe_edit_cache[key] = text
+            return
+        raise
+
+def safe_edit_message_media(chat_id, message_id, media, reply_markup=None):
+    """Edits a media message only if content differs."""
+    # For media, we can't easily compare, so we just try and catch
+    try:
+        bot.edit_message_media(chat_id=chat_id, message_id=message_id,
+                              media=media, reply_markup=reply_markup)
+    except ApiTelegramException as e:
+        if "message is not modified" in str(e):
+            return
+        raise
 
 # Welcome helper (MP4 first)
 def send_welcome(bot, chat_id, caption):
@@ -235,8 +270,7 @@ def show_fixtures_inline(chat_id, message_id=None):
     text = "📋 *FIXTURES*\n\nChoose how you want to browse:"
     if message_id:
         try:
-            bot.edit_message_text(text, chat_id, message_id,
-                                  reply_markup=markup, parse_mode="Markdown")
+            safe_edit_message(chat_id, message_id, text, reply_markup=markup)
             return
         except Exception:
             pass
@@ -752,13 +786,13 @@ def handle_all_messages(message):
             bot.reply_to(message, "❌ Admin only.")
 
     elif cmd == '/listbroadcasts' and is_admin(user_id):
-        broadcasts = database.load_broadcasts()
+        broadcasts = database.get_all_broadcasts()
         if not broadcasts:
             bot.reply_to(message, "📭 No broadcasts scheduled.")
             return
         text = "📋 *Scheduled Broadcasts*\n\n"
         for i, b in enumerate(broadcasts):
-            status = "✅ Sent" if b.get("sent") else "⏳ Pending"
+            status = "✅ Sent" if b["sent"] else "⏳ Pending"
             dt = datetime.datetime.fromtimestamp(b["send_time"]).strftime("%Y-%m-%d %H:%M")
             text += f"{i+1}. {dt} – {b['message'][:30]}... ({status}) – Chat: {b['chat_id']}\n"
         bot.reply_to(message, text, parse_mode="Markdown")
@@ -783,8 +817,7 @@ def handle_all_messages(message):
 
     elif cmd == '/forcebroadcast' and is_admin(user_id):
         bot.reply_to(message, "📤 Force-sending all unsent broadcasts...")
-        all_broadcasts = database.load_broadcasts()
-        pending = [b for b in all_broadcasts if not b.get("sent", False)]
+        pending = database.get_pending_broadcasts()
         if not pending:
             bot.reply_to(message, "📭 No unsent broadcasts.")
             return
@@ -792,11 +825,7 @@ def handle_all_messages(message):
         for broadcast in pending:
             try:
                 bot.send_message(broadcast["chat_id"], broadcast["message"], parse_mode="Markdown")
-                # Mark as sent
-                for i, b in enumerate(all_broadcasts):
-                    if b.get("send_time") == broadcast["send_time"] and b.get("message") == broadcast["message"]:
-                        database.mark_broadcast_sent(bot, i)
-                        break
+                database.mark_broadcast_sent(bot, broadcast["id"])
                 count += 1
             except Exception as e:
                 print(f"Force broadcast failed: {e}")
@@ -866,7 +895,7 @@ def handle_all_messages(message):
         tz = timezone(timedelta(hours=2))
         try:
             dt = datetime.datetime.strptime(time_str, "%Y-%m-%d %H:%M").replace(tzinfo=tz)
-            send_time = dt.timestamp()  # converts to UTC timestamp
+            send_time = int(dt.timestamp())  # converts to UTC timestamp
         except ValueError:
             bot.reply_to(message, "❌ Invalid time format. Use: YYYY-MM-DD HH:MM")
             return
@@ -1127,15 +1156,12 @@ def handle_all_callbacks(call):
             if img:
                 caption = f"🏆 *Leaderboard — {mode.upper()}* (Page {page}/{total_pages})"
                 markup = _build_leaderboard_markup(mode, page, total_pages)
-                bot.edit_message_media(
-                    chat_id=chat_id,
-                    message_id=call.message.message_id,
-                    media=InputMediaPhoto(img, caption=caption, parse_mode="Markdown"),
-                    reply_markup=markup
-                )
+                safe_edit_message_media(chat_id, call.message.message_id,
+                                       InputMediaPhoto(img, caption=caption, parse_mode="Markdown"),
+                                       reply_markup=markup)
                 if hasattr(img, 'close'): img.close()
             else:
-                bot.edit_message_text("No scores yet!", chat_id, call.message.message_id)
+                safe_edit_message(chat_id, call.message.message_id, "No scores yet!")
             bot.answer_callback_query(call.id)
             return
 
@@ -1237,8 +1263,7 @@ def handle_all_callbacks(call):
         if data.startswith("qpage_") and is_admin(user_id):
             page = int(data.replace("qpage_", ""))
             text, markup = show_quotes_page(chat_id, page)
-            bot.edit_message_text(text, chat_id, call.message.message_id,
-                                  reply_markup=markup, parse_mode="Markdown")
+            safe_edit_message(chat_id, call.message.message_id, text, reply_markup=markup)
             bot.answer_callback_query(call.id)
             return
 
@@ -1246,36 +1271,25 @@ def handle_all_callbacks(call):
         if data.startswith("help_"):
             category = data.replace("help_", "")
             text = _get_help_text(category)
-            # No back button – just show the text
-            try:
-                bot.edit_message_text(text, chat_id, call.message.message_id, parse_mode="Markdown")
-            except ApiTelegramException as e:
-                if "message is not modified" in str(e):
-                    bot.answer_callback_query(call.id, "Already on this page.")
-                    return
-                raise
+            safe_edit_message(chat_id, call.message.message_id, text, parse_mode="Markdown")
             bot.answer_callback_query(call.id)
             return
 
         if data == "help_main":
-            # Use content check to avoid "message not modified"
-            current_text = call.message.text
-            if current_text == "📖 *ZA SORA GAME CLUB — HELP*\n\nChoose a category below:":
-                bot.answer_callback_query(call.id, "Already on main menu.")
-                return
             text = "📖 *ZA SORA GAME CLUB — HELP*\n\nChoose a category below:"
             markup = _build_help_menu()
-            bot.edit_message_text(text, chat_id, call.message.message_id,
-                                  reply_markup=markup, parse_mode="Markdown")
+            safe_edit_message(chat_id, call.message.message_id, text,
+                              reply_markup=markup, parse_mode="Markdown")
             bot.answer_callback_query(call.id)
             return
 
         if data == "fix_back":
-            current_text = call.message.text
-            if current_text == "📋 *FIXTURES*\n\nChoose how you want to browse:":
-                bot.answer_callback_query(call.id, "Already on main menu.")
-                return
-            show_fixtures_inline(chat_id, call.message.message_id)
+            text = "📋 *FIXTURES*\n\nChoose how you want to browse:"
+            markup, _ = _build_fixtures_menu_markup(
+                database.fetch_csv_cached(bot, config.FIXTURES_CSV_URL)
+            )
+            safe_edit_message(chat_id, call.message.message_id, text,
+                              reply_markup=markup, parse_mode="Markdown")
             bot.answer_callback_query(call.id)
             return
 
@@ -1319,11 +1333,9 @@ def handle_all_callbacks(call):
             ])
             markup.add(telebot.types.InlineKeyboardButton("🔙 Back", callback_data="fix_back"))
 
-            bot.edit_message_text(
-                "📅 *SELECT MATCHDAY:*\n\nTap a matchday to see all fixtures:",
-                chat_id, call.message.message_id,
-                reply_markup=markup, parse_mode="Markdown"
-            )
+            text = "📅 *SELECT MATCHDAY:*\n\nTap a matchday to see all fixtures:"
+            safe_edit_message(chat_id, call.message.message_id, text,
+                              reply_markup=markup, parse_mode="Markdown")
             bot.answer_callback_query(call.id)
             return
 
@@ -1359,11 +1371,9 @@ def handle_all_callbacks(call):
                 for t in teams
             ])
             markup.add(telebot.types.InlineKeyboardButton("🔙 Back", callback_data="fix_back"))
-            bot.edit_message_text(
-                "📋 *SELECT A PLAYER:*\n\nTap a player to view their fixtures:",
-                chat_id, call.message.message_id,
-                reply_markup=markup, parse_mode="Markdown"
-            )
+            text = "📋 *SELECT A PLAYER:*\n\nTap a player to view their fixtures:"
+            safe_edit_message(chat_id, call.message.message_id, text,
+                              reply_markup=markup, parse_mode="Markdown")
             bot.answer_callback_query(call.id)
             return
 
@@ -1376,9 +1386,9 @@ def handle_all_callbacks(call):
                 telebot.types.InlineKeyboardButton("🌍 All",  callback_data=f"fix_ctx_{player}_all"),
                 telebot.types.InlineKeyboardButton("🔙 Back", callback_data="fix_pl_menu"),
             )
-            bot.edit_message_text(f"🏟️ *{player.upper()} — SELECT MATCH TYPE:*",
-                                  chat_id, call.message.message_id,
-                                  reply_markup=markup, parse_mode="Markdown")
+            text = f"🏟️ *{player.upper()} — SELECT MATCH TYPE:*"
+            safe_edit_message(chat_id, call.message.message_id, text,
+                              reply_markup=markup, parse_mode="Markdown")
             bot.answer_callback_query(call.id)
             return
 
@@ -1392,9 +1402,9 @@ def handle_all_callbacks(call):
                 telebot.types.InlineKeyboardButton("✅ Completed", callback_data=f"fix_v_{player}_{context}_completed"),
                 telebot.types.InlineKeyboardButton("🔙 Back", callback_data=f"fix_pl_{player}"),
             )
-            bot.edit_message_text(f"📊 *{player.upper()} — SELECT STATUS:*",
-                                  chat_id, call.message.message_id,
-                                  reply_markup=markup, parse_mode="Markdown")
+            text = f"📊 *{player.upper()} — SELECT STATUS:*"
+            safe_edit_message(chat_id, call.message.message_id, text,
+                              reply_markup=markup, parse_mode="Markdown")
             bot.answer_callback_query(call.id)
             return
 
@@ -1466,13 +1476,8 @@ def broadcast_checker():
                     print(f"📢 [BROADCAST] Sending: {broadcast['message'][:30]}... (scheduled for {dt})")
                     try:
                         bot.send_message(broadcast["chat_id"], broadcast["message"], parse_mode="Markdown")
-                        # Mark as sent
-                        all_broadcasts = database.load_broadcasts()
-                        for i, b in enumerate(all_broadcasts):
-                            if b.get("sent") == False and b.get("send_time") == broadcast["send_time"]:
-                                database.mark_broadcast_sent(bot, i)
-                                print(f"✅ [BROADCAST] Sent to {broadcast['chat_id']}")
-                                break
+                        database.mark_broadcast_sent(bot, broadcast["id"])
+                        print(f"✅ [BROADCAST] Sent to {broadcast['chat_id']}")
                     except Exception as e:
                         print(f"❌ [BROADCAST] Failed: {e}")
             # Check every 30 seconds
@@ -1908,11 +1913,7 @@ def check_startup_fallbacks():
             try:
                 print(f"➡️ Sending to {broadcast['chat_id']}: {broadcast['message'][:30]}")
                 bot.send_message(broadcast["chat_id"], broadcast["message"], parse_mode="Markdown")
-                all_broadcasts = database.load_broadcasts()
-                for i, b in enumerate(all_broadcasts):
-                    if b.get("sent") == False and b.get("send_time") == broadcast["send_time"]:
-                        database.mark_broadcast_sent(bot, i)
-                        break
+                database.mark_broadcast_sent(bot, broadcast["id"])
             except Exception as e:
                 print(f"Broadcast failed on startup: {e}")
 
