@@ -11,9 +11,10 @@ import config
 CSV_DATA_CACHE = {}
 _file_locks = {}
 BROADCAST_DB = "broadcasts.db"
+GLOBAL_CHAT_ID = None
 
 # ---------------------------------------------------------------------------
-# FILE LOCKS (for JSON writes)
+# FILE LOCKS
 # ---------------------------------------------------------------------------
 
 def get_lock(filepath):
@@ -50,14 +51,13 @@ def load_json(filepath, default_value):
 _broadcast_lock = threading.Lock()
 
 def init_broadcast_db():
-    """Create the broadcasts table if it doesn't exist."""
     with _broadcast_lock:
         conn = sqlite3.connect(BROADCAST_DB)
         c = conn.cursor()
         c.execute('''
             CREATE TABLE IF NOT EXISTS broadcasts (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                chat_id INTEGER NOT NULL,
+                chat_id INTEGER,  -- NULL means global
                 message TEXT NOT NULL,
                 send_time INTEGER NOT NULL,
                 sent INTEGER DEFAULT 0
@@ -78,11 +78,10 @@ def add_broadcast(bot, chat_id, message, send_time):
         conn.close()
 
 def get_pending_broadcasts():
-    """Returns pending broadcasts where send_time <= now + 2 sec grace."""
     with _broadcast_lock:
         conn = sqlite3.connect(BROADCAST_DB)
         c = conn.cursor()
-        now = int(time.time()) + 2  # 2-second grace
+        now = int(time.time()) + 5  # 5-second grace window
         c.execute(
             "SELECT id, chat_id, message, send_time FROM broadcasts WHERE sent = 0 AND send_time <= ?",
             (now,)
@@ -100,7 +99,6 @@ def mark_broadcast_sent(bot, broadcast_id):
         conn.close()
 
 def get_all_broadcasts():
-    """Returns all broadcasts for listing/debugging."""
     with _broadcast_lock:
         conn = sqlite3.connect(BROADCAST_DB)
         c = conn.cursor()
@@ -110,17 +108,7 @@ def get_all_broadcasts():
         return [{"id": r[0], "chat_id": r[1], "message": r[2], "send_time": r[3], "sent": r[4]} for r in rows]
 
 # ---------------------------------------------------------------------------
-# (The rest of database.py – keep all existing functions)
-# ---------------------------------------------------------------------------
-
-# All other functions (log_error_to_admin, load_json, save_json, 
-# get_user, track_member, reward_user, penalise_wrong, 
-# powerups, achievements, mutes, leaderboard, shop, monthly reset, quotes, etc.)
-# remain exactly as they were in the previous version.
-# I'll include them here for completeness, but they are unchanged.
-
-# ---------------------------------------------------------------------------
-# CORE UTILITIES (unchanged)
+# (Rest of database.py – unchanged)
 # ---------------------------------------------------------------------------
 
 def log_error_to_admin(bot, context, exception):
@@ -149,10 +137,6 @@ def fetch_csv_cached(bot, url, duration=300):
         if url in CSV_DATA_CACHE:
             return CSV_DATA_CACHE[url][1]
         return []
-
-# ---------------------------------------------------------------------------
-# GROUP DATA HELPERS (unchanged)
-# ---------------------------------------------------------------------------
 
 def _now_month_key():
     return datetime.datetime.now().strftime("%Y-%m")
@@ -223,10 +207,6 @@ def get_all_groups():
     except Exception:
         return []
 
-# ---------------------------------------------------------------------------
-# POINTS & STREAKS (unchanged)
-# ---------------------------------------------------------------------------
-
 def get_streak_multiplier(streak):
     multiplier = 1.0
     for threshold, mult in sorted(config.STREAK_MULTIPLIERS.items(), reverse=True):
@@ -282,10 +262,6 @@ def deduct_points(bot, chat_id, user_id, username, amount):
     save_json(bot, config.GROUP_DATA_FILE, data)
     return u["points"]
 
-# ---------------------------------------------------------------------------
-# POWER-UPS (unchanged)
-# ---------------------------------------------------------------------------
-
 def use_powerup(bot, chat_id, user_id, username, powerup_id):
     data = load_json(config.GROUP_DATA_FILE, {})
     chat_str = str(chat_id)
@@ -305,10 +281,6 @@ def add_powerup(bot, chat_id, user_id, username, powerup_id, count=1):
     u.setdefault("powerups", {})
     u["powerups"][powerup_id] = u["powerups"].get(powerup_id, 0) + count
     save_json(bot, config.GROUP_DATA_FILE, data)
-
-# ---------------------------------------------------------------------------
-# ACHIEVEMENTS (unchanged)
-# ---------------------------------------------------------------------------
 
 def unlock_badge(bot, chat_id, user_id, username, badge_id):
     data = load_json(config.GROUP_DATA_FILE, {})
@@ -346,10 +318,6 @@ def check_achievements(bot, chat_id, user_id, username):
         badge_names = [config.ACHIEVEMENTS[b]["icon"] + " " + config.ACHIEVEMENTS[b]["name"] for b in unlocked]
         bot.send_message(chat_id, f"🏅 *ACHIEVEMENT UNLOCKED!*\n\n{username} unlocked: {', '.join(badge_names)}!", parse_mode="Markdown")
     return unlocked
-
-# ---------------------------------------------------------------------------
-# MUTE MANAGEMENT (unchanged)
-# ---------------------------------------------------------------------------
 
 def load_mutes():
     return load_json(config.MUTE_FILE, {})
@@ -398,10 +366,6 @@ def cleanup_expired_mutes(bot):
     if changed:
         save_mutes(bot, data)
 
-# ---------------------------------------------------------------------------
-# LEADERBOARD (unchanged)
-# ---------------------------------------------------------------------------
-
 def get_leaderboard(chat_id, mode="monthly", top_n=10):
     data = load_json(config.GROUP_DATA_FILE, {})
     chat_str = str(chat_id)
@@ -436,10 +400,6 @@ def _get_active_title(u):
     if title and expires and time.time() < expires:
         return title
     return None
-
-# ---------------------------------------------------------------------------
-# SHOP (unchanged)
-# ---------------------------------------------------------------------------
 
 def purchase_item(bot, chat_id, user_id, username, item_id):
     data = load_json(config.GROUP_DATA_FILE, {})
@@ -493,10 +453,6 @@ def use_hint_token(bot, chat_id, user_id, username):
         save_json(bot, config.GROUP_DATA_FILE, data)
         return True
     return False
-
-# ---------------------------------------------------------------------------
-# MONTHLY RESET (unchanged)
-# ---------------------------------------------------------------------------
 
 def check_and_run_monthly_reset(bot):
     state = load_json(config.STATE_FILE, {})
@@ -572,10 +528,6 @@ def check_and_run_yearly_reset(bot):
 
     state["last_yearly_reset"] = curr
     save_json(bot, config.STATE_FILE, state)
-
-# ---------------------------------------------------------------------------
-# QUOTES (unchanged)
-# ---------------------------------------------------------------------------
 
 def load_quotes():
     return load_json(config.QUOTES_FILE, [])
