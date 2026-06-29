@@ -154,14 +154,14 @@ def _get_help_text(category):
             "/mute @user 1h — Mute a user\n"
             "/unmute @user — Unmute a user\n"
             "/broadcast YYYY-MM-DD HH:MM msg — Schedule a broadcast\n"
+            "/forcebroadcast — Force-send all pending broadcasts\n"
             "/uploadtrivia — Upload trivia questions (file)\n"
             "/checkimages — Check for missing images\n"
             "/testbroadcast — Test broadcast system\n"
             "/rebuildcache — Rebuild image cache\n"
             "/testmorning — Test morning message\n"
             "/status — Bot status\n"
-            "/listbroadcasts — List scheduled broadcasts\n"
-            "/forcebroadcast — Force-send all pending broadcasts"
+            "/listbroadcasts — List scheduled broadcasts"
         ),
     }
     return texts.get(category, "Unknown category.")
@@ -664,29 +664,6 @@ def handle_all_messages(message):
         else:
             bot.reply_to(message, "❌ Admin only.")
 
-    elif cmd == '/forcebroadcast':
-        if is_admin(user_id):
-            bot.reply_to(message, "📤 Force-sending all pending broadcasts...")
-            pending = database.get_pending_broadcasts()
-            if not pending:
-                bot.reply_to(message, "📭 No pending broadcasts.")
-                return
-            count = 0
-            for broadcast in pending:
-                try:
-                    bot.send_message(broadcast["chat_id"], broadcast["message"], parse_mode="Markdown")
-                    all_broadcasts = database.load_broadcasts()
-                    for i, b in enumerate(all_broadcasts):
-                        if b.get("sent") == False and b.get("send_time") == broadcast["send_time"]:
-                            database.mark_broadcast_sent(bot, i)
-                            count += 1
-                            break
-                except Exception as e:
-                    print(f"Force broadcast failed: {e}")
-            bot.reply_to(message, f"✅ Force-sent {count} broadcast(s).")
-        else:
-            bot.reply_to(message, "❌ Admin only.")
-
     elif cmd == '/table':
         show_league_table(message)
 
@@ -802,6 +779,26 @@ def handle_all_messages(message):
             except Exception as e:
                 print(f"Test broadcast failed for {gid}: {e}")
         bot.reply_to(message, f"✅ Test broadcast sent to {count} groups.")
+
+    elif cmd == '/forcebroadcast' and is_admin(user_id):
+        bot.reply_to(message, "📤 Force-sending all pending broadcasts...")
+        pending = database.get_pending_broadcasts()
+        if not pending:
+            bot.reply_to(message, "📭 No pending broadcasts.")
+            return
+        count = 0
+        for broadcast in pending:
+            try:
+                bot.send_message(broadcast["chat_id"], broadcast["message"], parse_mode="Markdown")
+                all_broadcasts = database.load_broadcasts()
+                for i, b in enumerate(all_broadcasts):
+                    if b.get("sent") == False and b.get("send_time") == broadcast["send_time"]:
+                        database.mark_broadcast_sent(bot, i)
+                        break
+                count += 1
+            except Exception as e:
+                print(f"Force broadcast failed: {e}")
+        bot.reply_to(message, f"✅ Force-sent {count} broadcasts.")
 
     elif cmd == '/rebuildcache' and is_admin(user_id):
         bot.reply_to(message, "🔄 Rebuilding image cache...")
@@ -945,6 +942,7 @@ def handle_status(message):
         f"📦 *Total user entries:* {total_entries}\n"
         f"⏰ *Local time:* {local_now().strftime('%Y-%m-%d %H:%M:%S')}\n"
         f"🔄 *Scheduler:* {'✅ Running' if load_scheduler().get('enabled') else '⏸️ Paused'}\n"
+        f"📢 *Broadcast checker:* {'✅ Running' if broadcast_checker_thread and broadcast_checker_thread.is_alive() else '❌ Stopped'}\n"
         f"🔗 *GitHub repo:* [za-sora-bot](https://github.com/Gods-Grad1/za-sora-bot)"
     )
     bot.send_message(chat_id, status_text, parse_mode="Markdown", disable_web_page_preview=True)
@@ -1253,15 +1251,16 @@ def handle_all_callbacks(call):
             return
 
         if data == "help_main":
-            main_text = "📖 *ZA SORA GAME CLUB — HELP*\n\nChoose a category below:"
-            current_text = call.message.text
-            # If already on main, don't edit
-            if current_text == main_text:
+            # Force state to "main" if not set
+            if last_menu_state.get(chat_id) is None:
+                last_menu_state[chat_id] = "main"
+            # Check if already on main
+            if last_menu_state.get(chat_id) == "main":
                 bot.answer_callback_query(call.id, "Already on main menu.")
                 return
-            # Always go back to main
+            text = "📖 *ZA SORA GAME CLUB — HELP*\n\nChoose a category below:"
             markup = _build_help_menu()
-            bot.edit_message_text(main_text, chat_id, call.message.message_id,
+            bot.edit_message_text(text, chat_id, call.message.message_id,
                                   reply_markup=markup, parse_mode="Markdown")
             last_menu_state[chat_id] = "main"
             bot.answer_callback_query(call.id)
@@ -1445,6 +1444,40 @@ def _serve_fixtures_page(chat_id, message_id, player, context, status, page):
             img.close()
 
 # ---------------------------------------------------------------------------
+# BROADCAST CHECKER (Dedicated Thread)
+# ---------------------------------------------------------------------------
+
+broadcast_checker_thread = None  # Will be set in main
+
+def broadcast_checker():
+    """Dedicated thread that checks for pending broadcasts every 30 seconds."""
+    print("📢 Broadcast checker thread started!")
+    while True:
+        try:
+            pending = database.get_pending_broadcasts()
+            if pending:
+                print(f"📢 [BROADCAST] Found {len(pending)} pending broadcasts")
+                for broadcast in pending:
+                    dt = datetime.datetime.fromtimestamp(broadcast["send_time"]).strftime("%Y-%m-%d %H:%M")
+                    print(f"📢 [BROADCAST] Sending: {broadcast['message'][:30]}... (scheduled for {dt})")
+                    try:
+                        bot.send_message(broadcast["chat_id"], broadcast["message"], parse_mode="Markdown")
+                        # Mark as sent
+                        all_broadcasts = database.load_broadcasts()
+                        for i, b in enumerate(all_broadcasts):
+                            if b.get("sent") == False and b.get("send_time") == broadcast["send_time"]:
+                                database.mark_broadcast_sent(bot, i)
+                                print(f"✅ [BROADCAST] Sent to {broadcast['chat_id']}")
+                                break
+                    except Exception as e:
+                        print(f"❌ [BROADCAST] Failed: {e}")
+            # Check every 30 seconds
+            time.sleep(30)
+        except Exception as e:
+            print(f"❌ [BROADCAST] Checker error: {e}")
+            time.sleep(30)
+
+# ---------------------------------------------------------------------------
 # BACKGROUND SCHEDULER THREAD
 # ---------------------------------------------------------------------------
 
@@ -1494,22 +1527,6 @@ def background_scheduler():
                 database.check_and_run_monthly_reset(bot)
                 database.check_and_run_yearly_reset(bot)
                 time.sleep(61)
-
-            # Broadcast scheduler
-            pending = database.get_pending_broadcasts()
-            if pending:
-                print(f"📢 Found {len(pending)} pending broadcasts")
-                for broadcast in pending:
-                    try:
-                        print(f"➡️ Sending to {broadcast['chat_id']}: {broadcast['message'][:30]}")
-                        bot.send_message(broadcast["chat_id"], broadcast["message"], parse_mode="Markdown")
-                        all_broadcasts = database.load_broadcasts()
-                        for i, b in enumerate(all_broadcasts):
-                            if b.get("sent") == False and b.get("send_time") == broadcast["send_time"]:
-                                database.mark_broadcast_sent(bot, i)
-                                break
-                    except Exception as e:
-                        print(f"Broadcast failed: {e}")
 
             if sched.get("enabled"):
                 window_start = sched.get("window_start", config.SCHEDULER_WINDOW_START)
@@ -1751,6 +1768,7 @@ def register_commands():
         telebot.types.BotCommand("mute",         "🔇 Mute a user"),
         telebot.types.BotCommand("unmute",       "🔊 Unmute a user"),
         telebot.types.BotCommand("broadcast",    "📢 Schedule a broadcast"),
+        telebot.types.BotCommand("forcebroadcast", "📤 Force-send pending broadcasts"),
         telebot.types.BotCommand("uploadtrivia", "📤 Upload trivia questions"),
         telebot.types.BotCommand("checkimages",  "🔍 Check for missing images"),
         telebot.types.BotCommand("testbroadcast","🧪 Test broadcast system"),
@@ -1758,7 +1776,6 @@ def register_commands():
         telebot.types.BotCommand("testmorning",  "🧪 Test morning message"),
         telebot.types.BotCommand("status",       "🤖 Bot status"),
         telebot.types.BotCommand("listbroadcasts","📋 List scheduled broadcasts"),
-        telebot.types.BotCommand("forcebroadcast","📤 Force-send all pending broadcasts"),
         telebot.types.BotCommand("addquote",     "➕ Add a quote (DM only)"),
         telebot.types.BotCommand("listquotes",   "📝 List all quotes (DM only)"),
         telebot.types.BotCommand("editquote",    "✏️ Edit a quote (DM only)"),
@@ -1880,7 +1897,7 @@ def check_startup_fallbacks():
         print("📊 Sending weekly recap (startup fallback)...")
         send_weekly_recap(bot)
 
-    # Check for any pending broadcasts
+    # Check for pending broadcasts on startup
     pending = database.get_pending_broadcasts()
     if pending:
         print(f"📢 Found {len(pending)} pending broadcasts on startup")
@@ -1909,6 +1926,9 @@ if __name__ == "__main__":
     database.cleanup_expired_mutes(bot)
     # Run startup fallbacks (morning message, weekly recap, broadcasts)
     check_startup_fallbacks()
+    # Start broadcast checker (dedicated thread)
+    broadcast_checker_thread = threading.Thread(target=broadcast_checker, daemon=True)
+    broadcast_checker_thread.start()
     threading.Thread(target=background_scheduler, daemon=True).start()
     threading.Thread(target=notify_missing_images, daemon=True).start()
     print("✅ Bot is live!")
