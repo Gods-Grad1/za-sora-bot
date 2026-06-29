@@ -2,7 +2,6 @@ import os
 import sys
 import threading
 import time
-import fcntl
 
 # Disable proxies
 os.environ['HTTP_PROXY'] = ''
@@ -14,23 +13,15 @@ os.environ['NO_PROXY'] = '*'
 from telebot import apihelper
 apihelper.proxy = None
 
+# Import your bot
 import bot
 
-# Delete any existing webhook to avoid conflict
+# Delete any existing webhook to avoid conflict (and kill hijack)
 bot.bot.delete_webhook()
-time.sleep(2)  # Allow Telegram to process the deletion
-
-LOCK_FILE = '/tmp/bot_polling.lock'
+time.sleep(2)  # Let Telegram process
 
 def run_bot():
-    try:
-        with open(LOCK_FILE, 'w') as f:
-            fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            print("✅ Bot polling started.")
-            bot.bot.infinity_polling()
-    except (IOError, OSError):
-        print("⚠️ Another bot instance is already polling. Skipping.")
-        return
+    bot.bot.infinity_polling()
 
 thread = threading.Thread(target=run_bot, daemon=True)
 thread.start()
