@@ -72,23 +72,24 @@ def schedule_delete(chat_id, message_id, delay=config.AUTO_DELETE_DELAY):
     timer.daemon = True
     timer.start()
 
-# Safe edit – we'll keep it for leaderboard, but help menu uses delete+send
 def safe_edit_message(chat_id, message_id, text, reply_markup=None, parse_mode="Markdown"):
     try:
         bot.edit_message_text(text, chat_id, message_id,
                               reply_markup=reply_markup, parse_mode=parse_mode)
+        return True
     except ApiTelegramException as e:
         if "message is not modified" in str(e):
-            return
+            return False
         raise
 
 def safe_edit_message_media(chat_id, message_id, media, reply_markup=None):
     try:
         bot.edit_message_media(chat_id=chat_id, message_id=message_id,
                               media=media, reply_markup=reply_markup)
+        return True
     except ApiTelegramException as e:
         if "message is not modified" in str(e):
-            return
+            return False
         raise
 
 # ---------------------------------------------------------------------------
@@ -1263,6 +1264,7 @@ def handle_all_callbacks(call):
             return
 
         # ── Help menu ──────────────────────────────────────────────────────
+        # Submenu: show category text with "Back" button
         if data.startswith("help_"):
             category = data.replace("help_", "")
             text = _get_help_text(category)
@@ -1277,6 +1279,7 @@ def handle_all_callbacks(call):
             bot.answer_callback_query(call.id)
             return
 
+        # Main menu: show the main help menu (same as typing /help)
         if data == "help_main":
             # Delete old message and send fresh main menu
             try:
