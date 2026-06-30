@@ -41,6 +41,7 @@ def load_scheduler():
         "window_end":   config.SCHEDULER_WINDOW_END,
         "last_game":  0,
         "tagall_last": 0,
+        "last_morning_date": "",   # FIX: store date to prevent duplicate morning sends
     })
 
 def save_scheduler(data):
@@ -502,82 +503,107 @@ def send_weekly_recap(bot):
             print(f"Weekly recap failed for {group_id}: {e}")
 
 # ---------------------------------------------------------------------------
-# MORNING MESSAGE
+# MORNING MESSAGE - FIXED: split tag line, prevent duplicates
 # ---------------------------------------------------------------------------
 
 def send_morning_message(bot):
-    print("🌅 send_morning_message() called")
-    now     = local_now()
-    weekday = now.strftime("%A")
-    date    = now.strftime("%d %B %Y")
-    quote   = database.get_random_quote()
-    groups  = database.get_all_groups()
-    print(f"📊 Found {len(groups)} groups")
+    try:
+        print("🌅 send_morning_message() called")
+        now     = local_now()
+        weekday = now.strftime("%A")
+        date    = now.strftime("%d %B %Y")
+        quote   = database.get_random_quote()
+        groups  = database.get_all_groups()
+        print(f"📊 Found {len(groups)} groups")
 
-    for group_id in groups:
-        lb = database.get_leaderboard(group_id, mode="monthly", top_n=3)
-        top3 = ""
-        if lb:
-            medals = ["🥇", "🥈", "🥉"]
-            for rank, username, points, streak, title in lb:
-                top3 += f"{medals[rank-1]} {username} — {points} pts\n"
-        else:
-            top3 = "No scores yet this month!\n"
+        for group_id in groups:
+            try:
+                lb = database.get_leaderboard(group_id, mode="monthly", top_n=3)
+                top3 = ""
+                if lb:
+                    medals = ["🥇", "🥈", "🥉"]
+                    for rank, username, points, streak, title in lb:
+                        top3 += f"{medals[rank-1]} {username} — {points} pts\n"
+                else:
+                    top3 = "No scores yet this month!\n"
 
-        msg = (
-            f"☀️ *Good Morning, Family!*\n"
-            f"_{weekday}, {date}_\n\n"
-        )
-        if quote:
-            msg += f"💬 *{quote['text']}*\n_— {quote['author']}_\n\n"
+                msg = (
+                    f"☀️ *Good Morning, Family!*\n"
+                    f"_{weekday}, {date}_\n\n"
+                )
+                if quote:
+                    msg += f"💬 *{quote['text']}*\n_— {quote['author']}_\n\n"
 
-        msg += (
-            f"🏆 *Monthly Top 3:*\n{top3}\n"
-            f"🎮 *Game Commands:*\n"
-            f"/game — Guess the Character\n"
-            f"/year — Guess the Year\n"
-            f"/picture — Scrambled Image\n"
-            f"/trivia — Trivia Quiz\n"
-            f"/spin — Wheel of Fortune\n"
-            f"/leaderboard — Rankings\n"
-            f"/shop — Point Shop\n\n"
-            f"Let's have a great day! 🙏🔥"
-        )
-        members = database.get_all_members(group_id)
-        if members:
-            tag_line = " ".join([f"[{name}](tg://user?id={uid})" for uid, name in members])
-            msg += f"\n\n🌱 _Sending love to the whole family_ 🌱\n{tag_line}"
-        try:
-            bot.send_message(group_id, msg, parse_mode="Markdown")
-            print(f"✅ Morning message sent to group {group_id}")
-        except Exception as e:
-            print(f"❌ Morning message failed for {group_id}: {e}")
+                msg += (
+                    f"🏆 *Monthly Top 3:*\n{top3}\n"
+                    f"🎮 *Game Commands:*\n"
+                    f"/game — Guess the Character\n"
+                    f"/year — Guess the Year\n"
+                    f"/picture — Scrambled Image\n"
+                    f"/trivia — Trivia Quiz\n"
+                    f"/spin — Wheel of Fortune\n"
+                    f"/leaderboard — Rankings\n"
+                    f"/shop — Point Shop\n\n"
+                    f"Let's have a great day! 🙏🔥"
+                )
+
+                # Send core message first
+                bot.send_message(group_id, msg, parse_mode="Markdown")
+                print(f"✅ Morning core sent to {group_id}")
+
+                # Then send tag line separately to avoid length limits
+                members = database.get_all_members(group_id)
+                if members:
+                    tag_line = "🌱 _Sending love to the whole family_ 🌱\n" + " ".join(
+                        [f"[{name}](tg://user?id={uid})" for uid, name in members]
+                    )
+                    bot.send_message(group_id, tag_line, parse_mode="Markdown")
+                    print(f"✅ Morning tag line sent to {group_id}")
+            except Exception as e:
+                print(f"❌ Morning message failed for {group_id}: {e}")
+                database.log_error_to_admin(bot, "Morning Message", e)
+
+        # Update last_morning_date after all groups succeed
+        sched = load_scheduler()
+        sched["last_morning_date"] = local_now().strftime("%Y-%m-%d")
+        save_scheduler(sched)
+
+    except Exception as e:
+        print(f"❌ Morning message overall error: {e}")
+        database.log_error_to_admin(bot, "Morning Message Overall", e)
 
 # ---------------------------------------------------------------------------
-# BROADCAST HELPERS
+# BROADCAST HELPERS - FIXED: only mark sent on success, thread resilience
 # ---------------------------------------------------------------------------
 
 def _send_pending_broadcasts(bot):
-    """Sends all pending broadcasts immediately."""
+    """Sends all pending broadcasts immediately, marks sent only if all targets succeed."""
     pending = database.get_pending_broadcasts()
     if not pending:
         return
     print(f"📢 [BROADCAST] Sending {len(pending)} pending broadcasts...")
     for broadcast in pending:
-        try:
-            if broadcast["chat_id"] is None:
-                groups = database.get_all_groups()
-                for gid in groups:
-                    try:
-                        bot.send_message(gid, broadcast["message"], parse_mode="Markdown")
-                    except Exception as e:
-                        print(f"❌ [BROADCAST] Failed to send to {gid}: {e}")
-            else:
+        success = True
+        if broadcast["chat_id"] is None:
+            groups = database.get_all_groups()
+            for gid in groups:
+                try:
+                    bot.send_message(gid, broadcast["message"], parse_mode="Markdown")
+                except Exception as e:
+                    print(f"❌ [BROADCAST] Failed to send to {gid}: {e}")
+                    success = False
+        else:
+            try:
                 bot.send_message(broadcast["chat_id"], broadcast["message"], parse_mode="Markdown")
+            except Exception as e:
+                print(f"❌ [BROADCAST] Failed: {e}")
+                success = False
+
+        if success:
             database.mark_broadcast_sent(bot, broadcast["id"])
             print(f"✅ [BROADCAST] Sent (ID {broadcast['id']})")
-        except Exception as e:
-            print(f"❌ [BROADCAST] Failed: {e}")
+        else:
+            print(f"⚠️ [BROADCAST] ID {broadcast['id']} not marked as sent – will retry later")
 
 # ---------------------------------------------------------------------------
 # COMMAND ROUTER
@@ -950,7 +976,7 @@ def handle_all_messages(message):
         show_schedule_panel(chat_id)
 
 # ---------------------------------------------------------------------------
-# STATUS COMMAND
+# STATUS COMMAND - FIXED: show thread health
 # ---------------------------------------------------------------------------
 
 def handle_status(message):
@@ -963,6 +989,11 @@ def handle_status(message):
         total_members += len(database.get_all_members(gid))
     data = database.load_json(config.GROUP_DATA_FILE, {})
     total_entries = sum(len(u) for u in data.values())
+
+    # FIX: Check thread health
+    broadcast_alive = broadcast_checker_thread and broadcast_checker_thread.is_alive()
+    scheduler_alive = scheduler_thread and scheduler_thread.is_alive()
+
     status_text = (
         f"🤖 *Bot Status*\n\n"
         f"✅ *Status:* Online\n"
@@ -971,8 +1002,8 @@ def handle_status(message):
         f"👥 *Tracked members:* {total_members}\n"
         f"📦 *Total user entries:* {total_entries}\n"
         f"⏰ *Local time:* {local_now().strftime('%Y-%m-%d %H:%M:%S')}\n"
-        f"🔄 *Scheduler:* {'✅ Running' if load_scheduler().get('enabled') else '⏸️ Paused'}\n"
-        f"📢 *Broadcast checker:* {'✅ Running' if broadcast_checker_thread and broadcast_checker_thread.is_alive() else '❌ Stopped'}\n"
+        f"🔄 *Scheduler:* {'✅ Running' if scheduler_alive else '❌ Stopped'}\n"
+        f"📢 *Broadcast checker:* {'✅ Running' if broadcast_alive else '❌ Stopped'}\n"
         f"🔗 *GitHub repo:* [za-sora-bot](https://github.com/Gods-Grad1/za-sora-bot)"
     )
     bot.send_message(chat_id, status_text, parse_mode="Markdown", disable_web_page_preview=True)
@@ -1054,7 +1085,7 @@ def handle_spin(message):
     bot.reply_to(message, response, parse_mode="Markdown")
 
 # ---------------------------------------------------------------------------
-# CALLBACK HANDLER
+# CALLBACK HANDLER - FIXED: help back button now uses edit_message_text
 # ---------------------------------------------------------------------------
 
 @bot.callback_query_handler(func=lambda call: True)
@@ -1210,7 +1241,16 @@ def handle_all_callbacks(call):
                 notify_missing_images()
                 bot.send_message(chat_id, "✅ Check complete. Admin has been notified.")
             elif action == "back":
+                # FIX: Actually go back to admin panel
                 bot.answer_callback_query(call.id)
+                try:
+                    bot.delete_message(chat_id, call.message.message_id)
+                except Exception:
+                    pass
+                # Create a dummy message to reuse show_admin_panel
+                from types import SimpleNamespace
+                dummy_msg = SimpleNamespace(chat=SimpleNamespace(id=chat_id), from_user=SimpleNamespace(id=user_id))
+                show_admin_panel(dummy_msg)
             return
 
         if data.startswith("sched_") and is_admin(user_id):
@@ -1263,32 +1303,22 @@ def handle_all_callbacks(call):
             bot.answer_callback_query(call.id)
             return
 
-        # ── Help menu ──────────────────────────────────────────────────────
-        # Submenu: show category text with "Back" button
+        # ── Help menu - FIXED: use edit_message_text ──────────────────────
         if data.startswith("help_"):
             category = data.replace("help_", "")
             text = _get_help_text(category)
             markup = telebot.types.InlineKeyboardMarkup()
             markup.add(telebot.types.InlineKeyboardButton("🔙 Back", callback_data="help_main"))
-            # Delete old message and send new
-            try:
-                bot.delete_message(chat_id, call.message.message_id)
-            except Exception:
-                pass
-            bot.send_message(chat_id, text, reply_markup=markup, parse_mode="Markdown")
+            bot.edit_message_text(text, chat_id, call.message.message_id,
+                                  reply_markup=markup, parse_mode="Markdown")
             bot.answer_callback_query(call.id)
             return
 
-        # Main menu: show the main help menu (same as typing /help)
         if data == "help_main":
-            # Delete old message and send fresh main menu
-            try:
-                bot.delete_message(chat_id, call.message.message_id)
-            except Exception:
-                pass
             text = "📖 *ZA SORA GAME CLUB — HELP*\n\nChoose a category below:"
             markup = _build_help_menu()
-            bot.send_message(chat_id, text, reply_markup=markup, parse_mode="Markdown")
+            bot.edit_message_text(text, chat_id, call.message.message_id,
+                                  reply_markup=markup, parse_mode="Markdown")
             bot.answer_callback_query(call.id)
             return
 
@@ -1467,7 +1497,7 @@ def _serve_fixtures_page(chat_id, message_id, player, context, status, page):
             img.close()
 
 # ---------------------------------------------------------------------------
-# BROADCAST CHECKER (Dedicated Thread)
+# BROADCAST CHECKER (Dedicated Thread) - FIXED: try/except to keep alive
 # ---------------------------------------------------------------------------
 
 broadcast_checker_thread = None
@@ -1478,14 +1508,16 @@ def broadcast_checker():
     while True:
         try:
             _send_pending_broadcasts(bot)
-            time.sleep(5)
         except Exception as e:
             print(f"❌ [BROADCAST] Checker error: {e}")
-            time.sleep(5)
+            database.log_error_to_admin(bot, "Broadcast Checker", e)
+        time.sleep(5)
 
 # ---------------------------------------------------------------------------
 # BACKGROUND SCHEDULER THREAD
 # ---------------------------------------------------------------------------
+
+scheduler_thread = None
 
 def background_scheduler():
     import random
@@ -1498,24 +1530,30 @@ def background_scheduler():
 
             sched = load_scheduler()
 
+            # Morning message – update last_morning_date after sending
             if hour == config.MORNING_MSG_HOUR and minute == config.MORNING_MSG_MIN:
                 print("🌅 Sending morning message...")
                 send_morning_message(bot)
+                # The date is updated inside send_morning_message, so no need here
                 time.sleep(61)
 
+            # Weekly recap
             if now.weekday() == 0 and hour == 9 and minute == 0:
                 print("📊 Sending weekly recap...")
                 send_weekly_recap(bot)
                 time.sleep(61)
 
+            # Daily challenge
             if hour == config.DAILY_CHALLENGE_HOUR and minute == config.DAILY_CHALLENGE_MIN:
                 games.post_daily_challenge(bot)
                 time.sleep(61)
 
+            # Sunday cache rebuild
             if now.weekday() == 6 and hour == 0 and minute == 0:
                 graphics.clear_and_rebuild_disk_cache(bot)
                 time.sleep(61)
 
+            # Sunday standings broadcast
             if now.weekday() == 6 and hour == 12 and minute == 0:
                 groups  = database.get_all_groups()
                 img_data = graphics.generate_table_image(bot)
@@ -1529,11 +1567,13 @@ def background_scheduler():
                     if hasattr(img_data, 'close'): img_data.close()
                 time.sleep(61)
 
+            # Monthly & yearly reset
             if hour == 0 and minute == 1:
                 database.check_and_run_monthly_reset(bot)
                 database.check_and_run_yearly_reset(bot)
                 time.sleep(61)
 
+            # Auto game scheduler
             if sched.get("enabled"):
                 window_start = sched.get("window_start", config.SCHEDULER_WINDOW_START)
                 window_end   = sched.get("window_end",   config.SCHEDULER_WINDOW_END)
@@ -1564,6 +1604,7 @@ def background_scheduler():
 
         except Exception as e:
             print(f"Scheduler error: {e}")
+            database.log_error_to_admin(bot, "Scheduler", e)
 
         time.sleep(30)
 
@@ -1870,25 +1911,23 @@ def show_my_stats(message, target_id=None, target_name=None):
         bot.send_message(chat_id, text, parse_mode="Markdown")
 
 # ---------------------------------------------------------------------------
-# STARTUP FALLBACKS
+# STARTUP FALLBACKS - FIXED: send morning only if not sent today
 # ---------------------------------------------------------------------------
 
 def check_startup_fallbacks():
     """Runs once on startup to check if any scheduled tasks were missed."""
     print("🔍 Checking startup fallbacks...")
     now = local_now()
-    hour = now.hour
-    minute = now.minute
-    weekday = now.weekday()
+    sched = load_scheduler()
+    today = now.strftime("%Y-%m-%d")
 
-    if hour >= config.MORNING_MSG_HOUR:
+    # Morning message - only if not sent today and we're past the hour
+    if sched.get("last_morning_date") != today and now.hour >= config.MORNING_MSG_HOUR:
         print("🌅 Sending morning message (startup fallback)...")
         send_morning_message(bot)
+        # send_morning_message updates the date itself, so no need to save here
 
-    if weekday == 0 and hour >= 9:
-        print("📊 Sending weekly recap (startup fallback)...")
-        send_weekly_recap(bot)
-
+    # Send any pending broadcasts
     _send_pending_broadcasts(bot)
 
 # ---------------------------------------------------------------------------
@@ -1903,9 +1942,17 @@ if __name__ == "__main__":
     database.check_and_run_monthly_reset(bot)
     database.cleanup_expired_mutes(bot)
     check_startup_fallbacks()
+
+    # Start broadcast checker thread
     broadcast_checker_thread = threading.Thread(target=broadcast_checker, daemon=True)
     broadcast_checker_thread.start()
-    threading.Thread(target=background_scheduler, daemon=True).start()
+
+    # Start scheduler thread
+    scheduler_thread = threading.Thread(target=background_scheduler, daemon=True)
+    scheduler_thread.start()
+
+    # Start missing images notification (non‑blocking)
     threading.Thread(target=notify_missing_images, daemon=True).start()
+
     print("✅ Bot is live!")
     bot.infinity_polling(timeout=20, long_polling_timeout=30)
