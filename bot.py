@@ -990,7 +990,7 @@ def handle_status(message):
     data = database.load_json(config.GROUP_DATA_FILE, {})
     total_entries = sum(len(u) for u in data.values())
 
-    # FIX: Check thread health
+    # Check thread health
     broadcast_alive = broadcast_checker_thread and broadcast_checker_thread.is_alive()
     scheduler_alive = scheduler_thread and scheduler_thread.is_alive()
 
@@ -1247,7 +1247,6 @@ def handle_all_callbacks(call):
                     bot.delete_message(chat_id, call.message.message_id)
                 except Exception:
                     pass
-                # Create a dummy message to reuse show_admin_panel
                 from types import SimpleNamespace
                 dummy_msg = SimpleNamespace(chat=SimpleNamespace(id=chat_id), from_user=SimpleNamespace(id=user_id))
                 show_admin_panel(dummy_msg)
@@ -1303,20 +1302,20 @@ def handle_all_callbacks(call):
             bot.answer_callback_query(call.id)
             return
 
-        # ── Help menu - FIXED: use edit_message_text ──────────────────────
-        if data.startswith("help_"):
-            category = data.replace("help_", "")
-            text = _get_help_text(category)
-            markup = telebot.types.InlineKeyboardMarkup()
-            markup.add(telebot.types.InlineKeyboardButton("🔙 Back", callback_data="help_main"))
+        # ── Help menu - FIXED: exact match first, then prefix ──────────────
+        if data == "help_main":
+            text = "📖 *ZA SORA GAME CLUB — HELP*\n\nChoose a category below:"
+            markup = _build_help_menu()
             bot.edit_message_text(text, chat_id, call.message.message_id,
                                   reply_markup=markup, parse_mode="Markdown")
             bot.answer_callback_query(call.id)
             return
 
-        if data == "help_main":
-            text = "📖 *ZA SORA GAME CLUB — HELP*\n\nChoose a category below:"
-            markup = _build_help_menu()
+        if data.startswith("help_"):
+            category = data.replace("help_", "")
+            text = _get_help_text(category)
+            markup = telebot.types.InlineKeyboardMarkup()
+            markup.add(telebot.types.InlineKeyboardButton("🔙 Back", callback_data="help_main"))
             bot.edit_message_text(text, chat_id, call.message.message_id,
                                   reply_markup=markup, parse_mode="Markdown")
             bot.answer_callback_query(call.id)
