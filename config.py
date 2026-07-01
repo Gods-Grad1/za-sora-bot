@@ -31,7 +31,7 @@ TRIVIA_CATEGORY_FILES = {
     "Technology": "technology.json",
     "Bible": "bible.json",
 }
-TRIVIA_DB = "trivia_db.json"  # Fallback local file
+TRIVIA_DB = "trivia_db.json"
 
 # --- DATABASE FILE PATHS ---
 GROUP_DATA_FILE   = "group_data.json"
@@ -59,7 +59,9 @@ MORNING_MSG_HOUR = 8
 MORNING_MSG_MIN  = 0
 DAILY_CHALLENGE_HOUR = 14
 DAILY_CHALLENGE_MIN  = 0
-SCHEDULER_WINDOW_START = 10
+
+# --- SCHEDULER WINDOW — HARDCODED 10–23 ---
+SCHEDULER_WINDOW_START = 10   # was 18/19 – now fixed
 SCHEDULER_WINDOW_END   = 23
 
 # --- POINTS ECONOMY ---
