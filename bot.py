@@ -11,7 +11,7 @@ import config
 import database
 import graphics
 import games
-import profile_banner  # <-- Keep this import
+import profile_banner
 
 # Force no proxy
 os.environ['HTTP_PROXY'] = ''
@@ -771,7 +771,14 @@ def handle_all_messages(message):
     args = message.text.split()[1:] if len(message.text.split()) > 1 else []
 
     if cmd == '/start':
-        bot.reply_to(message, config.WELCOME_MSG, parse_mode="Markdown")
+        try:
+            # Try to send the welcome GIF first
+            gif_url = "https://raw.githubusercontent.com/Gods-Grad1/za-sora-bot/main/images/welcome.gif"
+            bot.send_animation(chat_id, gif_url, caption=config.WELCOME_MSG, parse_mode="Markdown")
+        except Exception as e:
+            # Fallback: send just the text message if GIF fails
+            print(f"Failed to send welcome GIF: {e}")
+            bot.reply_to(message, config.WELCOME_MSG, parse_mode="Markdown")
 
     elif cmd == '/help':
         show_help(message)
@@ -1032,8 +1039,6 @@ def handle_all_messages(message):
         database.track_member(bot, chat_id, user_id, username)
         bot.reply_to(message, "✅ This group is now tracked in the database.")
     # --- End debug commands ---
-
-    # REMOVED: /profile command – no longer needed (moved to /mystats)
 
     elif cmd == '/addquote' and chat_id == user_id and is_admin(user_id):
         if not args:
@@ -2088,10 +2093,9 @@ def show_my_stats(message, target_id=None, target_name=None):
         f"{xp_status}"
     )
 
-    # --- NEW: Send stats as a photo with the profile banner as the image ---
+    # Send stats as a photo with the profile banner as the image
     try:
-        # Generate or retrieve the profile banner for the target user
-        banner_url_or_path = profile_banner.generate_profile_banner(bot, target_id, target_name)
+        banner_url_or_path = profile_banner.generate_profile_banner(bot, target_id, target_name, chat_id)
         
         if banner_url_or_path:
             if banner_url_or_path.startswith("http"):
