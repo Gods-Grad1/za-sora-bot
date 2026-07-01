@@ -12,9 +12,10 @@ CSV_DATA_CACHE = {}
 _file_locks = {}
 BROADCAST_DB = "broadcasts.db"
 GLOBAL_CHAT_ID = None
+_trivia_cache = None
 
 # ---------------------------------------------------------------------------
-# FILE LOCKS (for JSON writes)
+# FILE LOCKS
 # ---------------------------------------------------------------------------
 
 def get_lock(filepath):
@@ -45,7 +46,7 @@ def load_json(filepath, default_value):
         return json.load(f)
 
 # ---------------------------------------------------------------------------
-# BROADCAST DATABASE (SQLite)
+# BROADCAST DATABASE
 # ---------------------------------------------------------------------------
 
 _broadcast_lock = threading.Lock()
@@ -70,35 +71,19 @@ def add_broadcast(bot, chat_id, message, send_time):
     with _broadcast_lock:
         conn = sqlite3.connect(BROADCAST_DB)
         c = conn.cursor()
-        c.execute(
-            "INSERT INTO broadcasts (chat_id, message, send_time, sent) VALUES (?, ?, ?, 0)",
-            (chat_id, message, send_time)
-        )
+        c.execute("INSERT INTO broadcasts (chat_id, message, send_time, sent) VALUES (?, ?, ?, 0)", (chat_id, message, send_time))
         conn.commit()
         conn.close()
-
-# ---------------------------------------------------------------------------
-# DEBUGGING: get_pending_broadcasts with verbose logging
-# ---------------------------------------------------------------------------
 
 def get_pending_broadcasts():
     with _broadcast_lock:
         conn = sqlite3.connect(BROADCAST_DB)
         c = conn.cursor()
         now = int(time.time()) + 5
-        print(f"🔍 get_pending: now={now} (UTC timestamp)")
-        c.execute(
-            "SELECT id, chat_id, message, send_time FROM broadcasts WHERE sent = 0 AND send_time <= ?",
-            (now,)
-        )
+        c.execute("SELECT id, chat_id, message, send_time FROM broadcasts WHERE sent = 0 AND send_time <= ?", (now,))
         rows = c.fetchall()
-        print(f"   → found {len(rows)} rows")
         conn.close()
         return [{"id": r[0], "chat_id": r[1], "message": r[2], "send_time": r[3]} for r in rows]
-
-# ---------------------------------------------------------------------------
-# Other broadcast functions
-# ---------------------------------------------------------------------------
 
 def mark_broadcast_sent(bot, broadcast_id):
     with _broadcast_lock:
@@ -118,7 +103,57 @@ def get_all_broadcasts():
         return [{"id": r[0], "chat_id": r[1], "message": r[2], "send_time": r[3], "sent": r[4]} for r in rows]
 
 # ---------------------------------------------------------------------------
-# (The rest of database.py – unchanged)
+# TRIVIA LOADER (NEW)
+# ---------------------------------------------------------------------------
+
+def load_trivia_from_github():
+    """Loads trivia from all category files on the generated branch."""
+    global _trivia_cache
+    if _trivia_cache is not None:
+        return _trivia_cache
+    
+    all_questions = []
+    base_url = f"https://raw.githubusercontent.com/{config.GITHUB_REPO}/{config.TRIVIA_BRANCH}/{config.TRIVIA_REMOTE_PATH}/"
+    
+    for cat, filename in config.TRIVIA_CATEGORY_FILES.items():
+        try:
+            url = base_url + filename
+            resp = requests.get(url, timeout=10)
+            if resp.status_code == 200:
+                data = resp.json()
+                if isinstance(data, list):
+                    all_questions.extend(data)
+                else:
+                    print(f"Warning: {filename} is not a list, skipping.")
+            else:
+                print(f"Failed to fetch {filename} (status {resp.status_code})")
+        except Exception as e:
+            print(f"Error loading trivia from GitHub: {e}")
+    
+    if all_questions:
+        _trivia_cache = all_questions
+        print(f"Loaded {len(all_questions)} trivia questions from generated branch.")
+        return all_questions
+    
+    # Fallback to local file
+    try:
+        with open(config.TRIVIA_DB, 'r') as f:
+            data = json.load(f)
+        _trivia_cache = data
+        print(f"Loaded {len(data)} trivia questions from local fallback.")
+        return data
+    except:
+        print("No trivia loaded.")
+        return []
+
+def reload_trivia():
+    """Force reload trivia cache."""
+    global _trivia_cache
+    _trivia_cache = None
+    return load_trivia_from_github()
+
+# ---------------------------------------------------------------------------
+# REST OF DATABASE (Keep all existing functions)
 # ---------------------------------------------------------------------------
 
 def log_error_to_admin(bot, context, exception):
@@ -159,25 +194,25 @@ def get_user(data, chat_str, user_str, username):
         data[chat_str] = {}
     if user_str not in data[chat_str]:
         data[chat_str][user_str] = {
-            "username":        username or "Player",
-            "points":          0,
-            "monthly_points":  {},
-            "yearly_points":   {},
-            "alltime_points":  0,
-            "streak":          0,
-            "best_streak":     0,
-            "games_played":    0,
-            "correct":         0,
-            "title":           None,
-            "title_expires":   None,
-            "hint_tokens":     0,
+            "username": username or "Player",
+            "points": 0,
+            "monthly_points": {},
+            "yearly_points": {},
+            "alltime_points": 0,
+            "streak": 0,
+            "best_streak": 0,
+            "games_played": 0,
+            "correct": 0,
+            "title": None,
+            "title_expires": None,
+            "hint_tokens": 0,
             "double_xp_until": None,
-            "last_spin":       0,
-            "badges":          [],
-            "trivia_correct":  0,
-            "versus_wins":     0,
-            "daily_wins":      0,
-            "powerups":        {},
+            "last_spin": 0,
+            "badges": [],
+            "trivia_correct": 0,
+            "versus_wins": 0,
+            "daily_wins": 0,
+            "powerups": {},
         }
     u = data[chat_str][user_str]
     defaults = {
@@ -207,8 +242,7 @@ def get_all_members(chat_id):
     chat_str = str(chat_id)
     if chat_str not in data:
         return []
-    return [(int(uid), u.get("username", "Player"))
-            for uid, u in data[chat_str].items()]
+    return [(int(uid), u.get("username", "Player")) for uid, u in data[chat_str].items()]
 
 def get_all_groups():
     try:
@@ -241,7 +275,6 @@ def reward_user(bot, chat_id, user_id, username, amount=50):
         multiplier *= 2
 
     final = int(amount * multiplier)
-
     month_key = _now_month_key()
     year_key = _now_year_key()
     u["points"] += final
@@ -314,12 +347,12 @@ def check_achievements(bot, chat_id, user_id, username):
         if badge_id in u.get("badges", []):
             continue
         condition = badge_data.get("condition", {})
-        meets_condition = True
+        meets = True
         for key, required in condition.items():
             if u.get(key, 0) < required:
-                meets_condition = False
+                meets = False
                 break
-        if meets_condition:
+        if meets:
             u.setdefault("badges", [])
             u["badges"].append(badge_id)
             unlocked.append(badge_id)
@@ -338,12 +371,7 @@ def save_mutes(bot, data):
 def mute_user(bot, chat_id, user_id, username, duration_seconds):
     data = load_mutes()
     key = f"{chat_id}_{user_id}"
-    data[key] = {
-        "username": username,
-        "expires": time.time() + duration_seconds,
-        "chat_id": chat_id,
-        "user_id": user_id,
-    }
+    data[key] = {"username": username, "expires": time.time() + duration_seconds, "chat_id": chat_id, "user_id": user_id}
     save_mutes(bot, data)
 
 def unmute_user(bot, chat_id, user_id):
@@ -381,11 +409,9 @@ def get_leaderboard(chat_id, mode="monthly", top_n=10):
     chat_str = str(chat_id)
     if chat_str not in data:
         return []
-
     month_key = _now_month_key()
     year_key = _now_year_key()
     results = []
-
     for user_str, u in data[chat_str].items():
         if mode == "monthly":
             pts = u.get("monthly_points", {}).get(month_key, 0)
@@ -393,16 +419,9 @@ def get_leaderboard(chat_id, mode="monthly", top_n=10):
             pts = u.get("yearly_points", {}).get(year_key, 0)
         else:
             pts = u.get("alltime_points", 0)
-        results.append({
-            "username": u.get("username", "Player"),
-            "points": pts,
-            "streak": u.get("streak", 0),
-            "title": _get_active_title(u),
-        })
-
+        results.append({"username": u.get("username", "Player"), "points": pts, "streak": u.get("streak", 0), "title": _get_active_title(u)})
     results.sort(key=lambda x: x["points"], reverse=True)
-    return [(i + 1, r["username"], r["points"], r["streak"], r["title"])
-            for i, r in enumerate(results[:top_n])]
+    return [(i+1, r["username"], r["points"], r["streak"], r["title"]) for i, r in enumerate(results[:top_n])]
 
 def _get_active_title(u):
     title = u.get("title")
@@ -420,20 +439,18 @@ def purchase_item(bot, chat_id, user_id, username, item_id):
     if item_id in config.POWERUPS:
         powerup = config.POWERUPS[item_id]
         if u["points"] < powerup["cost"]:
-            return False, f"Not enough points. You need {powerup['cost']} but have {u['points']}."
+            return False, f"Not enough points. Need {powerup['cost']}, have {u['points']}."
         u["points"] -= powerup["cost"]
         u.setdefault("powerups", {})
         u["powerups"][item_id] = u["powerups"].get(item_id, 0) + 1
         save_json(bot, config.GROUP_DATA_FILE, data)
-        return True, f"✅ Purchased *{powerup['emoji']} {powerup['name']}* for {powerup['cost']} points!"
+        return True, f"✅ Purchased *{powerup['emoji']} {powerup['name']}*!"
 
     item = next((i for i in config.SHOP_TITLES if i["id"] == item_id), None)
     if not item:
         return False, "Item not found."
-
     if u["points"] < item["cost"]:
-        return False, f"Not enough points. You need {item['cost']} but have {u['points']}."
-
+        return False, f"Not enough points. Need {item['cost']}, have {u['points']}."
     u["points"] -= item["cost"]
 
     if item_id == "hint_tokens":
@@ -451,7 +468,7 @@ def purchase_item(bot, chat_id, user_id, username, item_id):
         u["title_expires"] = time.time() + (config.SHOP_TITLE_DURATION_DAYS * 86400)
 
     save_json(bot, config.GROUP_DATA_FILE, data)
-    return True, f"✅ Purchased *{item['name']}* for {item['cost']} points!"
+    return True, f"✅ Purchased *{item['name']}*!"
 
 def use_hint_token(bot, chat_id, user_id, username):
     data = load_json(config.GROUP_DATA_FILE, {})
@@ -469,13 +486,10 @@ def check_and_run_monthly_reset(bot):
     now = datetime.datetime.now()
     last = state.get("last_monthly_reset", "")
     curr = now.strftime("%Y-%m")
-
     if last == curr:
         return
-
     data = load_json(config.GROUP_DATA_FILE, {})
     prev_month = (now.replace(day=1) - datetime.timedelta(days=1)).strftime("%Y-%m")
-
     for chat_str, users in data.items():
         scores = []
         for user_str, u in users.items():
@@ -485,20 +499,15 @@ def check_and_run_monthly_reset(bot):
         scores.sort(key=lambda x: x[1], reverse=True)
         if scores:
             winner_name, winner_pts = scores[0]
-            msg = (
-                f"🏆 *Monthly Results — {prev_month}*\n\n"
-                f"👑 Champion: *{winner_name}* with *{winner_pts} points*!\n\n"
-                f"Top 3:\n"
-            )
+            msg = f"🏆 *Monthly Results — {prev_month}*\n\n👑 Champion: *{winner_name}* with *{winner_pts} points*!\n\nTop 3:\n"
             for i, (name, pts) in enumerate(scores[:3], 1):
-                medal = ["🥇", "🥈", "🥉"][i - 1]
+                medal = ["🥇", "🥈", "🥉"][i-1]
                 msg += f"{medal} {name} — {pts} pts\n"
             msg += "\nMonthly scores have been reset. New month, new battle! 🔥"
             try:
                 bot.send_message(int(chat_str), msg, parse_mode="Markdown")
             except Exception as e:
-                print(f"Monthly reset announcement failed for {chat_str}: {e}")
-
+                print(f"Monthly reset failed for {chat_str}: {e}")
     state["last_monthly_reset"] = curr
     save_json(bot, config.STATE_FILE, state)
 
@@ -507,16 +516,10 @@ def check_and_run_yearly_reset(bot):
     now = datetime.datetime.now()
     curr = now.strftime("%Y")
     last = state.get("last_yearly_reset", "")
-
-    if last == curr:
+    if last == curr or now.month != 1 or now.day != 1:
         return
-
-    if now.month != 1 or now.day != 1:
-        return
-
     data = load_json(config.GROUP_DATA_FILE, {})
     prev_year = str(now.year - 1)
-
     for chat_str, users in data.items():
         scores = []
         for user_str, u in users.items():
@@ -526,16 +529,11 @@ def check_and_run_yearly_reset(bot):
         scores.sort(key=lambda x: x[1], reverse=True)
         if scores:
             winner_name, winner_pts = scores[0]
-            msg = (
-                f"🎊 *Yearly Champion — {prev_year}*\n\n"
-                f"👑 *{winner_name}* dominated the year with *{winner_pts} points*!\n\n"
-                f"Happy New Year! {now.year} begins now — make it count! 🚀"
-            )
+            msg = f"🎊 *Yearly Champion — {prev_year}*\n\n👑 *{winner_name}* dominated with *{winner_pts} points*!\n\nHappy New Year! Make it count! 🚀"
             try:
                 bot.send_message(int(chat_str), msg, parse_mode="Markdown")
             except Exception as e:
-                print(f"Yearly reset announcement failed for {chat_str}: {e}")
-
+                print(f"Yearly reset failed for {chat_str}: {e}")
     state["last_yearly_reset"] = curr
     save_json(bot, config.STATE_FILE, state)
 
