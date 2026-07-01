@@ -10,7 +10,7 @@ from github_uploader import upload_image_to_github
 BANNER_TEMPLATE_URL = f"{config.GITHUB_RAW_BASE_URL}templates/profile_banner.png"
 BANNER_CACHE_DIR = "profile_banners"
 TEMPLATE_CACHE_FILE = "banner_template.png"
-PROFILES_REMOTE_FOLDER = "profiles"
+PROFILES_REMOTE_FOLDER = "profiles"  # Not used anymore, kept for compatibility
 
 # --- Template Measurements (YOUR EXACT COORDINATES) ---
 CIRCLE_CENTER_X = 575
@@ -138,7 +138,7 @@ def _save_github_url_to_user(bot, user_id, url):
 
 def generate_profile_banner(bot, user_id, username):
     """
-    Generates a profile banner, uploads to GitHub, and returns the raw URL.
+    Generates a profile banner, uploads to GitHub (generated branch), and returns the raw URL.
     If the banner already exists on GitHub, returns that URL directly.
     """
     _ensure_dirs()
@@ -180,16 +180,19 @@ def generate_profile_banner(bot, user_id, username):
     local_path = os.path.join(BANNER_CACHE_DIR, f"profile_{user_id}.png")
     img.save(local_path, 'PNG')
     
-    # 6. Upload to GitHub
+    # 6. Upload to GitHub (generated branch, banners folder) <-- CHANGED
     with open(local_path, 'rb') as f:
         image_data = f.read()
     
     remote_filename = f"{user_id}.png"
-    upload_success = upload_image_to_github(bot, image_data, remote_filename, PROFILES_REMOTE_FOLDER)
+    upload_success = upload_image_to_github(bot, image_data, remote_filename, "banners", branch="generated")
     
     if upload_success:
-        raw_url = f"{config.GITHUB_RAW_BASE_URL}{PROFILES_REMOTE_FOLDER}/{remote_filename}"
+        # Construct raw URL for the generated branch <-- CHANGED
+        raw_url = f"https://raw.githubusercontent.com/{config.GITHUB_REPO}/generated/images/banners/{remote_filename}"
         _save_github_url_to_user(bot, user_id, raw_url)
+        # Optionally remove local file to save space
+        # os.remove(local_path)
         return raw_url
     else:
         # Fallback: return local file path
