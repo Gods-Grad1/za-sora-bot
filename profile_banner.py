@@ -10,20 +10,26 @@ from github_uploader import upload_image_to_github
 BANNER_TEMPLATE_URL = f"{config.GITHUB_RAW_BASE_URL}templates/profile_banner.png"
 BANNER_CACHE_DIR = "profile_banners"
 TEMPLATE_CACHE_FILE = "banner_template.png"
-PROFILES_REMOTE_FOLDER = "profiles"  # Not used anymore, kept for compatibility
 
-# --- Template Measurements (YOUR EXACT COORDINATES) ---
-CIRCLE_CENTER_X = 575
-CIRCLE_CENTER_Y = 334
-CIRCLE_RADIUS   = 130   # Outer radius – the profile picture fills this
+# --- Template Measurements (YOUR NEW TEMPLATE) ---
+# Big circle (user's profile picture)
+BIG_CIRCLE_CENTER_X = 248
+BIG_CIRCLE_CENTER_Y = 333
+BIG_CIRCLE_RADIUS   = 105   # Inner colored disc radius (the actual visible area)
 
-TEXT_BOX_X = 738
-TEXT_BOX_Y = 285
-TEXT_BOX_WIDTH = 549
-TEXT_BOX_HEIGHT = 93
+# Small circle (group/chat profile picture)
+SMALL_CIRCLE_CENTER_X = 1460
+SMALL_CIRCLE_CENTER_Y = 340
+SMALL_CIRCLE_RADIUS   = 93   # Full circle radius
 
-USERNAME_FONT_SIZE = 55  # Max font size (auto-scales down if needed)
-USERNAME_COLOR = "#FFFFFF"  # White text
+# Text box (username)
+TEXT_BOX_X = 443
+TEXT_BOX_Y = 278
+TEXT_BOX_WIDTH = 830
+TEXT_BOX_HEIGHT = 114
+
+USERNAME_FONT_SIZE = 60  # Max font size (auto-scales down)
+USERNAME_COLOR = "#FFFFFF"  # White
 
 # -------------------------------------------------------------------
 
@@ -64,6 +70,26 @@ def _get_profile_picture(bot, user_id):
         return Image.open(io.BytesIO(response.content))
     except Exception as e:
         print(f"Failed to get profile picture for {user_id}: {e}")
+        return None
+
+def _get_chat_picture(bot, chat_id):
+    """Fetches the group/chat profile picture from Telegram."""
+    try:
+        chat = bot.get_chat(chat_id)
+        if not chat.photo:
+            print(f"No photo found for chat {chat_id}")
+            return None
+        
+        # Use the largest available photo
+        file_id = chat.photo.big_file_id
+        file_info = bot.get_file(file_id)
+        file_url = f"https://api.telegram.org/file/bot{config.API_TOKEN}/{file_info.file_path}"
+        
+        response = requests.get(file_url, timeout=10)
+        response.raise_for_status()
+        return Image.open(io.BytesIO(response.content))
+    except Exception as e:
+        print(f"Failed to get chat picture for {chat_id}: {e}")
         return None
 
 def _create_circle_mask(size):
@@ -136,10 +162,11 @@ def _save_github_url_to_user(bot, user_id, url):
                 return True
     return False
 
-def generate_profile_banner(bot, user_id, username):
+def generate_profile_banner(bot, user_id, username, chat_id):
     """
-    Generates a profile banner, uploads to GitHub (generated branch), and returns the raw URL.
-    If the banner already exists on GitHub, returns that URL directly.
+    Generates a profile banner with user picture (big circle) and chat picture (small circle).
+    Uploads to GitHub (generated branch) and returns the raw URL.
+    If the banner already exists, returns that URL directly.
     """
     _ensure_dirs()
     
@@ -155,32 +182,39 @@ def generate_profile_banner(bot, user_id, username):
     
     img = template.copy()
     
-    # 3. Get profile picture
+    # 3. Paste user's profile picture (BIG CIRCLE)
     profile_pic = _get_profile_picture(bot, user_id)
-    
     if profile_pic:
-        size = (CIRCLE_RADIUS * 2, CIRCLE_RADIUS * 2)
+        size = (BIG_CIRCLE_RADIUS * 2, BIG_CIRCLE_RADIUS * 2)
         profile_pic = profile_pic.resize(size, Image.Resampling.LANCZOS)
         mask = _create_circle_mask(size)
         
-        left = CIRCLE_CENTER_X - CIRCLE_RADIUS
-        top = CIRCLE_CENTER_Y - CIRCLE_RADIUS
+        left = BIG_CIRCLE_CENTER_X - BIG_CIRCLE_RADIUS
+        top = BIG_CIRCLE_CENTER_Y - BIG_CIRCLE_RADIUS
         img.paste(profile_pic, (left, top), mask)
-    else:
-        # Optional: Draw a default avatar (circle with initials) here.
-        pass
-    
-    # 4. Add username centered in the text box
+
+    # 4. Paste chat/group picture (SMALL CIRCLE)
+    chat_pic = _get_chat_picture(bot, chat_id)
+    if chat_pic:
+        size = (SMALL_CIRCLE_RADIUS * 2, SMALL_CIRCLE_RADIUS * 2)
+        chat_pic = chat_pic.resize(size, Image.Resampling.LANCZOS)
+        mask = _create_circle_mask(size)
+        
+        left = SMALL_CIRCLE_CENTER_X - SMALL_CIRCLE_RADIUS
+        top = SMALL_CIRCLE_CENTER_Y - SMALL_CIRCLE_RADIUS
+        img.paste(chat_pic, (left, top), mask)
+
+    # 5. Add username in the text box
     username_display = f"@{username}"
     _add_text_to_banner(img, username_display, TEXT_BOX_X, TEXT_BOX_Y,
                         TEXT_BOX_WIDTH, TEXT_BOX_HEIGHT,
                         USERNAME_FONT_SIZE, USERNAME_COLOR)
     
-    # 5. Save temporary local file
+    # 6. Save temporary local file
     local_path = os.path.join(BANNER_CACHE_DIR, f"profile_{user_id}.png")
     img.save(local_path, 'PNG')
     
-    # 6. Upload to GitHub (generated branch, banners folder) <-- CHANGED
+    # 7. Upload to GitHub (generated branch, banners folder)
     with open(local_path, 'rb') as f:
         image_data = f.read()
     
@@ -188,11 +222,8 @@ def generate_profile_banner(bot, user_id, username):
     upload_success = upload_image_to_github(bot, image_data, remote_filename, "banners", branch="generated")
     
     if upload_success:
-        # Construct raw URL for the generated branch <-- CHANGED
         raw_url = f"https://raw.githubusercontent.com/{config.GITHUB_REPO}/generated/images/banners/{remote_filename}"
         _save_github_url_to_user(bot, user_id, raw_url)
-        # Optionally remove local file to save space
-        # os.remove(local_path)
         return raw_url
     else:
         # Fallback: return local file path
