@@ -194,7 +194,7 @@ def _build_leaderboard_markup(mode, page, total_pages):
     return markup
 
 # ---------------------------------------------------------------------------
-# LEAGUE TABLE & FIXTURES (Keep existing code)
+# LEAGUE TABLE & FIXTURES
 # ---------------------------------------------------------------------------
 
 def show_league_table(message):
@@ -382,7 +382,7 @@ def show_admin_panel(message):
     bot.send_message(message.chat.id, f"⚙️ *ADMIN PANEL*\n\nAuto-scheduler: {status_icon} {'ON' if sched.get('enabled') else 'OFF'}\nInterval: every {sched.get('interval', 60)} min\nGame type: {sched.get('game_type', 'random').title()}\nActive window: {sched.get('window_start', 18)}:00 — {sched.get('window_end', 23)}:00", reply_markup=markup, parse_mode="Markdown")
 
 # ---------------------------------------------------------------------------
-# SCHEDULE PANEL – BUILD & SHOW
+# SCHEDULE PANEL – BUILD & SHOW (with fallback)
 # ---------------------------------------------------------------------------
 
 def _build_schedule_panel(chat_id):
@@ -415,14 +415,23 @@ def _build_schedule_panel(chat_id):
     return text, markup
 
 def show_schedule_panel(chat_id, edit_message_id=None):
+    """
+    Shows the schedule panel. If edit_message_id is provided, edits that message.
+    Otherwise, sends a new message and stores its ID.
+    If edit fails, sends a new message and stores the new ID.
+    """
     sched = load_scheduler()
     text, markup = _build_schedule_panel(chat_id)
+
     if edit_message_id:
         try:
             bot.edit_message_text(text, chat_id, edit_message_id, reply_markup=markup, parse_mode="Markdown")
             return
         except Exception as e:
             print(f"Failed to edit schedule panel: {e}")
+            # Fall through to send a new one
+
+    # Send new message and store its ID
     msg = bot.send_message(chat_id, text, reply_markup=markup, parse_mode="Markdown")
     sched["schedule_message_id"] = msg.message_id
     save_scheduler(sched)
@@ -446,7 +455,7 @@ def show_stats(chat_id):
     bot.send_message(chat_id, f"📊 *GROUP STATS*\n\n👥 Tracked members: {len(users)}\n🎮 Total games played: {total_games}\n💰 Total points distributed: {total_pts}\n🏃 Most active: {most_active.get('username','?')} ({most_active.get('games_played',0)} games)\n🏆 Top scorer: {top_scorer.get('username','?')} ({top_scorer.get('alltime_points',0)} pts)\n🔥 Best streak: {best_streak.get('username','?')} ({best_streak.get('best_streak',0)} in a row)", parse_mode="Markdown")
 
 # ---------------------------------------------------------------------------
-# WEEKLY RECAP & MORNING MESSAGE (Combined tags)
+# WEEKLY RECAP & MORNING MESSAGE
 # ---------------------------------------------------------------------------
 
 def send_weekly_recap(bot):
@@ -510,12 +519,10 @@ def send_morning_message(bot):
                 # --- COMBINED TAGS (same message) ---
                 members = database.get_all_members(group_id)
                 if members:
-                    # Build full tag line
                     tag_line = "🌱 _Sending love to the whole family_ 🌱\n" + " ".join(
                         [f"[{name}](tg://user?id={uid})" for uid, name in members]
                     )
                     full_msg = msg + "\n\n" + tag_line
-                    # If too long, truncate mentions
                     if len(full_msg) > 4096:
                         truncated = members[:50]
                         tag_line_trunc = "🌱 _Sending love to the whole family_ 🌱\n" + " ".join(
@@ -554,13 +561,7 @@ def _send_pending_broadcasts(bot):
     for broadcast in pending:
         success = True
         sched = load_scheduler()
-        # We always tag, so we don't need to check a flag, but we keep it for backward compatibility.
-        tag_all = sched.get(f"broadcast_tagall_{broadcast['send_time']}", False)
-        # If no flag, we default to True because we want all broadcasts to tag.
-        # But we'll set it to True for all new broadcasts, and for old ones the flag might be False.
-        # For robustness, we'll force tag_all to True for any broadcast that doesn't have the flag.
-        # Actually, we removed the flag from the creation, so all new broadcasts will have the flag set to True.
-        # However, we need to check if the flag was set at all. If not, we force it.
+        # Always tag – force flag if not set
         if f"broadcast_tagall_{broadcast['send_time']}" not in sched:
             tag_all = True
             sched[f"broadcast_tagall_{broadcast['send_time']}"] = True
@@ -1180,7 +1181,7 @@ def handle_spin(message):
     bot.reply_to(message, response, parse_mode="Markdown")
 
 # ---------------------------------------------------------------------------
-# CALLBACK HANDLER
+# CALLBACK HANDLER – FIXED start/end buttons
 # ---------------------------------------------------------------------------
 
 @bot.callback_query_handler(func=lambda call: True)
@@ -1355,7 +1356,7 @@ def handle_all_callbacks(call):
             return
 
         # -------------------------------------------------------------------
-        # SCHEDULER SETTINGS – Edit in place
+        # SCHEDULER SETTINGS – Edit in place (all buttons)
         # -------------------------------------------------------------------
         if data.startswith("sched_") and is_admin(user_id):
             sched  = load_scheduler()
@@ -1377,6 +1378,7 @@ def handle_all_callbacks(call):
                 sched["answer_time_limit"] = int(action.replace("timelimit_", ""))
                 save_scheduler(sched)
                 bot.answer_callback_query(call.id, f"Time limit set to {sched['answer_time_limit']}s", show_alert=True)
+            # --- FIXED start/end buttons: they now use the stored message ID ---
             elif action.startswith("window_start_"):
                 delta = 1 if "up" in action else -1
                 sched["window_start"] = max(0, min(23, sched.get("window_start", 18) + delta))
@@ -1388,6 +1390,7 @@ def handle_all_callbacks(call):
                 save_scheduler(sched)
                 bot.answer_callback_query(call.id, f"End set to {sched['window_end']}:00", show_alert=True)
 
+            # After any change, edit the existing message if possible
             msg_id = sched.get("schedule_message_id")
             if msg_id:
                 show_schedule_panel(chat_id, edit_message_id=msg_id)
