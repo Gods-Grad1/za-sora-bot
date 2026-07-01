@@ -238,20 +238,24 @@ def _check_one_game_lock(bot, chat_id, user_id, game_type=None, category=None):
     return True
 
 # ---------------------------------------------------------------------------
-# SEND HELPERS
+# SEND HELPERS (MODIFIED: Hint button hidden for character games)
 # ---------------------------------------------------------------------------
 
 def _game_markup(chat_id, game_type):
     import telebot
     markup = telebot.types.InlineKeyboardMarkup()
-    markup.row(
-        telebot.types.InlineKeyboardButton("💡 Hint",  callback_data=f"hint_{chat_id}"),
-        telebot.types.InlineKeyboardButton("⏭️ Next",  callback_data=f"nextgame_{chat_id}_{game_type}"),
-        telebot.types.InlineKeyboardButton("🛑 Stop",  callback_data=f"stopgame_{chat_id}"),
-    )
+    buttons = []
+    
+    # Hints are disabled for character guessing (too easy with the picture)
+    if game_type != "character":
+        buttons.append(telebot.types.InlineKeyboardButton("💡 Hint", callback_data=f"hint_{chat_id}"))
+    
+    buttons.append(telebot.types.InlineKeyboardButton("⏭️ Next", callback_data=f"nextgame_{chat_id}_{game_type}"))
+    buttons.append(telebot.types.InlineKeyboardButton("🛑 Stop", callback_data=f"stopgame_{chat_id}"))
+    markup.row(*buttons)
     return markup
 
-def _send_game_message(bot, chat_id, text, name, folder, url, markup=None):
+def _send_game_message(bot, chat_id, text, name, folder, url, markup=None, delay=config.GAME_AUTO_DELETE_DELAY):
     img_data = get_image_bytes(bot, name, folder, url)
     kwargs   = {"parse_mode": "Markdown"}
     if markup:
@@ -259,14 +263,14 @@ def _send_game_message(bot, chat_id, text, name, folder, url, markup=None):
     if img_data:
         try:
             if len(text) <= 1024:
-                send_photo_and_delete(bot, chat_id, img_data, caption=text, **kwargs)
+                send_photo_and_delete(bot, chat_id, img_data, caption=text, delay=delay, **kwargs)
             else:
-                send_photo_and_delete(bot, chat_id, img_data)
-                send_and_delete(bot, chat_id, text, **kwargs)
+                send_photo_and_delete(bot, chat_id, img_data, delay=delay)
+                send_and_delete(bot, chat_id, text, delay=delay, **kwargs)
             return
         except Exception as e:
             print(f"⚠️ Photo send failed: {e}")
-    send_and_delete(bot, chat_id, text, **kwargs)
+    send_and_delete(bot, chat_id, text, delay=delay, **kwargs)
 
 # ---------------------------------------------------------------------------
 # CATEGORY PICKER MENUS
@@ -312,7 +316,7 @@ def send_trivia_category_picker(bot, chat_id):
                      reply_markup=markup, parse_mode="Markdown")
 
 # ---------------------------------------------------------------------------
-# HINT SYSTEM
+# HINT SYSTEM (MODIFIED: Blocks hints for character games)
 # ---------------------------------------------------------------------------
 
 def _get_hint(session, hint_num):
@@ -355,7 +359,13 @@ def process_hint(bot, message=None, call=None):
         reply("❌ No active game to hint.")
         return
 
-    session    = active_games[chat_id]
+    session = active_games[chat_id]
+    
+    # NEW: Block hints for character games
+    if session.get("type") == "character":
+        reply("💡 Hints are not available for Character Guessing games. Just look at the picture and guess!")
+        return
+
     hints_used = session.get("hints_used", 0)
 
     if hints_used >= config.POINTS_HINT_MAX:
@@ -646,7 +656,8 @@ def _start_timer(bot, chat_id, seconds):
                     bot,
                     chat_id,
                     f"⏰ *Time's up!*\nThe correct year was: *{correct}* for *{title}*",
-                    parse_mode="Markdown"
+                    parse_mode="Markdown",
+                    delay=config.GAME_AUTO_DELETE_DELAY
                 )
             elif active_games[chat_id].get("type") in ("character", "picture"):
                 answer = active_games[chat_id].get("display", "Unknown")
@@ -654,7 +665,8 @@ def _start_timer(bot, chat_id, seconds):
                     bot,
                     chat_id,
                     f"⏰ *Time's up!*\nThe answer was: *{answer}*",
-                    parse_mode="Markdown"
+                    parse_mode="Markdown",
+                    delay=config.GAME_AUTO_DELETE_DELAY
                 )
             del active_games[chat_id]
             send_and_delete(
@@ -662,7 +674,8 @@ def _start_timer(bot, chat_id, seconds):
                 chat_id,
                 f"⏰ *Time's up!* No one got it this round.\n\n"
                 f"Start a new game with /game, /year or /trivia! 🎮",
-                parse_mode="Markdown"
+                parse_mode="Markdown",
+                delay=config.GAME_AUTO_DELETE_DELAY
             )
     threading.Thread(target=timeout, daemon=True).start()
 
@@ -750,7 +763,8 @@ def start_trivia_game(bot, chat_id, category=None, user_id=None):
                 bot,
                 chat_id,
                 f"⏰ *Time's up!*\nThe answer was: *{session_snapshot['answer']}. {session_snapshot['display']}*",
-                parse_mode="Markdown"
+                parse_mode="Markdown",
+                delay=config.GAME_AUTO_DELETE_DELAY
             )
             if chat_id in active_games:
                 del active_games[chat_id]
