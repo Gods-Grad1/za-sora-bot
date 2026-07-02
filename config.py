@@ -33,7 +33,10 @@ TRIVIA_CATEGORY_FILES = {
 }
 TRIVIA_DB = "trivia_db.json"
 
-# --- DATABASE FILE PATHS ---
+# --- PERSISTENT DATA (stored on generated branch) ---
+GENERATED_DATA_PATH = "data"  # folder on generated branch
+
+# --- DATABASE FILE PATHS (local fallback) ---
 GROUP_DATA_FILE   = "group_data.json"
 GROUPS_FILE       = "groups_db.txt"
 STATE_FILE        = "bot_state.json"
@@ -59,9 +62,7 @@ MORNING_MSG_HOUR = 8
 MORNING_MSG_MIN  = 0
 DAILY_CHALLENGE_HOUR = 14
 DAILY_CHALLENGE_MIN  = 0
-
-# --- SCHEDULER WINDOW — HARDCODED 10–23 ---
-SCHEDULER_WINDOW_START = 10   # was 18/19 – now fixed
+SCHEDULER_WINDOW_START = 10
 SCHEDULER_WINDOW_END   = 23
 
 # --- POINTS ECONOMY ---
