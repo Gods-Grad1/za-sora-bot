@@ -210,7 +210,7 @@ def _is_game_active(chat_id):
     return chat_id in active_games
 
 def _check_one_game_lock(bot, chat_id, user_id, game_type=None, category=None):
-    if database.is_muted(chat_id, user_id):
+    if database.is_muted(bot, chat_id, user_id):
         bot.send_message(chat_id, "🔇 You are muted! Wait until your mute expires.")
         return True
 
@@ -351,7 +351,7 @@ def process_hint(bot, message=None, call=None):
         username = message.from_user.username or message.from_user.first_name
         def reply(t): bot.reply_to(message, t, parse_mode="Markdown")
 
-    if database.is_muted(chat_id, user_id):
+    if database.is_muted(bot, chat_id, user_id):
         reply("🔇 You are muted! Wait until your mute expires.")
         return
 
@@ -372,7 +372,7 @@ def process_hint(bot, message=None, call=None):
         reply(f"❌ Maximum {config.POINTS_HINT_MAX} hints already used this round.")
         return
 
-    has_token = database.use_hint_token(chat_id, user_id, username)
+    has_token = database.use_hint_token(bot, chat_id, user_id, username)
     if not has_token:
         data = database.load_remote_json(config.GROUP_DATA_FILE, {})
         chat_str = str(chat_id)
@@ -382,7 +382,7 @@ def process_hint(bot, message=None, call=None):
         if current_pts < config.POINTS_HINT_PENALTY:
             reply(f"❌ Not enough points for a hint. You have *{current_pts}* pts but need *{config.POINTS_HINT_PENALTY}* pts.")
             return
-        database.deduct_points(chat_id, user_id, username, config.POINTS_HINT_PENALTY)
+        database.deduct_points(bot, chat_id, user_id, username, config.POINTS_HINT_PENALTY)
 
     session["hints_used"] = hints_used + 1
     hint_text  = _get_hint(session, session["hints_used"])
@@ -558,7 +558,7 @@ def handle_year_answer(bot, call):
 
     if chosen_index == session["correct_index"]:
         pts, streak, mult, final = database.reward_user(
-            chat_id, user_id, username, config.POINTS_YEAR_GAME)
+            bot, chat_id, user_id, username, config.POINTS_YEAR_GAME)
         streak_txt = f" 🔥 Streak x{int(mult)}!" if streak > 1 else ""
         bot.answer_callback_query(call.id, f"✅ CORRECT! +{final} pts{streak_txt}", show_alert=True)
 
@@ -577,7 +577,7 @@ def handle_year_answer(bot, call):
         )
         del active_games[chat_id]
     else:
-        database.penalise_wrong(chat_id, user_id, username)
+        database.penalise_wrong(bot, chat_id, user_id, username)
         bot.answer_callback_query(call.id, "❌ Wrong! Streak broken.", show_alert=True)
 
 # ---------------------------------------------------------------------------
@@ -713,7 +713,7 @@ def start_trivia_game(bot, chat_id, category=None, user_id=None):
         u = database.get_user(data, chat_str, user_str, "User")
         username = u.get("username", "User")
         
-        if database.use_powerup(chat_id, user_id, username, "fifty_fifty"):
+        if database.use_powerup(bot, chat_id, user_id, username, "fifty_fifty"):
             fifty_fifty_used = True
             correct_option = options[ord(answer) - ord("A")]
             wrong_options = [opt for opt in options if opt != correct_option]
@@ -801,7 +801,7 @@ def handle_trivia_answer(bot, call):
 
     if chosen == session["answer"]:
         pts, streak, mult, final = database.reward_user(
-            chat_id, user_id, username, config.POINTS_TRIVIA)
+            bot, chat_id, user_id, username, config.POINTS_TRIVIA)
         streak_txt = f" 🔥 Streak x{int(mult)}!" if streak > 1 else ""
 
         data = database.load_remote_json(config.GROUP_DATA_FILE, {})
@@ -810,7 +810,7 @@ def handle_trivia_answer(bot, call):
         u = database.get_user(data, chat_str, user_str, username)
         u["trivia_correct"] = u.get("trivia_correct", 0) + 1
         database.save_remote_json(config.GROUP_DATA_FILE, data)
-        database.check_achievements(chat_id, user_id, username)
+        database.check_achievements(bot, chat_id, user_id, username)
 
         bot.answer_callback_query(call.id, f"✅ CORRECT! +{final} pts{streak_txt}", show_alert=True)
 
@@ -829,7 +829,7 @@ def handle_trivia_answer(bot, call):
         )
         del active_games[chat_id]
     else:
-        database.penalise_wrong(chat_id, user_id, username)
+        database.penalise_wrong(bot, chat_id, user_id, username)
         bot.answer_callback_query(call.id, "❌ Wrong! Streak broken.", show_alert=True)
 
 # ---------------------------------------------------------------------------
@@ -870,10 +870,10 @@ def start_versus(bot, chat_id, challenger_id, challenger_name, target_id, target
         send_and_delete(bot, chat_id, "⚔️ A versus match is already in progress!")
         return
 
-    if database.is_muted(chat_id, challenger_id):
+    if database.is_muted(bot, chat_id, challenger_id):
         send_and_delete(bot, chat_id, "🔇 You are muted! You cannot start a versus match.")
         return
-    if database.is_muted(chat_id, target_id):
+    if database.is_muted(bot, chat_id, target_id):
         send_and_delete(bot, chat_id, "🔇 That user is muted! They cannot accept a versus match.")
         return
 
@@ -1002,7 +1002,7 @@ def handle_versus_bet(bot, call):
             f"❌ Not enough points! You have {user_pts} pts.", show_alert=True)
         return
 
-    database.deduct_points(chat_id, user_id, username, amount)
+    database.deduct_points(bot, chat_id, user_id, username, amount)
     vs["bets"][user_id] = {"amount": amount, "pick": pick, "username": username}
     pname = vs["challenger_name"] if pick == "challenger" else vs["target_name"]
     bot.answer_callback_query(call.id, f"🎰 Bet {amount} pts on {pname}!", show_alert=True)
@@ -1178,7 +1178,7 @@ def _evaluate_round(bot, chat_id):
         vs["score"][str(winner_id)] = vs["score"].get(str(winner_id), 0) + 1
         vs["consecutive_skips"]     = 0
         username = (vs["challenger_name"] if winner_id == c_id else vs["target_name"])
-        database.reward_user(chat_id, winner_id, username,
+        database.reward_user(bot, chat_id, winner_id, username,
                              amount=config.POINTS_VERSUS_WIN // 3)
 
         if winner_id:
@@ -1188,7 +1188,7 @@ def _evaluate_round(bot, chat_id):
             u = database.get_user(data, chat_str, user_str, username)
             u["versus_wins"] = u.get("versus_wins", 0) + 1
             database.save_remote_json(config.GROUP_DATA_FILE, data)
-            database.check_achievements(chat_id, winner_id, username)
+            database.check_achievements(bot, chat_id, winner_id, username)
 
     correct_reveal = ""
     if not (c_correct or t_correct):
@@ -1271,7 +1271,7 @@ def _end_versus_match(bot, chat_id, winner_id, reason):
         username    = winner_name
 
         pts, streak, mult, final = database.reward_user(
-            chat_id, winner_id, username, config.POINTS_VERSUS_WIN)
+            bot, chat_id, winner_id, username, config.POINTS_VERSUS_WIN)
         streak_txt = f" 🔥 x{int(mult)}!" if streak > 1 else ""
 
         send_and_delete(bot, chat_id,
@@ -1406,7 +1406,7 @@ def handle_daily_answer(bot, call):
     chat_id  = call.message.chat.id
     username = call.from_user.username or call.from_user.first_name
 
-    if database.is_muted(chat_id, user_id):
+    if database.is_muted(bot, chat_id, user_id):
         bot.answer_callback_query(call.id, "🔇 You are muted!", show_alert=True)
         return
 
@@ -1423,7 +1423,7 @@ def handle_daily_answer(bot, call):
 
     if chosen == state["answer"]:
         pts, streak, mult, final = database.reward_user(
-            chat_id, user_id, username, config.POINTS_DAILY_CHALLENGE)
+            bot, chat_id, user_id, username, config.POINTS_DAILY_CHALLENGE)
 
         data = database.load_remote_json(config.GROUP_DATA_FILE, {})
         chat_str = str(chat_id)
@@ -1431,7 +1431,7 @@ def handle_daily_answer(bot, call):
         u = database.get_user(data, chat_str, user_str, username)
         u["daily_wins"] = u.get("daily_wins", 0) + 1
         database.save_remote_json(config.GROUP_DATA_FILE, data)
-        database.check_achievements(chat_id, user_id, username)
+        database.check_achievements(bot, chat_id, user_id, username)
 
         bot.answer_callback_query(call.id, f"✅ CORRECT! +{final} pts!", show_alert=True)
         send_and_delete(bot, chat_id,
@@ -1439,7 +1439,7 @@ def handle_daily_answer(bot, call):
             f"Answer: *{state['answer']}. {state['display']}*\n+{final} pts! 🔥",
             parse_mode="Markdown")
     else:
-        database.penalise_wrong(chat_id, user_id, username)
+        database.penalise_wrong(bot, chat_id, user_id, username)
         bot.answer_callback_query(call.id, "❌ Wrong! Better luck tomorrow.", show_alert=True)
 
 # ---------------------------------------------------------------------------
@@ -1451,9 +1451,9 @@ def check_user_answer(bot, message):
     user_id  = message.from_user.id
     username = message.from_user.username or message.from_user.first_name
 
-    database.track_member(chat_id, user_id, username)
+    database.track_member(bot, chat_id, user_id, username)
 
-    if database.is_muted(chat_id, user_id):
+    if database.is_muted(bot, chat_id, user_id):
         send_and_delete(bot, chat_id, "🔇 You are muted! Wait until your mute expires.")
         return True
 
@@ -1496,9 +1496,9 @@ def check_user_answer(bot, message):
 
         if double_down_active:
             base_pts *= 2
-            database.use_powerup(chat_id, user_id, username, "double_down")
+            database.use_powerup(bot, chat_id, user_id, username, "double_down")
 
-        pts, streak, mult, final = database.reward_user(chat_id, user_id, username, base_pts)
+        pts, streak, mult, final = database.reward_user(bot, chat_id, user_id, username, base_pts)
         streak_txt = f"\n🔥 Streak: *{streak}* (x{mult})!" if streak > 1 else ""
 
         if double_down_active:
@@ -1525,10 +1525,10 @@ def check_user_answer(bot, message):
     user_str = str(user_id)
     u = database.get_user(data, chat_str, user_str, username)
     if u.get("powerups", {}).get("streak_freeze", 0) > 0:
-        database.use_powerup(chat_id, user_id, username, "streak_freeze")
+        database.use_powerup(bot, chat_id, user_id, username, "streak_freeze")
         send_and_delete(bot, chat_id, "🧊 *Streak Freeze activated!* Your streak is safe this time.")
     else:
-        database.penalise_wrong(chat_id, user_id, username)
+        database.penalise_wrong(bot, chat_id, user_id, username)
         send_and_delete(bot, chat_id, "❌ Wrong! Keep trying or use /hint for a clue.")
 
     return True
