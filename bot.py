@@ -33,11 +33,11 @@ BOT_START_TIME = time.time()
 database.init_broadcast_db()
 
 # ---------------------------------------------------------------------------
-# SCHEDULER STATE
+# SCHEDULER STATE (Remote on GitHub)
 # ---------------------------------------------------------------------------
 
 def load_scheduler():
-    return database.load_json(config.SCHEDULER_FILE, {
+    return database.load_remote_json(bot, config.SCHEDULER_FILE, {
         "enabled": False,
         "interval": 60,
         "game_type": "random",
@@ -50,7 +50,7 @@ def load_scheduler():
     })
 
 def save_scheduler(data):
-    database.save_json(bot, config.SCHEDULER_FILE, data)
+    database.save_remote_json(bot, config.SCHEDULER_FILE, data)
 
 # ---------------------------------------------------------------------------
 # HELPERS
@@ -148,6 +148,7 @@ def _get_help_text(category):
             "/admin — Admin control panel\n"
             "/tagall — Tag all members\n"
             "/setschedule — Configure auto-game scheduler\n"
+            "/setwindow <start> <end> — Set game window (e.g., /setwindow 10 23)\n"
             "/mute @user 1h — Mute a user\n"
             "/unmute @user — Unmute a user\n"
             "/broadcast YYYY-MM-DD HH:MM msg — Schedule a broadcast (automatically tags all members)\n"
@@ -379,10 +380,10 @@ def show_admin_panel(message):
     )
     sched = load_scheduler()
     status_icon = "✅" if sched.get("enabled") else "❌"
-    bot.send_message(message.chat.id, f"⚙️ *ADMIN PANEL*\n\nAuto-scheduler: {status_icon} {'ON' if sched.get('enabled') else 'OFF'}\nInterval: every {sched.get('interval', 60)} min\nGame type: {sched.get('game_type', 'random').title()}\nActive window: {sched.get('window_start', 18)}:00 — {sched.get('window_end', 23)}:00", reply_markup=markup, parse_mode="Markdown")
+    bot.send_message(message.chat.id, f"⚙️ *ADMIN PANEL*\n\nAuto-scheduler: {status_icon} {'ON' if sched.get('enabled') else 'OFF'}\nInterval: every {sched.get('interval', 60)} min\nGame type: {sched.get('game_type', 'random').title()}\nActive window: {sched.get('window_start', 10)}:00 — {sched.get('window_end', 23)}:00", reply_markup=markup, parse_mode="Markdown")
 
 # ---------------------------------------------------------------------------
-# SCHEDULE PANEL – BUILD & SHOW (with fallback)
+# SCHEDULE PANEL – BUILD & SHOW (REMOVED START/END BUTTONS)
 # ---------------------------------------------------------------------------
 
 def _build_schedule_panel(chat_id):
@@ -393,15 +394,6 @@ def _build_schedule_panel(chat_id):
     markup.add(telebot.types.InlineKeyboardButton(toggle_label, callback_data="sched_toggle"))
     markup.add(*[telebot.types.InlineKeyboardButton(f"⏱ {m}min", callback_data=f"sched_interval_{m}") for m in config.SCHEDULE_INTERVALS])
     markup.add(*[telebot.types.InlineKeyboardButton(f"⏰ {s}s limit", callback_data=f"sched_timelimit_{s}") for s in [30, 45, 60, 90, 120]])
-    start = sched.get('window_start', 18)
-    end = sched.get('window_end', 23)
-    markup.add(
-        telebot.types.InlineKeyboardButton(f"🕐 Start: {start}:00 ▲", callback_data="sched_window_start_up"),
-        telebot.types.InlineKeyboardButton(f"Start: {start}:00 ▼", callback_data="sched_window_start_down"),
-        telebot.types.InlineKeyboardButton(f"End: {end}:00 ▲", callback_data="sched_window_end_up"),
-        telebot.types.InlineKeyboardButton(f"End: {end}:00 ▼", callback_data="sched_window_end_down"),
-        row_width=4
-    )
     markup.add(
         telebot.types.InlineKeyboardButton("🎮 Character", callback_data="sched_type_character"),
         telebot.types.InlineKeyboardButton("🎬 Year",      callback_data="sched_type_year"),
@@ -411,7 +403,14 @@ def _build_schedule_panel(chat_id):
     )
     markup.add(telebot.types.InlineKeyboardButton("🔙 Back", callback_data="admin_back"))
     status_icon = "✅" if sched.get("enabled") else "❌"
-    text = f"📅 *SCHEDULE SETTINGS*\n\nStatus: {status_icon} {'ON' if sched.get('enabled') else 'OFF'}\nInterval: every *{sched.get('interval', 60)} min*\nType: *{sched.get('game_type', 'random').title()}*\nWindow: *{sched.get('window_start',18)}:00 – {sched.get('window_end',23)}:00*\n⏰ Answer time limit: *{sched.get('answer_time_limit', 60)}s*"
+    text = (
+        f"📅 *SCHEDULE SETTINGS*\n\n"
+        f"Status: {status_icon} {'ON' if sched.get('enabled') else 'OFF'}\n"
+        f"Interval: every *{sched.get('interval', 60)} min*\n"
+        f"Type: *{sched.get('game_type', 'random').title()}*\n"
+        f"Window: *{sched.get('window_start',10)}:00 – {sched.get('window_end',23)}:00* (use /setwindow to change)\n"
+        f"⏰ Answer time limit: *{sched.get('answer_time_limit', 60)}s*"
+    )
     return text, markup
 
 def show_schedule_panel(chat_id, edit_message_id=None):
@@ -441,7 +440,7 @@ def show_schedule_panel(chat_id, edit_message_id=None):
 # ---------------------------------------------------------------------------
 
 def show_stats(chat_id):
-    data = database.load_json(config.GROUP_DATA_FILE, {})
+    data = database.load_remote_json(bot, config.GROUP_DATA_FILE, {})
     chat_str = str(chat_id)
     if chat_str not in data:
         bot.send_message(chat_id, "📊 No stats yet.")
@@ -815,7 +814,7 @@ def handle_all_messages(message):
         show_shop(message)
 
     elif cmd == '/powerups':
-        data = database.load_json(config.GROUP_DATA_FILE, {})
+        data = database.load_remote_json(bot, config.GROUP_DATA_FILE, {})
         chat_str = str(chat_id)
         user_str = str(user_id)
         if chat_str not in data or user_str not in data[chat_str]:
@@ -1002,6 +1001,31 @@ def handle_all_messages(message):
             _send_pending_broadcasts(bot)
         return
 
+    # --- NEW: /setwindow command ---
+    elif cmd == '/setwindow' and is_admin(user_id):
+        if len(args) != 2 or not args[0].isdigit() or not args[1].isdigit():
+            bot.reply_to(message, "Usage: /setwindow <start_hour> <end_hour>\nExample: /setwindow 10 23")
+            return
+        start = int(args[0])
+        end = int(args[1])
+        if start < 0 or start > 23 or end < 1 or end > 24 or start >= end:
+            bot.reply_to(message, "❌ Invalid hours. Start must be 0-23, end 1-24, and start must be less than end.")
+            return
+        sched = load_scheduler()
+        sched["window_start"] = start
+        sched["window_end"] = end
+        save_scheduler(sched)
+        # Edit the existing schedule panel if it exists
+        msg_id = sched.get("schedule_message_id")
+        if msg_id:
+            try:
+                show_schedule_panel(chat_id, edit_message_id=msg_id)
+            except:
+                show_schedule_panel(chat_id)
+        else:
+            show_schedule_panel(chat_id)
+        bot.reply_to(message, f"✅ Window set to {start}:00 – {end}:00")
+
     # --- Debug commands ---
     elif cmd == '/listpending' and is_admin(user_id):
         pending = database.get_pending_broadcasts()
@@ -1082,7 +1106,7 @@ def handle_status(message):
     total_members = 0
     for gid in groups:
         total_members += len(database.get_all_members(gid))
-    data = database.load_json(config.GROUP_DATA_FILE, {})
+    data = database.load_remote_json(bot, config.GROUP_DATA_FILE, {})
     total_entries = sum(len(u) for u in data.values())
 
     broadcast_alive = broadcast_checker_thread and broadcast_checker_thread.is_alive()
@@ -1117,7 +1141,7 @@ def handle_spin(message):
         bot.reply_to(message, "🔇 You are muted! Wait until your mute expires.")
         return
 
-    data = database.load_json(config.GROUP_DATA_FILE, {})
+    data = database.load_remote_json(bot, config.GROUP_DATA_FILE, {})
     chat_str = str(chat_id)
     user_str = str(user_id)
     u = database.get_user(data, chat_str, user_str, username)
@@ -1153,27 +1177,27 @@ def handle_spin(message):
             year_key = database._now_year_key()
             u["monthly_points"][month_key] = u["monthly_points"].get(month_key, 0) + points
             u["yearly_points"][year_key] = u["yearly_points"].get(year_key, 0) + points
-            database.save_json(bot, config.GROUP_DATA_FILE, data)
+            database.save_remote_json(bot, config.GROUP_DATA_FILE, data)
             response += f"🎉 You won *{points} points*!"
         elif points < 0:
             u["points"] = max(0, u["points"] + points)
-            database.save_json(bot, config.GROUP_DATA_FILE, data)
+            database.save_remote_json(bot, config.GROUP_DATA_FILE, data)
             response += f"💸 You lost *{abs(points)} points*! 😱"
         else:
             response += f"😐 Nothing! Try again tomorrow."
     elif result.get("hint_token"):
         tokens = result["hint_token"]
         u["hint_tokens"] = u.get("hint_tokens", 0) + tokens
-        database.save_json(bot, config.GROUP_DATA_FILE, data)
+        database.save_remote_json(bot, config.GROUP_DATA_FILE, data)
         response += f"💡 You won *{tokens} hint token(s)*!"
     elif result.get("double_xp"):
         duration = result["double_xp"]
         u["double_xp_until"] = time.time() + duration
-        database.save_json(bot, config.GROUP_DATA_FILE, data)
+        database.save_remote_json(bot, config.GROUP_DATA_FILE, data)
         response += f"⚡ You won *Double XP for 1 hour*!"
     elif result.get("bankrupt"):
         u["points"] = max(0, u["points"] - 10)
-        database.save_json(bot, config.GROUP_DATA_FILE, data)
+        database.save_remote_json(bot, config.GROUP_DATA_FILE, data)
         response += f"💸 *BANKRUPT!* You lost 10 points. 😱"
     else:
         response += f"🎁 You won *{result['name']}*!"
@@ -1181,7 +1205,7 @@ def handle_spin(message):
     bot.reply_to(message, response, parse_mode="Markdown")
 
 # ---------------------------------------------------------------------------
-# CALLBACK HANDLER – FIXED start/end buttons
+# CALLBACK HANDLER – FIXED start/end buttons (REMOVED)
 # ---------------------------------------------------------------------------
 
 @bot.callback_query_handler(func=lambda call: True)
@@ -1378,17 +1402,6 @@ def handle_all_callbacks(call):
                 sched["answer_time_limit"] = int(action.replace("timelimit_", ""))
                 save_scheduler(sched)
                 bot.answer_callback_query(call.id, f"Time limit set to {sched['answer_time_limit']}s", show_alert=True)
-            # --- FIXED start/end buttons: they now use the stored message ID ---
-            elif action.startswith("window_start_"):
-                delta = 1 if "up" in action else -1
-                sched["window_start"] = max(0, min(23, sched.get("window_start", 18) + delta))
-                save_scheduler(sched)
-                bot.answer_callback_query(call.id, f"Start set to {sched['window_start']}:00", show_alert=True)
-            elif action.startswith("window_end_"):
-                delta = 1 if "up" in action else -1
-                sched["window_end"] = max(1, min(24, sched.get("window_end", 23) + delta))
-                save_scheduler(sched)
-                bot.answer_callback_query(call.id, f"End set to {sched['window_end']}:00", show_alert=True)
 
             # After any change, edit the existing message if possible
             msg_id = sched.get("schedule_message_id")
@@ -1981,6 +1994,7 @@ def register_commands():
         telebot.types.BotCommand("admin",        "⚙️ Admin control panel"),
         telebot.types.BotCommand("tagall",       "📢 Tag all members"),
         telebot.types.BotCommand("setschedule",  "🕐 Configure auto-game scheduler"),
+        telebot.types.BotCommand("setwindow",    "⏰ Set game window (e.g., /setwindow 10 23)"),
         telebot.types.BotCommand("mute",         "🔇 Mute a user"),
         telebot.types.BotCommand("unmute",       "🔊 Unmute a user"),
         telebot.types.BotCommand("broadcast",    "📢 Schedule a broadcast (auto-tags all)"),
@@ -2015,7 +2029,7 @@ def register_commands():
         print(f"⚠️ Failed to register commands: {e}")
 
 # ---------------------------------------------------------------------------
-# MY STATS COMMAND (UPDATED: includes profile banner as photo)
+# MY STATS COMMAND
 # ---------------------------------------------------------------------------
 
 def show_my_stats(message, target_id=None, target_name=None):
@@ -2024,7 +2038,7 @@ def show_my_stats(message, target_id=None, target_name=None):
         target_id = message.from_user.id
         target_name = message.from_user.username or message.from_user.first_name
 
-    data = database.load_json(config.GROUP_DATA_FILE, {})
+    data = database.load_remote_json(bot, config.GROUP_DATA_FILE, {})
     chat_str = str(chat_id)
     user_str = str(target_id)
     if chat_str not in data or user_str not in data[chat_str]:
