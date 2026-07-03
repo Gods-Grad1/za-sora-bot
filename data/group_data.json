@@ -29,14 +29,20 @@
                 "2026": 3889
             },
             "alltime_points": 3889,
-            "streak": 1,
+            "streak": 0,
             "best_streak": 7,
-            "games_played": 34,
+            "games_played": 35,
             "correct": 26,
             "title": null,
             "title_expires": null,
             "hint_tokens": 0,
-            "double_xp_until": null
+            "double_xp_until": null,
+            "last_spin": 0,
+            "badges": [],
+            "trivia_correct": 0,
+            "versus_wins": 0,
+            "daily_wins": 0,
+            "powerups": {}
         },
         "1454425797": {
             "username": "Ntokozo144",
