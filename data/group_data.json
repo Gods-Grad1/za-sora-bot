@@ -2,7 +2,7 @@
     "-1003926769016": {
         "8234402535": {
             "username": "User",
-            "points": 5351,
+            "points": 5551,
             "monthly_points": {
                 "2026-06": 5966
             },
@@ -27,7 +27,8 @@
             "trivia_correct": 0,
             "versus_wins": 0,
             "daily_wins": 0,
-            "powerups": {}
+            "powerups": {},
+            "last_lightning": 1783096880.8733346
         },
         "6231510981": {
             "username": "aldeniho",
