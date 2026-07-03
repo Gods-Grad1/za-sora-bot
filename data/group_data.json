@@ -17,13 +17,7 @@
             "title": "\u2728 The Chosen One",
             "title_expires": 1784501512.7299716,
             "hint_tokens": 0,
-            "double_xp_until": null,
-            "last_spin": 0,
-            "badges": [],
-            "trivia_correct": 0,
-            "versus_wins": 0,
-            "daily_wins": 0,
-            "powerups": {}
+            "double_xp_until": null
         },
         "6231510981": {
             "username": "aldeniho",
@@ -72,20 +66,20 @@
     },
     "8234402535": {
         "8234402535": {
-            "username": "User",
-            "points": 3360,
+            "username": "Jishikateki",
+            "points": 3510,
             "monthly_points": {
                 "2026-06": 3375,
-                "2026-07": 900
+                "2026-07": 1050
             },
             "yearly_points": {
-                "2026": 4275
+                "2026": 4425
             },
-            "alltime_points": 4275,
-            "streak": 6,
+            "alltime_points": 4425,
+            "streak": 7,
             "best_streak": 9,
-            "games_played": 37,
-            "correct": 31,
+            "games_played": 38,
+            "correct": 32,
             "title": "\ud83d\udc10 The GOAT",
             "title_expires": 1784791843.3751655,
             "hint_tokens": 0,
