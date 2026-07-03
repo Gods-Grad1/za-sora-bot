@@ -95,7 +95,6 @@ def save_remote_json(filename, data):
         print(f"Bot not set, cannot save {filename}")
         return False
     
-    # Ensure bot is valid
     if not config.GITHUB_TOKEN:
         print(f"⚠️ No GITHUB_TOKEN set, cannot save {filename}")
         return False
@@ -112,7 +111,6 @@ def save_remote_json(filename, data):
     if resp.status_code == 200:
         sha = resp.json().get("sha")
     elif resp.status_code == 404:
-        # File doesn't exist – that's fine, we'll create it
         pass
     else:
         print(f"⚠️ Unexpected response checking {filename}: {resp.status_code}")
@@ -135,7 +133,6 @@ def save_remote_json(filename, data):
         return True
     else:
         print(f"❌ Failed to save {filename} to GitHub: {response.text}")
-        # Fallback to local file
         try:
             with open(filename, 'w') as f:
                 json.dump(data, f, indent=4)
@@ -152,15 +149,12 @@ def save_remote_json(filename, data):
 _broadcast_lock = threading.Lock()
 
 def _load_broadcasts():
-    """Load broadcasts from broadcasts.json."""
     return load_remote_json(config.BROADCAST_FILE, [])
 
 def _save_broadcasts(data):
-    """Save broadcasts to broadcasts.json."""
     save_remote_json(config.BROADCAST_FILE, data)
 
 def add_broadcast(bot, chat_id, message, send_time):
-    """Add a scheduled broadcast."""
     with _broadcast_lock:
         broadcasts = _load_broadcasts()
         broadcast_id = max([b.get("id", 0) for b in broadcasts], default=0) + 1
@@ -174,7 +168,6 @@ def add_broadcast(bot, chat_id, message, send_time):
         _save_broadcasts(broadcasts)
 
 def get_pending_broadcasts():
-    """Get all unsent broadcasts where send_time <= now."""
     with _broadcast_lock:
         broadcasts = _load_broadcasts()
         now = int(time.time()) + 5
@@ -182,7 +175,6 @@ def get_pending_broadcasts():
         return pending
 
 def mark_broadcast_sent(broadcast_id):
-    """Mark a broadcast as sent."""
     with _broadcast_lock:
         broadcasts = _load_broadcasts()
         for b in broadcasts:
@@ -192,17 +184,14 @@ def mark_broadcast_sent(broadcast_id):
         _save_broadcasts(broadcasts)
 
 def get_all_broadcasts():
-    """Get all broadcasts for listing."""
     with _broadcast_lock:
-        broadcasts = _load_broadcasts()
-        return broadcasts
+        return _load_broadcasts()
 
 # ---------------------------------------------------------------------------
 # TRIVIA LOADER
 # ---------------------------------------------------------------------------
 
 def load_trivia_from_github():
-    """Loads trivia from all category files on the generated branch."""
     global _trivia_cache
     if _trivia_cache is not None:
         return _trivia_cache
@@ -230,7 +219,6 @@ def load_trivia_from_github():
         print(f"Loaded {len(all_questions)} trivia questions from generated branch.")
         return all_questions
     
-    # Fallback to local file
     try:
         with open(config.TRIVIA_DB, 'r') as f:
             data = json.load(f)
@@ -339,7 +327,6 @@ def get_user(data, chat_str, user_str, username):
     return u
 
 def get_user_data_field(bot, chat_id, user_id, field, default=None):
-    """Helper to fetch a single user field easily."""
     data = load_remote_json(config.GROUP_DATA_FILE, {})
     chat_str = str(chat_id)
     user_str = str(user_id)
@@ -701,23 +688,19 @@ def get_random_quote(bot=None):
 # ---------------------------------------------------------------------------
 
 def load_blocklist():
-    """Load blocklist from GitHub. Returns list of user IDs."""
     data = load_remote_json(config.BLOCKLIST_FILE, [])
     if not isinstance(data, list):
         data = []
     return data
 
 def save_blocklist(blocklist):
-    """Save blocklist to GitHub."""
     save_remote_json(config.BLOCKLIST_FILE, blocklist)
 
 def is_blocked(user_id):
-    """Check if a user is blocked."""
     blocklist = load_blocklist()
     return user_id in blocklist
 
 def block_user(user_id):
-    """Add a user to the blocklist."""
     blocklist = load_blocklist()
     if user_id not in blocklist:
         blocklist.append(user_id)
@@ -726,7 +709,6 @@ def block_user(user_id):
     return False
 
 def unblock_user(user_id):
-    """Remove a user from the blocklist."""
     blocklist = load_blocklist()
     if user_id in blocklist:
         blocklist.remove(user_id)
@@ -739,18 +721,15 @@ def unblock_user(user_id):
 # ---------------------------------------------------------------------------
 
 def load_feedback():
-    """Load feedback from GitHub. Returns list of feedback entries."""
     data = load_remote_json(config.FEEDBACK_FILE, [])
     if not isinstance(data, list):
         data = []
     return data
 
 def save_feedback(feedback):
-    """Save feedback to GitHub."""
     save_remote_json(config.FEEDBACK_FILE, feedback)
 
 def add_feedback(user_id, username, message, timestamp=None):
-    """Add a feedback entry."""
     if timestamp is None:
         timestamp = time.time()
     feedback = load_feedback()
@@ -767,32 +746,48 @@ def add_feedback(user_id, username, message, timestamp=None):
 # ---------------------------------------------------------------------------
 
 def load_group_schedules():
-    """Load per-group schedule overrides. Returns dict {group_id: settings}."""
     data = load_remote_json(config.GROUP_SCHEDULES_FILE, {})
     if not isinstance(data, dict):
         data = {}
     return data
 
 def save_group_schedules(schedules):
-    """Save per-group schedule overrides."""
     save_remote_json(config.GROUP_SCHEDULES_FILE, schedules)
 
 def get_group_schedule(group_id):
-    """Get schedule settings for a specific group, or None if not set."""
     schedules = load_group_schedules()
     return schedules.get(str(group_id))
 
 def set_group_schedule(group_id, settings):
-    """Set schedule settings for a specific group."""
+    """Set schedule settings for a specific group, storing the group name."""
     schedules = load_group_schedules()
-    schedules[str(group_id)] = settings
+    group_id_str = str(group_id)
+    
+    # Try to get group name
+    group_name = f"Group {group_id}"
+    try:
+        # We need the bot instance to get chat info
+        if _bot:
+            chat = _bot.get_chat(group_id)
+            group_name = chat.title or group_name
+    except Exception:
+        pass
+    
+    if group_id_str not in schedules:
+        schedules[group_id_str] = {}
+    
+    schedules[group_id_str]["group_name"] = group_name
+    for key, value in settings.items():
+        schedules[group_id_str][key] = value
+    
     save_group_schedules(schedules)
+    return True
 
 def remove_group_schedule(group_id):
-    """Remove per-group schedule (use global)."""
     schedules = load_group_schedules()
-    if str(group_id) in schedules:
-        del schedules[str(group_id)]
+    group_id_str = str(group_id)
+    if group_id_str in schedules:
+        del schedules[group_id_str]
         save_group_schedules(schedules)
         return True
     return False
