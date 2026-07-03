@@ -66,20 +66,19 @@
     },
     "8234402535": {
         "8234402535": {
-            "username": "User",
-            "points": 2760,
+            "username": "Jishikateki",
+            "points": 2460,
             "monthly_points": {
-                "2026-06": 3375,
-                "2026-07": 300
+                "2026-06": 3375
             },
             "yearly_points": {
-                "2026": 3675
+                "2026": 3375
             },
-            "alltime_points": 3675,
-            "streak": 5,
+            "alltime_points": 3375,
+            "streak": 4,
             "best_streak": 9,
-            "games_played": 36,
-            "correct": 30,
+            "games_played": 35,
+            "correct": 29,
             "title": "\ud83d\udc10 The GOAT",
             "title_expires": 1784791843.3751655,
             "hint_tokens": 0,
