@@ -1029,80 +1029,43 @@ def handle_all_messages(message):
     # NEW: Setup generated branch folder structure (admin only)
     # ===================================================================
     elif cmd == '/setupgenerated' and is_admin(user_id):
-        bot.reply_to(message, "🔧 Setting up generated branch structure...")
+        status_msg = bot.reply_to(message, "🔧 Setting up generated branch structure...")
         try:
-            # 1. Create daily_themes.json if missing
+            # --- Step 1: Create daily_themes.json ---
             themes_data = {
                 "weeks": [
-                    {
-                        "week": 1,
-                        "monday": {"character": "Kratos", "category": "Gaming"},
-                        "tuesday": {"character": "Luffy", "category": "Anime"},
-                        "wednesday": {"character": "Terminator", "category": "Movies"},
-                        "thursday": {"character": "Gojo", "category": "General"},
-                        "friday": {"character": "Iron Man", "category": "Technology"},
-                        "saturday": {"character": "Flash", "category": "Sports"},
-                        "sunday": {"character": "Bible Verse", "category": "Bible"}
-                    },
-                    {
-                        "week": 2,
-                        "monday": {"character": "Master Chief", "category": "Gaming"},
-                        "tuesday": {"character": "Goku", "category": "Anime"},
-                        "wednesday": {"character": "Thanos", "category": "Movies"},
-                        "thursday": {"character": "Professor X", "category": "General"},
-                        "friday": {"character": "Cyborg", "category": "Technology"},
-                        "saturday": {"character": "Isagi", "category": "Sports"},
-                        "sunday": {"character": "Bible Verse", "category": "Bible"}
-                    },
-                    {
-                        "week": 3,
-                        "monday": {"character": "Mario", "category": "Gaming"},
-                        "tuesday": {"character": "Naruto", "category": "Anime"},
-                        "wednesday": {"character": "Gandalf", "category": "Movies"},
-                        "thursday": {"character": "Kakashi", "category": "General"},
-                        "friday": {"character": "Mr. Terrific", "category": "Technology"},
-                        "saturday": {"character": "Hinata", "category": "Sports"},
-                        "sunday": {"character": "Bible Verse", "category": "Bible"}
-                    },
-                    {
-                        "week": 4,
-                        "monday": {"character": "Dante", "category": "Gaming"},
-                        "tuesday": {"character": "Ash Ketchum", "category": "Anime"},
-                        "wednesday": {"character": "Timon & Pumbaa", "category": "Movies"},
-                        "thursday": {"character": "Koro-sensei", "category": "General"},
-                        "friday": {"character": "Optimus Prime", "category": "Technology"},
-                        "saturday": {"character": "Tetsuya", "category": "Sports"},
-                        "sunday": {"character": "Bible Verse", "category": "Bible"}
-                    }
+                    {"week": 1, "monday": {"character": "Kratos", "category": "Gaming"}, "tuesday": {"character": "Luffy", "category": "Anime"}, "wednesday": {"character": "Terminator", "category": "Movies"}, "thursday": {"character": "Gojo", "category": "General"}, "friday": {"character": "Iron Man", "category": "Technology"}, "saturday": {"character": "Flash", "category": "Sports"}, "sunday": {"character": "Bible Verse", "category": "Bible"}},
+                    {"week": 2, "monday": {"character": "Master Chief", "category": "Gaming"}, "tuesday": {"character": "Goku", "category": "Anime"}, "wednesday": {"character": "Thanos", "category": "Movies"}, "thursday": {"character": "Professor X", "category": "General"}, "friday": {"character": "Cyborg", "category": "Technology"}, "saturday": {"character": "Isagi", "category": "Sports"}, "sunday": {"character": "Bible Verse", "category": "Bible"}},
+                    {"week": 3, "monday": {"character": "Mario", "category": "Gaming"}, "tuesday": {"character": "Naruto", "category": "Anime"}, "wednesday": {"character": "Gandalf", "category": "Movies"}, "thursday": {"character": "Kakashi", "category": "General"}, "friday": {"character": "Mr. Terrific", "category": "Technology"}, "saturday": {"character": "Hinata", "category": "Sports"}, "sunday": {"character": "Bible Verse", "category": "Bible"}},
+                    {"week": 4, "monday": {"character": "Dante", "category": "Gaming"}, "tuesday": {"character": "Ash Ketchum", "category": "Anime"}, "wednesday": {"character": "Timon & Pumbaa", "category": "Movies"}, "thursday": {"character": "Koro-sensei", "category": "General"}, "friday": {"character": "Optimus Prime", "category": "Technology"}, "saturday": {"character": "Tetsuya", "category": "Sports"}, "sunday": {"character": "Bible Verse", "category": "Bible"}}
                 ],
-                "current_week": 1,  # will auto-increment weekly
+                "current_week": 1,
                 "last_updated": datetime.datetime.now().isoformat()
             }
-            # Save to generated branch
             success = database.save_remote_json(config.DAILY_THEMES_FILE, themes_data)
-            if not success:
-                # Try using the global _bot (already set)
-                pass
+            if success:
+                bot.send_message(chat_id, "✅ `daily_themes.json` created/updated.", parse_mode="Markdown")
+            else:
+                bot.send_message(chat_id, "❌ Failed to create `daily_themes.json` – check GITHUB_TOKEN and branch permissions.", parse_mode="Markdown")
 
-            # 2. Create placeholder files for themes and scrambled folders
+            # --- Step 2: Create folders with .gitkeep ---
+            from github_uploader import upload_image_to_github
             placeholder = b""
-            folders = [
-                f"{config.GENERATED_IMAGES_PATH}/themes/.gitkeep",
-                f"{config.GENERATED_IMAGES_PATH}/scrambled/.gitkeep"
-            ]
-            for folder_path in folders:
+            folders = ["themes", "scrambled"]
+            for folder in folders:
                 try:
-                    from github_uploader import upload_image_to_github
-                    upload_image_to_github(bot, placeholder, ".gitkeep", folder_path, branch=config.TRIVIA_BRANCH)
+                    # upload a .gitkeep file to images/{folder}/
+                    result = upload_image_to_github(bot, placeholder, ".gitkeep", folder, branch=config.TRIVIA_BRANCH)
+                    if result:
+                        bot.send_message(chat_id, f"✅ Folder `images/{folder}/` created (with .gitkeep).", parse_mode="Markdown")
+                    else:
+                        bot.send_message(chat_id, f"❌ Failed to create `images/{folder}/` – check GITHUB_TOKEN and branch permissions.", parse_mode="Markdown")
                 except Exception as e:
-                    print(f"Failed to upload .gitkeep to {folder_path}: {e}")
+                    bot.send_message(chat_id, f"❌ Error creating `images/{folder}/`: {e}", parse_mode="Markdown")
 
-            bot.reply_to(message, "✅ Generated branch structure created/updated.\n\n"
-                                  "📁 `data/daily_themes.json` created.\n"
-                                  "🖼️ `images/themes/` and `images/scrambled/` folders created.\n"
-                                  "Now you can upload GIFs/images to `images/themes/`.")
+            bot.send_message(chat_id, "✅ Setup complete. Check your `generated` branch on GitHub to confirm.", parse_mode="Markdown")
         except Exception as e:
-            bot.reply_to(message, f"❌ Setup failed: {e}")
+            bot.send_message(chat_id, f"❌ Setup failed: {e}", parse_mode="Markdown")
 
     # --- End of new command ---
 
