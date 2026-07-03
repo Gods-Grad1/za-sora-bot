@@ -28,7 +28,6 @@ bot = telebot.TeleBot(config.API_TOKEN)
 database.set_bot(bot)
 
 BOT_START_TIME = time.time()
-database.init_broadcast_db()
 
 # ---------------------------------------------------------------------------
 # SCHEDULER STATE (Local file)
@@ -119,7 +118,9 @@ def _get_help_text(category):
             "/picture — Scrambled Image Guessing\n"
             "/trivia — Trivia (choose category)\n"
             "/spin — Wheel of Fortune\n"
-            "/versus @user — Challenge someone to a duel"
+            "/versus @user — Challenge someone to a duel\n"
+            "/guess — Character Quiz (text-based hints)\n"
+            "/lightning — Lightning Round (high-risk trivia)"
         ),
         "rankings": (
             "🏆 *RANKINGS & STATS*\n\n"
@@ -501,6 +502,8 @@ def send_morning_message(bot):
                     f"/year — Guess the Year\n"
                     f"/picture — Scrambled Image\n"
                     f"/trivia — Trivia Quiz\n"
+                    f"/guess — Character Quiz (text-based hints)\n"
+                    f"/lightning — Lightning Round (high-risk trivia)\n"
                     f"/spin — Wheel of Fortune\n"
                     f"/leaderboard — Rankings\n"
                     f"/shop — Point Shop\n\n"
@@ -779,6 +782,12 @@ def handle_all_messages(message):
     elif cmd == '/trivia':
         games.send_trivia_category_picker(bot, chat_id)
 
+    elif cmd == '/guess':
+        games.start_guess_game(bot, chat_id, user_id)
+
+    elif cmd == '/lightning':
+        games.start_lightning_round(bot, chat_id, user_id)
+
     elif cmd == '/hint':
         games.process_hint(bot, message=message)
 
@@ -1025,13 +1034,9 @@ def handle_all_messages(message):
                 bot.send_message(chat_id, f"❌ Banner generation failed: {e}")
         threading.Thread(target=generate_in_background, daemon=True).start()
 
-    # ===================================================================
-    # NEW: Setup generated branch folder structure (admin only)
-    # ===================================================================
     elif cmd == '/setupgenerated' and is_admin(user_id):
         status_msg = bot.reply_to(message, "🔧 Setting up generated branch structure...")
         try:
-            # --- Step 1: Create daily_themes.json ---
             themes_data = {
                 "weeks": [
                     {"week": 1, "monday": {"character": "Kratos", "category": "Gaming"}, "tuesday": {"character": "Luffy", "category": "Anime"}, "wednesday": {"character": "Terminator", "category": "Movies"}, "thursday": {"character": "Gojo", "category": "General"}, "friday": {"character": "Iron Man", "category": "Technology"}, "saturday": {"character": "Flash", "category": "Sports"}, "sunday": {"character": "Bible Verse", "category": "Bible"}},
@@ -1048,7 +1053,6 @@ def handle_all_messages(message):
             else:
                 bot.send_message(chat_id, "❌ Failed to create daily_themes.json – check GITHUB_TOKEN and branch permissions.")
 
-            # --- Step 2: Create folders with .gitkeep ---
             from github_uploader import upload_image_to_github
             placeholder = b""
             folders = ["themes", "scrambled"]
@@ -1065,8 +1069,6 @@ def handle_all_messages(message):
             bot.send_message(chat_id, "✅ Setup complete. Check your generated branch on GitHub to confirm.")
         except Exception as e:
             bot.send_message(chat_id, f"❌ Setup failed: {e}")
-
-    # --- End of new command ---
 
     elif cmd == '/addquote' and chat_id == user_id and is_admin(user_id):
         if not args:
@@ -1223,7 +1225,7 @@ def handle_spin(message):
     bot.reply_to(message, response, parse_mode="Markdown")
 
 # ---------------------------------------------------------------------------
-# CALLBACK HANDLER
+# CALLBACK HANDLER (UPDATED with GUESS and LIGHTNING)
 # ---------------------------------------------------------------------------
 
 @bot.callback_query_handler(func=lambda call: True)
@@ -1233,6 +1235,16 @@ def handle_all_callbacks(call):
     user_id = call.from_user.id
 
     try:
+        # --- NEW: GUESS HINT callback ---
+        if data.startswith("guess_hint_"):
+            games.handle_guess_hint(bot, call)
+            return
+
+        # --- NEW: LIGHTNING ANSWER callback ---
+        if data.startswith("lightning_ans_"):
+            games.handle_lightning_answer(bot, call)
+            return
+
         if data.startswith("charcat_"):
             cat = data.replace("charcat_", "")
             bot.answer_callback_query(call.id)
@@ -1421,7 +1433,6 @@ def handle_all_callbacks(call):
                 save_scheduler(sched)
                 bot.answer_callback_query(call.id, f"Time limit set to {sched['answer_time_limit']}s", show_alert=True)
 
-            # Try stored ID, then fallback to current message
             msg_id = sched.get("schedule_message_id")
             if msg_id:
                 try:
@@ -2004,6 +2015,8 @@ def register_commands():
         telebot.types.BotCommand("year",         "🎬 Guess the Release Year"),
         telebot.types.BotCommand("picture",      "🖼️ Scrambled Image Guessing"),
         telebot.types.BotCommand("trivia",       "❓ Trivia (choose category)"),
+        telebot.types.BotCommand("guess",        "🔍 Character Quiz (text hints)"),
+        telebot.types.BotCommand("lightning",    "⚡ High-risk rapid-fire trivia"),
         telebot.types.BotCommand("spin",         "🎰 Wheel of Fortune"),
         telebot.types.BotCommand("versus",       "⚔️ Challenge another player"),
         telebot.types.BotCommand("leaderboard",  "🏆 View rankings"),
@@ -2037,7 +2050,6 @@ def register_commands():
         telebot.types.BotCommand("editquote",    "✏️ Edit a quote (DM only)"),
         telebot.types.BotCommand("deletequote",  "🗑️ Delete a quote (DM only)"),
         telebot.types.BotCommand("previewquote", "👁️ Preview a quote (DM only)"),
-        # Debug commands
         telebot.types.BotCommand("listpending",  "📋 List pending broadcasts"),
         telebot.types.BotCommand("trackgroup",   "📌 Track this group manually"),
         telebot.types.BotCommand("generateall",  "🖼️ Generate banners for all users"),
