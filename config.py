@@ -38,6 +38,11 @@ GENERATED_DATA_PATH = "data"
 GENERATED_IMAGES_PATH = "images"
 DAILY_THEMES_FILE = "daily_themes.json"
 
+# --- NEW FILES ---
+BLOCKLIST_FILE        = "blocklist.json"
+FEEDBACK_FILE         = "feedback.json"
+GROUP_SCHEDULES_FILE  = "group_schedules.json"
+
 # --- DATABASE FILE PATHS (local fallback) ---
 GROUP_DATA_FILE   = "group_data.json"
 GROUPS_FILE       = "groups_db.txt"
