@@ -10,9 +10,9 @@
                 "2026": 5966
             },
             "alltime_points": 5966,
-            "streak": 5,
+            "streak": 0,
             "best_streak": 17,
-            "games_played": 40,
+            "games_played": 41,
             "correct": 34,
             "title": "✨ The Chosen One",
             "title_expires": 1784501512.7299716,
@@ -80,19 +80,19 @@
     "8234402535": {
         "8234402535": {
             "username": "Jishikateki",
-            "points": 3510,
+            "points": 3360,
             "monthly_points": {
                 "2026-06": 3375,
-                "2026-07": 1050
+                "2026-07": 900
             },
             "yearly_points": {
-                "2026": 4425
+                "2026": 4275
             },
-            "alltime_points": 4425,
-            "streak": 7,
+            "alltime_points": 4275,
+            "streak": 6,
             "best_streak": 9,
-            "games_played": 38,
-            "correct": 32,
+            "games_played": 37,
+            "correct": 31,
             "title": "🐐 The GOAT",
             "title_expires": 1784791843.3751655,
             "hint_tokens": 0,
