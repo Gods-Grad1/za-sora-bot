@@ -1470,7 +1470,7 @@ def handle_all_callbacks(call):
     data    = call.data
     chat_id = call.message.chat.id
     user_id = call.from_user.id
-    username = call.from_user.username or call.from_user.first_name  # FIXED: username defined here
+    username = call.from_user.username or call.from_user.first_name
 
     try:
         if data.startswith("guess_hint_"):
@@ -1627,7 +1627,6 @@ def handle_all_callbacks(call):
                 bot.send_message(chat_id, "✅ Check complete. Admin has been notified.")
             elif action == "trackgroup":
                 bot.answer_callback_query(call.id)
-                # FIXED: username is now defined at the top of the callback handler
                 database.track_member(bot, chat_id, user_id, username)
                 bot.send_message(chat_id, "✅ This group is now tracked in the database.")
             elif action == "block":
@@ -1638,21 +1637,30 @@ def handle_all_callbacks(call):
                 bot.send_message(chat_id, "🔓 Use `/unblock <user_id>` to unblock a user.", parse_mode="Markdown")
             elif action == "groupschedules":
                 bot.answer_callback_query(call.id)
-                # Trigger the /groupschedules command
                 from types import SimpleNamespace
-                dummy_msg = SimpleNamespace(text="/groupschedules", chat=SimpleNamespace(id=chat_id), from_user=SimpleNamespace(id=user_id))
+                dummy_msg = SimpleNamespace(
+                    text="/groupschedules",
+                    chat=SimpleNamespace(id=chat_id),
+                    from_user=SimpleNamespace(id=user_id, username=username, first_name=username)
+                )
                 handle_all_messages(dummy_msg)
             elif action == "setgroupschedule":
                 bot.answer_callback_query(call.id)
-                # Trigger the /setschedule_group command
                 from types import SimpleNamespace
-                dummy_msg = SimpleNamespace(text="/setschedule_group", chat=SimpleNamespace(id=chat_id), from_user=SimpleNamespace(id=user_id))
+                dummy_msg = SimpleNamespace(
+                    text="/setschedule_group",
+                    chat=SimpleNamespace(id=chat_id),
+                    from_user=SimpleNamespace(id=user_id, username=username, first_name=username)
+                )
                 handle_all_messages(dummy_msg)
             elif action == "removegroupschedule":
                 bot.answer_callback_query(call.id)
-                # Trigger the /remove_schedule_group command
                 from types import SimpleNamespace
-                dummy_msg = SimpleNamespace(text="/remove_schedule_group", chat=SimpleNamespace(id=chat_id), from_user=SimpleNamespace(id=user_id))
+                dummy_msg = SimpleNamespace(
+                    text="/remove_schedule_group",
+                    chat=SimpleNamespace(id=chat_id),
+                    from_user=SimpleNamespace(id=user_id, username=username, first_name=username)
+                )
                 handle_all_messages(dummy_msg)
             elif action == "back":
                 sched = load_scheduler()
