@@ -10,7 +10,7 @@ ADMIN_ID    = int(os.environ.get("ADMIN_ID", 0))
 
 # --- GOOGLE SHEETS ---
 CURRENT_TABLE_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSh6Ulx9_QZOrrAFNA4l1zj3Gv16HCpLilwhudvSJu4zUeMEoQDn5MM7UFe4c2hoUVSr0JYdNOggi-_/pub?gid=0&single=true&output=csv"
-FIXTURES_CSV_URL      = "https://docs.google.comspreadsheets/d/e/2PACX-1vSh6Ulx9_QZOrrAFNA4l1zj3Gv16HCpLilwhudvSJu4zUeMEoQDn5MM7UFe4c2hoUVSr0JYdNOggi-_/pub?gid=745306980&single=true&output=csv"
+FIXTURES_CSV_URL      = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSh6Ulx9_QZOrrAFNA4l1zj3Gv16HCpLilwhudvSJu4zUeMEoQDn5MM7UFe4c2hoUVSr0JYdNOggi-_/pub?gid=745306980&single=true&output=csv"
 
 # --- GITHUB IMAGE BACKUP ---
 GITHUB_RAW_BASE_URL = "https://raw.githubusercontent.com/Gods-Grad1/za-sora-bot/main/images/"
@@ -66,6 +66,9 @@ DAILY_CHALLENGE_HOUR = 14
 DAILY_CHALLENGE_MIN  = 0
 SCHEDULER_WINDOW_START = 10
 SCHEDULER_WINDOW_END   = 23
+
+# --- TIME LIMIT BUFFER ---
+TIME_LIMIT_BUFFER = 3  # seconds of buffer for loading/network latency
 
 # --- POINTS ECONOMY ---
 POINTS_CHARACTER_GAME  = 50
