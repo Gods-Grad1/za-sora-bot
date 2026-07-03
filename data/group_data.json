@@ -31,7 +31,7 @@
         },
         "6231510981": {
             "username": "aldeniho",
-            "points": 3889,
+            "points": 3689,
             "monthly_points": {
                 "2026-06": 3889
             },
@@ -43,8 +43,8 @@
             "best_streak": 7,
             "games_played": 35,
             "correct": 26,
-            "title": null,
-            "title_expires": null,
+            "title": "\u26a1 Lightning",
+            "title_expires": 1785689038.2686548,
             "hint_tokens": 0,
             "double_xp_until": null,
             "last_spin": 0,
@@ -76,7 +76,7 @@
     },
     "8234402535": {
         "8234402535": {
-            "username": "Jishikateki",
+            "username": "User",
             "points": 3360,
             "monthly_points": {
                 "2026-06": 3375,
