@@ -1,0 +1,14 @@
+{
+    "date": "2026-07-03",
+    "question": "What does 'VPN' stand for?",
+    "options": [
+        "Virtual Private Network",
+        "Verified Public Node",
+        "Virtual Protected Network",
+        "Variable Proxy Node"
+    ],
+    "answer": "A",
+    "display": "Virtual Private Network",
+    "category": "Technology",
+    "answered": []
+}
