@@ -94,18 +94,36 @@ def save_remote_json(filename, data):
     if not _bot:
         print(f"Bot not set, cannot save {filename}")
         return False
+    
+    # Ensure bot is valid
+    if not config.GITHUB_TOKEN:
+        print(f"⚠️ No GITHUB_TOKEN set, cannot save {filename}")
+        return False
+    
     url = f"https://api.github.com/repos/{config.GITHUB_REPO}/contents/{config.GENERATED_DATA_PATH}/{filename}"
-    headers = {"Authorization": f"token {config.GITHUB_TOKEN}"}
+    headers = {
+        "Authorization": f"token {config.GITHUB_TOKEN}",
+        "Accept": "application/vnd.github.v3+json"
+    }
     
     # Get existing file SHA if any
     resp = requests.get(url, headers=headers, params={"ref": config.TRIVIA_BRANCH})
     sha = None
     if resp.status_code == 200:
         sha = resp.json().get("sha")
+    elif resp.status_code == 404:
+        # File doesn't exist – that's fine, we'll create it
+        pass
+    else:
+        print(f"⚠️ Unexpected response checking {filename}: {resp.status_code}")
+    
+    content_str = json.dumps(data, indent=4, ensure_ascii=False)
+    content_bytes = content_str.encode('utf-8')
+    encoded = base64.b64encode(content_bytes).decode('ascii')
     
     payload = {
         "message": f"Update {filename}",
-        "content": base64.b64encode(json.dumps(data, indent=4).encode()).decode(),
+        "content": encoded,
         "branch": config.TRIVIA_BRANCH,
     }
     if sha:
@@ -113,16 +131,22 @@ def save_remote_json(filename, data):
     
     response = requests.put(url, headers=headers, json=payload)
     if response.status_code in (200, 201):
+        print(f"✅ Saved {filename} to GitHub")
         return True
     else:
-        print(f"Failed to save {filename} to GitHub: {response.text}")
+        print(f"❌ Failed to save {filename} to GitHub: {response.text}")
         # Fallback to local file
-        with open(filename, 'w') as f:
-            json.dump(data, f, indent=4)
-        return False
+        try:
+            with open(filename, 'w') as f:
+                json.dump(data, f, indent=4)
+            print(f"✅ Saved {filename} locally as fallback")
+            return True
+        except Exception as e:
+            print(f"❌ Failed to save {filename} locally: {e}")
+            return False
 
 # ---------------------------------------------------------------------------
-# BROADCAST SYSTEM (Uses broadcasts.json – NOT SQLite)
+# BROADCAST SYSTEM (Uses broadcasts.json)
 # ---------------------------------------------------------------------------
 
 _broadcast_lock = threading.Lock()
@@ -671,3 +695,104 @@ def get_random_quote(bot=None):
     import random
     quotes = load_quotes()
     return random.choice(quotes) if quotes else None
+
+# ---------------------------------------------------------------------------
+# BLOCKLIST
+# ---------------------------------------------------------------------------
+
+def load_blocklist():
+    """Load blocklist from GitHub. Returns list of user IDs."""
+    data = load_remote_json(config.BLOCKLIST_FILE, [])
+    if not isinstance(data, list):
+        data = []
+    return data
+
+def save_blocklist(blocklist):
+    """Save blocklist to GitHub."""
+    save_remote_json(config.BLOCKLIST_FILE, blocklist)
+
+def is_blocked(user_id):
+    """Check if a user is blocked."""
+    blocklist = load_blocklist()
+    return user_id in blocklist
+
+def block_user(user_id):
+    """Add a user to the blocklist."""
+    blocklist = load_blocklist()
+    if user_id not in blocklist:
+        blocklist.append(user_id)
+        save_blocklist(blocklist)
+        return True
+    return False
+
+def unblock_user(user_id):
+    """Remove a user from the blocklist."""
+    blocklist = load_blocklist()
+    if user_id in blocklist:
+        blocklist.remove(user_id)
+        save_blocklist(blocklist)
+        return True
+    return False
+
+# ---------------------------------------------------------------------------
+# FEEDBACK
+# ---------------------------------------------------------------------------
+
+def load_feedback():
+    """Load feedback from GitHub. Returns list of feedback entries."""
+    data = load_remote_json(config.FEEDBACK_FILE, [])
+    if not isinstance(data, list):
+        data = []
+    return data
+
+def save_feedback(feedback):
+    """Save feedback to GitHub."""
+    save_remote_json(config.FEEDBACK_FILE, feedback)
+
+def add_feedback(user_id, username, message, timestamp=None):
+    """Add a feedback entry."""
+    if timestamp is None:
+        timestamp = time.time()
+    feedback = load_feedback()
+    feedback.append({
+        "user_id": user_id,
+        "username": username,
+        "message": message,
+        "timestamp": timestamp
+    })
+    save_feedback(feedback)
+
+# ---------------------------------------------------------------------------
+# GROUP SCHEDULES (per-group override)
+# ---------------------------------------------------------------------------
+
+def load_group_schedules():
+    """Load per-group schedule overrides. Returns dict {group_id: settings}."""
+    data = load_remote_json(config.GROUP_SCHEDULES_FILE, {})
+    if not isinstance(data, dict):
+        data = {}
+    return data
+
+def save_group_schedules(schedules):
+    """Save per-group schedule overrides."""
+    save_remote_json(config.GROUP_SCHEDULES_FILE, schedules)
+
+def get_group_schedule(group_id):
+    """Get schedule settings for a specific group, or None if not set."""
+    schedules = load_group_schedules()
+    return schedules.get(str(group_id))
+
+def set_group_schedule(group_id, settings):
+    """Set schedule settings for a specific group."""
+    schedules = load_group_schedules()
+    schedules[str(group_id)] = settings
+    save_group_schedules(schedules)
+
+def remove_group_schedule(group_id):
+    """Remove per-group schedule (use global)."""
+    schedules = load_group_schedules()
+    if str(group_id) in schedules:
+        del schedules[str(group_id)]
+        save_group_schedules(schedules)
+        return True
+    return False
