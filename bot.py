@@ -1044,9 +1044,9 @@ def handle_all_messages(message):
             }
             success = database.save_remote_json(config.DAILY_THEMES_FILE, themes_data)
             if success:
-                bot.send_message(chat_id, "✅ `daily_themes.json` created/updated.", parse_mode="Markdown")
+                bot.send_message(chat_id, "✅ daily_themes.json created/updated.")
             else:
-                bot.send_message(chat_id, "❌ Failed to create `daily_themes.json` – check GITHUB_TOKEN and branch permissions.", parse_mode="Markdown")
+                bot.send_message(chat_id, "❌ Failed to create daily_themes.json – check GITHUB_TOKEN and branch permissions.")
 
             # --- Step 2: Create folders with .gitkeep ---
             from github_uploader import upload_image_to_github
@@ -1054,18 +1054,17 @@ def handle_all_messages(message):
             folders = ["themes", "scrambled"]
             for folder in folders:
                 try:
-                    # upload a .gitkeep file to images/{folder}/
                     result = upload_image_to_github(bot, placeholder, ".gitkeep", folder, branch=config.TRIVIA_BRANCH)
                     if result:
-                        bot.send_message(chat_id, f"✅ Folder `images/{folder}/` created (with .gitkeep).", parse_mode="Markdown")
+                        bot.send_message(chat_id, f"✅ Folder images/{folder}/ created (with .gitkeep).")
                     else:
-                        bot.send_message(chat_id, f"❌ Failed to create `images/{folder}/` – check GITHUB_TOKEN and branch permissions.", parse_mode="Markdown")
+                        bot.send_message(chat_id, f"❌ Failed to create images/{folder}/ – check GITHUB_TOKEN and branch permissions.")
                 except Exception as e:
-                    bot.send_message(chat_id, f"❌ Error creating `images/{folder}/`: {e}", parse_mode="Markdown")
+                    bot.send_message(chat_id, f"❌ Error creating images/{folder}/: {e}")
 
-            bot.send_message(chat_id, "✅ Setup complete. Check your `generated` branch on GitHub to confirm.", parse_mode="Markdown")
+            bot.send_message(chat_id, "✅ Setup complete. Check your generated branch on GitHub to confirm.")
         except Exception as e:
-            bot.send_message(chat_id, f"❌ Setup failed: {e}", parse_mode="Markdown")
+            bot.send_message(chat_id, f"❌ Setup failed: {e}")
 
     # --- End of new command ---
 
