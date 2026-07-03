@@ -2,18 +2,19 @@
     "-1003926769016": {
         "8234402535": {
             "username": "User",
-            "points": 5551,
+            "points": 5851,
             "monthly_points": {
-                "2026-06": 5966
+                "2026-06": 5966,
+                "2026-07": 300
             },
             "yearly_points": {
-                "2026": 5966
+                "2026": 6266
             },
-            "alltime_points": 5966,
-            "streak": 5,
+            "alltime_points": 6266,
+            "streak": 6,
             "best_streak": 17,
-            "games_played": 40,
-            "correct": 34,
+            "games_played": 41,
+            "correct": 35,
             "title": "\u2728 The Chosen One",
             "title_expires": 1784501512.7299716,
             "hint_tokens": 0,
@@ -27,8 +28,7 @@
             "trivia_correct": 0,
             "versus_wins": 0,
             "daily_wins": 0,
-            "powerups": {},
-            "last_lightning": 1783096880.8733346
+            "powerups": {}
         },
         "6231510981": {
             "username": "aldeniho",
