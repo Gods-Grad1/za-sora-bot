@@ -10,14 +10,20 @@
                 "2026": 5966
             },
             "alltime_points": 5966,
-            "streak": 5,
+            "streak": 0,
             "best_streak": 17,
-            "games_played": 40,
+            "games_played": 41,
             "correct": 34,
             "title": "\u2728 The Chosen One",
             "title_expires": 1784501512.7299716,
             "hint_tokens": 0,
-            "double_xp_until": null
+            "double_xp_until": null,
+            "last_spin": 0,
+            "badges": [],
+            "trivia_correct": 0,
+            "versus_wins": 0,
+            "daily_wins": 0,
+            "powerups": {}
         },
         "6231510981": {
             "username": "aldeniho",
