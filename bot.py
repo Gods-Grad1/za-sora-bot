@@ -56,6 +56,22 @@ def save_scheduler(data):
 def is_admin(user_id):
     return user_id == config.ADMIN_ID
 
+def is_group_admin(chat_id, user_id):
+    """Check if a user is an admin of the group."""
+    try:
+        chat_member = bot.get_chat_member(chat_id, user_id)
+        return chat_member.status in ["administrator", "creator"]
+    except Exception:
+        return False
+
+def is_authorized(chat_id, user_id):
+    """Check if user is either THE Admin or a group admin."""
+    if is_admin(user_id):
+        return True
+    if is_group_admin(chat_id, user_id):
+        return True
+    return False
+
 def utc_to_local(utc_hour):
     return (utc_hour + 2) % 24
 
@@ -105,7 +121,7 @@ def _build_help_menu():
         telebot.types.InlineKeyboardButton("🏆 Rankings & Stats", callback_data="help_rankings"),
         telebot.types.InlineKeyboardButton("🛒 Shop & Power-ups", callback_data="help_shop"),
         telebot.types.InlineKeyboardButton("📋 Info & Tools", callback_data="help_info"),
-        telebot.types.InlineKeyboardButton("⚙️ Admin", callback_data="help_admin"),
+        telebot.types.InlineKeyboardButton("⚙️ Admin (Group)", callback_data="help_admin_group"),
     )
     return markup
 
@@ -140,29 +156,15 @@ def _get_help_text(category):
         "info": (
             "📋 *INFO & TOOLS*\n\n"
             "/table — League standings (image)\n"
-            "/fixtures — Match fixtures (image)"
+            "/fixtures — Match fixtures (image)\n"
+            "/feedback — Send feedback to the Captain"
         ),
-        "admin": (
-            "⚙️ *ADMIN COMMANDS*\n\n"
-            "/admin — Admin control panel\n"
+        "admin_group": (
+            "⚙️ *GROUP ADMIN COMMANDS*\n\n"
             "/tagall — Tag all members\n"
             "/setschedule — Configure auto-game scheduler\n"
-            "/setwindow <start> <end> — Set game window (e.g., /setwindow 10 23)\n"
-            "/mute @user 1h — Mute a user\n"
-            "/unmute @user — Unmute a user\n"
-            "/broadcast YYYY-MM-DD HH:MM msg — Schedule a broadcast (automatically tags all members)\n"
-            "/forcebroadcast — Force-send all pending broadcasts\n"
-            "/checknow — Manually check for pending broadcasts\n"
-            "/uploadtrivia — Upload trivia questions (file)\n"
-            "/checkimages — Check for missing images\n"
-            "/testbroadcast — Test broadcast system\n"
-            "/rebuildcache — Rebuild image cache\n"
-            "/testmorning — Test morning message\n"
-            "/status — Bot status\n"
-            "/listbroadcasts — List scheduled broadcasts\n"
-            "/generateall — Generate banners for all users\n"
-            "/trackgroup — Manually track this group\n"
-            "/setupgenerated — Prepare generated branch folders (admin)"
+            "/setwindow <start> <end> — Set game window (e.g., /setwindow 10 23)\n\n"
+            "*Note:* These commands are available to group admins and the Captain."
         ),
     }
     return texts.get(category, "Unknown category.")
@@ -288,15 +290,17 @@ def show_shop(message):
 # ---------------------------------------------------------------------------
 
 def tag_all_members(message, custom_msg=""):
-    if not is_admin(message.from_user.id):
-        bot.reply_to(message, "❌ Admin only.")
+    if not is_authorized(message.chat.id, message.from_user.id):
+        bot.reply_to(message, "❌ Only group admins and the Captain can use this command.")
         return
     sched = load_scheduler()
     now = time.time()
-    if now - sched.get("tagall_last", 0) < config.TAGALL_COOLDOWN_HOURS * 3600:
-        remaining = int((config.TAGALL_COOLDOWN_HOURS * 3600 - (now - sched["tagall_last"])) / 60)
-        bot.reply_to(message, f"⏳ Tag all on cooldown. {remaining} minutes remaining.")
-        return
+    # Only THE Admin bypasses cooldown
+    if not is_admin(message.from_user.id):
+        if now - sched.get("tagall_last", 0) < config.TAGALL_COOLDOWN_HOURS * 3600:
+            remaining = int((config.TAGALL_COOLDOWN_HOURS * 3600 - (now - sched["tagall_last"])) / 60)
+            bot.reply_to(message, f"⏳ Tag all on cooldown. {remaining} minutes remaining.")
+            return
     markup = telebot.types.InlineKeyboardMarkup()
     safe_msg = custom_msg[:200].replace('"', "'")
     markup.row(
@@ -355,12 +359,12 @@ def show_quotes_page(chat_id, page=1):
     return text, markup
 
 # ---------------------------------------------------------------------------
-# ADMIN PANEL
+# ADMIN PANEL (Captain only)
 # ---------------------------------------------------------------------------
 
 def show_admin_panel(message):
     if not is_admin(message.from_user.id):
-        bot.reply_to(message, "❌ Admin only.")
+        bot.reply_to(message, "❌ Captain only.")
         return
     markup = telebot.types.InlineKeyboardMarkup(row_width=2)
     markup.add(
@@ -377,6 +381,9 @@ def show_admin_panel(message):
         telebot.types.InlineKeyboardButton("📢 Broadcast",             callback_data="admin_broadcast"),
         telebot.types.InlineKeyboardButton("🔍 Check Images",          callback_data="admin_checkimages"),
         telebot.types.InlineKeyboardButton("📌 Track Group",           callback_data="admin_trackgroup"),
+        telebot.types.InlineKeyboardButton("🚫 Block User",            callback_data="admin_block"),
+        telebot.types.InlineKeyboardButton("🔓 Unblock User",          callback_data="admin_unblock"),
+        telebot.types.InlineKeyboardButton("📋 Group Schedules",       callback_data="admin_groupschedules"),
     )
     sched = load_scheduler()
     status_icon = "✅" if sched.get("enabled") else "❌"
@@ -496,17 +503,9 @@ def send_morning_message(bot):
                     msg += f"💬 *{quote['text']}*\n_— {quote['author']}_\n\n"
 
                 msg += (
-                    f"🏆 *Monthly Top 3:*\n{top3}\n"
-                    f"🎮 *Game Commands:*\n"
-                    f"/game — Guess the Character\n"
-                    f"/year — Guess the Year\n"
-                    f"/picture — Scrambled Image\n"
-                    f"/trivia — Trivia Quiz\n"
-                    f"/guess — Character Quiz (text-based hints)\n"
-                    f"/lightning — Lightning Round (high-risk trivia)\n"
-                    f"/spin — Wheel of Fortune\n"
-                    f"/leaderboard — Rankings\n"
-                    f"/shop — Point Shop\n\n"
+                    f"🏆 *Monthly Top 3:*\n{top3}\n\n"
+                    f"🎮 *Start your adventure:*\n"
+                    f"/start — Welcome to the crew!\n\n"
                     f"Let's have a great day! 🙏🔥"
                 )
 
@@ -720,6 +719,11 @@ def handle_all_messages(message):
     username = message.from_user.username or message.from_user.first_name
     chat_id  = message.chat.id
 
+    # Check if user is blocked
+    if database.is_blocked(user_id):
+        # Silently ignore blocked users
+        return
+
     database.track_member(bot, chat_id, user_id, username)
 
     if games.check_user_answer(bot, message):
@@ -758,11 +762,24 @@ def handle_all_messages(message):
         else:
             bot.reply_to(message, "Usage: /viewstats @username")
 
+    elif cmd == '/feedback':
+        if not args:
+            bot.reply_to(message, "📝 Usage: /feedback <your message>")
+            return
+        feedback_msg = " ".join(args)
+        database.add_feedback(user_id, username, feedback_msg)
+        bot.reply_to(message, "✅ Your feedback has been sent to the Captain! 🏴‍☠️")
+        # Also forward to admin DM
+        try:
+            bot.send_message(config.ADMIN_ID, f"💬 *NEW FEEDBACK*\n\nFrom: {username} (ID: {user_id})\nChat: {chat_id}\n\n📝 {feedback_msg}", parse_mode="Markdown")
+        except Exception:
+            pass
+
     elif cmd == '/status':
         if is_admin(user_id):
             handle_status(message)
         else:
-            bot.reply_to(message, "❌ Admin only.")
+            bot.reply_to(message, "❌ Captain only.")
 
     elif cmd == '/table':
         show_league_table(message)
@@ -793,6 +810,7 @@ def handle_all_messages(message):
 
     elif cmd == '/stop':
         if chat_id in games.active_games:
+            # Game ended by stop – DO NOT update scheduler last_game
             del games.active_games[chat_id]
             bot.reply_to(message, "🛑 Game stopped.")
 
@@ -840,21 +858,30 @@ def handle_all_messages(message):
         games.handle_versus_forfeit(bot, message)
 
     elif cmd == '/tagall':
+        if not is_authorized(chat_id, user_id):
+            bot.reply_to(message, "❌ Only group admins and the Captain can use this command.")
+            return
         custom_msg = " ".join(args) if args else "Attention everyone!"
         tag_all_members(message, custom_msg)
+
+    elif cmd == '/clean':
+        if not is_admin(user_id):
+            bot.reply_to(message, "❌ Captain only.")
+            return
+        clean_bot_messages(chat_id, message)
 
     elif cmd == '/admin':
         if is_admin(user_id):
             show_admin_panel(message)
         else:
-            bot.reply_to(message, "❌ Admin only.")
+            bot.reply_to(message, "❌ Captain only.")
 
     elif cmd == '/testmorning':
         if is_admin(user_id):
             send_morning_message(bot)
             bot.reply_to(message, "✅ Morning message sent (test).")
         else:
-            bot.reply_to(message, "❌ Admin only.")
+            bot.reply_to(message, "❌ Captain only.")
 
     elif cmd == '/checknow' and is_admin(user_id):
         bot.reply_to(message, "🔄 Manually checking for pending broadcasts...")
@@ -988,7 +1015,7 @@ def handle_all_messages(message):
             _send_pending_broadcasts(bot)
         return
 
-    elif cmd == '/setwindow' and is_admin(user_id):
+    elif cmd == '/setwindow' and is_authorized(chat_id, user_id):
         if len(args) != 2 or not args[0].isdigit() or not args[1].isdigit():
             bot.reply_to(message, "Usage: /setwindow <start_hour> <end_hour>\nExample: /setwindow 10 23")
             return
@@ -1111,8 +1138,150 @@ def handle_all_messages(message):
         else:
             bot.reply_to(message, f"❌ Quote #{args[0]} not found.")
 
-    elif cmd == '/setschedule' and is_admin(user_id):
+    elif cmd == '/setschedule' and is_authorized(chat_id, user_id):
         show_schedule_panel(chat_id)
+
+    elif cmd == '/block' and is_admin(user_id):
+        if not args or not args[0].isdigit():
+            bot.reply_to(message, "Usage: /block <user_id> [reason]")
+            return
+        target_id = int(args[0])
+        reason = " ".join(args[1:]) if len(args) > 1 else "No reason provided"
+        if database.block_user(target_id):
+            bot.reply_to(message, f"✅ User `{target_id}` has been blocked.\n📝 Reason: {reason}")
+        else:
+            bot.reply_to(message, f"❌ User `{target_id}` is already blocked.")
+
+    elif cmd == '/unblock' and is_admin(user_id):
+        if not args or not args[0].isdigit():
+            bot.reply_to(message, "Usage: /unblock <user_id>")
+            return
+        target_id = int(args[0])
+        if database.unblock_user(target_id):
+            bot.reply_to(message, f"✅ User `{target_id}` has been unblocked.")
+        else:
+            bot.reply_to(message, f"❌ User `{target_id}` was not blocked.")
+
+    elif cmd == '/groupschedules' and is_admin(user_id):
+        schedules = database.load_group_schedules()
+        if not schedules:
+            bot.reply_to(message, "📋 No group-specific schedules set. All groups use the global schedule.")
+            return
+        text = "📋 *GROUP SCHEDULES*\n\n"
+        for gid, settings in schedules.items():
+            text += f"📊 *Group {gid}:*\n"
+            text += f"   Enabled: {'✅' if settings.get('enabled') else '❌'}\n"
+            text += f"   Interval: {settings.get('interval', 60)} min\n"
+            text += f"   Type: {settings.get('game_type', 'random').title()}\n"
+            text += f"   Window: {settings.get('window_start', 10)}:00 – {settings.get('window_end', 23)}:00\n\n"
+        bot.reply_to(message, text, parse_mode="Markdown")
+
+    elif cmd == '/setschedule_group' and is_admin(user_id):
+        if len(args) < 4:
+            bot.reply_to(message, "Usage: /setschedule_group <group_id> <interval> <game_type> <enabled>\n\n"
+                                  "Example: /setschedule_group -100123456 60 trivia true\n"
+                                  "Game types: character, year, picture, trivia, random\n"
+                                  "Enabled: true or false")
+            return
+        group_id = int(args[0])
+        interval = int(args[1])
+        game_type = args[2].lower()
+        enabled = args[3].lower() in ["true", "yes", "1", "on"]
+        
+        if game_type not in ["character", "year", "picture", "trivia", "random"]:
+            bot.reply_to(message, f"❌ Invalid game type. Choose from: character, year, picture, trivia, random")
+            return
+        
+        settings = {
+            "enabled": enabled,
+            "interval": interval,
+            "game_type": game_type,
+            "window_start": 10,
+            "window_end": 23
+        }
+        database.set_group_schedule(group_id, settings)
+        bot.reply_to(message, f"✅ Group {group_id} schedule updated!")
+
+    elif cmd == '/remove_schedule_group' and is_admin(user_id):
+        if not args or not args[0].isdigit():
+            bot.reply_to(message, "Usage: /remove_schedule_group <group_id>")
+            return
+        group_id = int(args[0])
+        if database.remove_group_schedule(group_id):
+            bot.reply_to(message, f"✅ Group {group_id} schedule removed. Now using global schedule.")
+        else:
+            bot.reply_to(message, f"❌ Group {group_id} had no custom schedule.")
+
+# ---------------------------------------------------------------------------
+# CLEAN BOT MESSAGES – NEW
+# ---------------------------------------------------------------------------
+
+def clean_bot_messages(chat_id, trigger_message):
+    """Delete all bot messages in a chat except important ones."""
+    bot.reply_to(trigger_message, "🧹 Cleaning up bot messages...")
+    
+    # Get the last 100 messages
+    try:
+        messages = bot.get_chat_history(chat_id, limit=100)
+    except Exception:
+        bot.reply_to(trigger_message, "❌ Could not fetch messages. Bot needs delete_message permission.")
+        return
+    
+    deleted_count = 0
+    kept_count = 0
+    
+    # Messages to KEEP (do not delete)
+    keep_patterns = [
+        "BROADCAST", "📢 *ANNOUNCEMENT*", "📢 *Tagging everyone*",
+        "🌅 send_morning_message", "☀️ *Good Morning, Family!*",
+        "📊 *WEEKLY RECAP*", "📅 *SUNDAY STANDINGS*",
+        "🏆 *Monthly Results*", "🎊 *Yearly Champion*",
+        "📊 *GROUP STATS*", "🏆 *ZA SORA ZENITH LEAGUE STANDINGS*",
+        "📋 *FIXTURES*", "⚔️ *MATCH OVER*", "⚔️ *MATCH DRAWN*",
+        "🏳️ *", "🤝 *MATCH DRAWN*",
+        "/mystats", "/viewstats", "Your Stats", "Stats",
+        "📖 *ZA SORA GAME CLUB — HELP*",
+        "⚙️ *ADMIN PANEL*", "📅 *SCHEDULE SETTINGS*",
+        "🛒 *POINT SHOP*", "🏆 *Leaderboard*",
+        "📋 *FIXTURES*",
+        "🎰 *WHEEL OF FORTUNE*",
+        "✅ *Challenge Accepted*", "⚔️ *VERSUS CHALLENGE*",
+        "💰 *BET RESULTS*"
+    ]
+    
+    for msg in messages:
+        # Skip the trigger message itself
+        if msg.message_id == trigger_message.message_id:
+            continue
+        
+        # Only delete bot messages
+        if not msg.from_user or not msg.from_user.is_bot:
+            continue
+        
+        text = msg.text or msg.caption or ""
+        should_keep = False
+        
+        # Check if message should be kept
+        for pattern in keep_patterns:
+            if pattern in text or pattern.lower() in text.lower():
+                should_keep = True
+                break
+        
+        # Also keep messages that are results (contain "won" or "wins" or "Final score")
+        if "won" in text.lower() or "wins" in text.lower() or "final score" in text.lower():
+            should_keep = True
+        
+        if not should_keep:
+            try:
+                bot.delete_message(chat_id, msg.message_id)
+                deleted_count += 1
+                time.sleep(0.05)  # Avoid rate limits
+            except Exception as e:
+                print(f"Failed to delete message {msg.message_id}: {e}")
+        else:
+            kept_count += 1
+    
+    bot.reply_to(trigger_message, f"🧹 *Cleanup Complete*\n\n🗑️ Deleted: {deleted_count} bot messages\n📌 Kept: {kept_count} important messages", parse_mode="Markdown")
 
 # ---------------------------------------------------------------------------
 # STATUS COMMAND
@@ -1132,6 +1301,7 @@ def handle_status(message):
     broadcast_alive = broadcast_checker_thread and broadcast_checker_thread.is_alive()
     scheduler_alive = scheduler_thread and scheduler_thread.is_alive()
     pending = database.get_pending_broadcasts()
+    blocklist = database.load_blocklist()
 
     status_text = (
         f"🤖 *Bot Status*\n\n"
@@ -1140,6 +1310,7 @@ def handle_status(message):
         f"📊 *Groups:* {len(groups)}\n"
         f"👥 *Tracked members:* {total_members}\n"
         f"📦 *Total user entries:* {total_entries}\n"
+        f"🚫 *Blocked users:* {len(blocklist)}\n"
         f"⏰ *Local time:* {local_now().strftime('%Y-%m-%d %H:%M:%S')}\n"
         f"🔄 *Scheduler:* {'✅ Running' if scheduler_alive else '❌ Stopped'}\n"
         f"📢 *Broadcast checker:* {'✅ Running' if broadcast_alive else '❌ Stopped'}\n"
@@ -1225,7 +1396,7 @@ def handle_spin(message):
     bot.reply_to(message, response, parse_mode="Markdown")
 
 # ---------------------------------------------------------------------------
-# CALLBACK HANDLER (UPDATED with GUESS and LIGHTNING)
+# CALLBACK HANDLER (UPDATED)
 # ---------------------------------------------------------------------------
 
 @bot.callback_query_handler(func=lambda call: True)
@@ -1392,8 +1563,17 @@ def handle_all_callbacks(call):
                 bot.send_message(chat_id, "✅ Check complete. Admin has been notified.")
             elif action == "trackgroup":
                 bot.answer_callback_query(call.id)
-                database.track_member(bot, chat_id, user_id, username)
+                database.track_member(bot, chat_id, user_id, username)  # Fixed: username is defined here
                 bot.send_message(chat_id, "✅ This group is now tracked in the database.")
+            elif action == "block":
+                bot.answer_callback_query(call.id)
+                bot.send_message(chat_id, "🚫 Use `/block <user_id> [reason]` to block a user.", parse_mode="Markdown")
+            elif action == "unblock":
+                bot.answer_callback_query(call.id)
+                bot.send_message(chat_id, "🔓 Use `/unblock <user_id>` to unblock a user.", parse_mode="Markdown")
+            elif action == "groupschedules":
+                bot.answer_callback_query(call.id)
+                bot.send_message(chat_id, "📋 Use `/groupschedules` to list all group schedules.", parse_mode="Markdown")
             elif action == "back":
                 sched = load_scheduler()
                 msg_id = sched.get("schedule_message_id")
@@ -1412,7 +1592,7 @@ def handle_all_callbacks(call):
         # -------------------------------------------------------------------
         # SCHEDULER SETTINGS – Edit in place with fallback
         # -------------------------------------------------------------------
-        if data.startswith("sched_") and is_admin(user_id):
+        if data.startswith("sched_") and is_authorized(chat_id, user_id):
             sched  = load_scheduler()
             action = data.replace("sched_", "")
             if action == "toggle":
@@ -1444,7 +1624,7 @@ def handle_all_callbacks(call):
                 show_schedule_panel(chat_id, edit_message_id=call.message.message_id)
             return
 
-        if data == "tagall_confirm" and is_admin(user_id):
+        if data == "tagall_confirm" and is_authorized(chat_id, user_id):
             sched    = load_scheduler()
             msg      = sched.get("tagall_pending_msg", "")
             send_chat = sched.get("tagall_pending_chat", chat_id)
@@ -1737,43 +1917,61 @@ def background_scheduler():
                     time.sleep(61)
 
                 if sched.get("enabled"):
-                    window_start = sched.get("window_start", config.SCHEDULER_WINDOW_START)
-                    window_end   = sched.get("window_end",   config.SCHEDULER_WINDOW_END)
-                    in_window    = window_start <= hour < window_end
-                    interval_sec = sched.get("interval", 60) * 60
-                    last_game    = sched.get("last_game", 0)
-                    now_ts       = time.time()
-
-                    if in_window and (now_ts - last_game) >= interval_sec:
-                        print(f"⏳ Scheduler: in_window={in_window}, diff={now_ts - last_game}, interval={interval_sec}")
-                        game_type = sched.get("game_type", "random")
-                        if game_type == "random":
-                            game_type = random.choice(["character", "year", "picture", "trivia"])
-
-                        groups = database.get_all_groups()
-                        started_any = False
-                        for g_id in groups:
+                    # Check for per-group schedule override
+                    groups = database.get_all_groups()
+                    
+                    for g_id in groups:
+                        # Check if this group has custom schedule
+                        group_sched = database.get_group_schedule(g_id)
+                        
+                        if group_sched:
+                            window_start = group_sched.get("window_start", config.SCHEDULER_WINDOW_START)
+                            window_end   = group_sched.get("window_end", config.SCHEDULER_WINDOW_END)
+                            in_window    = window_start <= hour < window_end
+                            interval_sec = group_sched.get("interval", 60) * 60
+                            game_type    = group_sched.get("game_type", "random")
+                            enabled      = group_sched.get("enabled", True)
+                            
+                            if not enabled:
+                                continue
+                        else:
+                            # Use global schedule
+                            window_start = sched.get("window_start", config.SCHEDULER_WINDOW_START)
+                            window_end   = sched.get("window_end", config.SCHEDULER_WINDOW_END)
+                            in_window    = window_start <= hour < window_end
+                            interval_sec = sched.get("interval", 60) * 60
+                            game_type    = sched.get("game_type", "random")
+                        
+                        last_game    = sched.get("last_game", 0)
+                        now_ts       = time.time()
+                        
+                        if in_window and (now_ts - last_game) >= interval_sec:
+                            print(f"⏳ Scheduler: group={g_id}, in_window={in_window}, diff={now_ts - last_game}, interval={interval_sec}")
+                            
+                            if game_type == "random":
+                                game_type = random.choice(["character", "year", "picture", "trivia"])
+                            
                             if games._is_game_active(g_id) or g_id in games.versus_games:
                                 continue
+                            
+                            started = False
                             if game_type == "character":
                                 games.start_character_game(bot, g_id)
-                                started_any = True
+                                started = True
                             elif game_type == "year":
                                 games.start_year_game(bot, g_id)
-                                started_any = True
+                                started = True
                             elif game_type == "picture":
                                 games.start_picture_game(bot, g_id)
-                                started_any = True
+                                started = True
                             elif game_type == "trivia":
                                 games.start_trivia_game(bot, g_id)
-                                started_any = True
-
-                        if started_any:
-                            sched["last_game"] = now_ts
-                            save_scheduler(sched)
-                            print(f"✅ Started {game_type} game(s) in {len(groups)} groups.")
-                        else:
-                            print("ℹ️ No games started (all groups had active games).")
+                                started = True
+                            
+                            if started:
+                                print(f"✅ Started {game_type} game in group {g_id}")
+                            else:
+                                print(f"ℹ️ No game started in group {g_id} (active game present)")
 
             except Exception as e:
                 print(f"Scheduler error: {e}")
@@ -2026,34 +2224,41 @@ def register_commands():
         telebot.types.BotCommand("powerups",     "⚡ View your power-ups"),
         telebot.types.BotCommand("table",        "📋 League standings"),
         telebot.types.BotCommand("fixtures",     "📅 Match fixtures"),
+        telebot.types.BotCommand("feedback",     "💬 Send feedback to the Captain"),
     ]
 
     admin_commands = public_commands + [
-        telebot.types.BotCommand("admin",        "⚙️ Admin control panel"),
-        telebot.types.BotCommand("tagall",       "📢 Tag all members"),
-        telebot.types.BotCommand("setschedule",  "🕐 Configure auto-game scheduler"),
-        telebot.types.BotCommand("setwindow",    "⏰ Set game window (e.g., /setwindow 10 23)"),
-        telebot.types.BotCommand("mute",         "🔇 Mute a user"),
-        telebot.types.BotCommand("unmute",       "🔊 Unmute a user"),
-        telebot.types.BotCommand("broadcast",    "📢 Schedule a broadcast (auto-tags all)"),
-        telebot.types.BotCommand("forcebroadcast", "📤 Force-send pending broadcasts"),
-        telebot.types.BotCommand("checknow",     "🔄 Manually check for pending broadcasts"),
-        telebot.types.BotCommand("uploadtrivia", "📤 Upload trivia questions"),
-        telebot.types.BotCommand("checkimages",  "🔍 Check for missing images"),
-        telebot.types.BotCommand("testbroadcast","🧪 Test broadcast system"),
-        telebot.types.BotCommand("rebuildcache", "🔄 Rebuild image cache"),
-        telebot.types.BotCommand("testmorning",  "🧪 Test morning message"),
-        telebot.types.BotCommand("status",       "🤖 Bot status"),
-        telebot.types.BotCommand("listbroadcasts","📋 List scheduled broadcasts"),
-        telebot.types.BotCommand("addquote",     "➕ Add a quote (DM only)"),
-        telebot.types.BotCommand("listquotes",   "📝 List all quotes (DM only)"),
-        telebot.types.BotCommand("editquote",    "✏️ Edit a quote (DM only)"),
-        telebot.types.BotCommand("deletequote",  "🗑️ Delete a quote (DM only)"),
-        telebot.types.BotCommand("previewquote", "👁️ Preview a quote (DM only)"),
-        telebot.types.BotCommand("listpending",  "📋 List pending broadcasts"),
-        telebot.types.BotCommand("trackgroup",   "📌 Track this group manually"),
-        telebot.types.BotCommand("generateall",  "🖼️ Generate banners for all users"),
-        telebot.types.BotCommand("setupgenerated", "🔧 Prepare generated branch (admin)"),
+        telebot.types.BotCommand("admin",        "⚙️ Admin control panel (Captain only)"),
+        telebot.types.BotCommand("tagall",       "📢 Tag all members (Group admins)"),
+        telebot.types.BotCommand("setschedule",  "🕐 Configure auto-game scheduler (Group admins)"),
+        telebot.types.BotCommand("setwindow",    "⏰ Set game window (Group admins)"),
+        telebot.types.BotCommand("mute",         "🔇 Mute a user (Captain only)"),
+        telebot.types.BotCommand("unmute",       "🔊 Unmute a user (Captain only)"),
+        telebot.types.BotCommand("broadcast",    "📢 Schedule a broadcast (Captain only)"),
+        telebot.types.BotCommand("forcebroadcast", "📤 Force-send pending broadcasts (Captain only)"),
+        telebot.types.BotCommand("checknow",     "🔄 Manually check for pending broadcasts (Captain only)"),
+        telebot.types.BotCommand("uploadtrivia", "📤 Upload trivia questions (Captain only)"),
+        telebot.types.BotCommand("checkimages",  "🔍 Check for missing images (Captain only)"),
+        telebot.types.BotCommand("testbroadcast","🧪 Test broadcast system (Captain only)"),
+        telebot.types.BotCommand("rebuildcache", "🔄 Rebuild image cache (Captain only)"),
+        telebot.types.BotCommand("testmorning",  "🧪 Test morning message (Captain only)"),
+        telebot.types.BotCommand("status",       "🤖 Bot status (Captain only)"),
+        telebot.types.BotCommand("listbroadcasts","📋 List scheduled broadcasts (Captain only)"),
+        telebot.types.BotCommand("addquote",     "➕ Add a quote (DM only, Captain only)"),
+        telebot.types.BotCommand("listquotes",   "📝 List all quotes (DM only, Captain only)"),
+        telebot.types.BotCommand("editquote",    "✏️ Edit a quote (DM only, Captain only)"),
+        telebot.types.BotCommand("deletequote",  "🗑️ Delete a quote (DM only, Captain only)"),
+        telebot.types.BotCommand("previewquote", "👁️ Preview a quote (DM only, Captain only)"),
+        telebot.types.BotCommand("listpending",  "📋 List pending broadcasts (Captain only)"),
+        telebot.types.BotCommand("trackgroup",   "📌 Track this group manually (Captain only)"),
+        telebot.types.BotCommand("generateall",  "🖼️ Generate banners for all users (Captain only)"),
+        telebot.types.BotCommand("setupgenerated", "🔧 Prepare generated branch (Captain only)"),
+        telebot.types.BotCommand("clean",        "🧹 Clean up bot messages (Captain only)"),
+        telebot.types.BotCommand("block",        "🚫 Block a user (Captain only)"),
+        telebot.types.BotCommand("unblock",      "🔓 Unblock a user (Captain only)"),
+        telebot.types.BotCommand("groupschedules","📋 List group schedules (Captain only)"),
+        telebot.types.BotCommand("setschedule_group","📋 Set group schedule (Captain only)"),
+        telebot.types.BotCommand("remove_schedule_group","🗑️ Remove group schedule (Captain only)"),
     ]
 
     try:
