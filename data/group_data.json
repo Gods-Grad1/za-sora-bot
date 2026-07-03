@@ -31,7 +31,7 @@
         },
         "6231510981": {
             "username": "User",
-            "points": 3489,
+            "points": 3689,
             "monthly_points": {
                 "2026-06": 3889
             },
@@ -52,7 +52,8 @@
             "trivia_correct": 0,
             "versus_wins": 0,
             "daily_wins": 0,
-            "powerups": {}
+            "powerups": {},
+            "last_lightning": 1783097134.1781366
         },
         "1454425797": {
             "username": "Ntokozo144",
