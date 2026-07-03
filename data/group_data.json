@@ -25,24 +25,25 @@
                 "streak_10"
             ],
             "trivia_correct": 0,
-            "versus_wins": 1,
+            "versus_wins": 0,
             "daily_wins": 0,
             "powerups": {}
         },
         "6231510981": {
             "username": "aldeniho",
-            "points": 3689,
+            "points": 3722,
             "monthly_points": {
-                "2026-06": 3889
+                "2026-06": 3889,
+                "2026-07": 33
             },
             "yearly_points": {
-                "2026": 3889
+                "2026": 3922
             },
-            "alltime_points": 3889,
-            "streak": 0,
+            "alltime_points": 3922,
+            "streak": 1,
             "best_streak": 7,
-            "games_played": 35,
-            "correct": 26,
+            "games_played": 36,
+            "correct": 27,
             "title": "\u26a1 Lightning",
             "title_expires": 1785689038.2686548,
             "hint_tokens": 0,
