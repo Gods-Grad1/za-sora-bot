@@ -31,12 +31,11 @@ BOT_START_TIME = time.time()
 database.init_broadcast_db()
 
 # ---------------------------------------------------------------------------
-# SCHEDULER STATE (Local file – with debug)
+# SCHEDULER STATE (Local file)
 # ---------------------------------------------------------------------------
 
 def load_scheduler():
-    """Load scheduler from local file."""
-    data = database.load_json(config.SCHEDULER_FILE, {
+    return database.load_json(config.SCHEDULER_FILE, {
         "enabled": False,
         "interval": 60,
         "game_type": "random",
@@ -47,18 +46,9 @@ def load_scheduler():
         "last_morning_date": "",
         "schedule_message_id": None,
     })
-    print(f"📅 Scheduler loaded: {data.get('schedule_message_id')}")
-    return data
 
 def save_scheduler(data):
-    """Save scheduler to local file."""
-    print(f"💾 Saving scheduler with message_id={data.get('schedule_message_id')}")
     database.save_json(bot, config.SCHEDULER_FILE, data)
-    # Quick check if file exists
-    if os.path.exists(config.SCHEDULER_FILE):
-        print(f"✅ Scheduler file exists: {config.SCHEDULER_FILE}")
-    else:
-        print(f"❌ Scheduler file NOT found after save!")
 
 # ---------------------------------------------------------------------------
 # HELPERS
@@ -170,7 +160,8 @@ def _get_help_text(category):
             "/status — Bot status\n"
             "/listbroadcasts — List scheduled broadcasts\n"
             "/generateall — Generate banners for all users\n"
-            "/trackgroup — Manually track this group"
+            "/trackgroup — Manually track this group\n"
+            "/setupgenerated — Prepare generated branch folders (admin)"
         ),
     }
     return texts.get(category, "Unknown category.")
@@ -341,7 +332,7 @@ def _do_tag_all(chat_id, custom_msg):
 # ---------------------------------------------------------------------------
 
 def show_quotes_page(chat_id, page=1):
-    quotes = database.load_quotes()
+    quotes = database.load_quotes(bot)
     per_page = 10
     total = len(quotes)
     pages = (total + per_page - 1) // per_page
@@ -391,7 +382,7 @@ def show_admin_panel(message):
     bot.send_message(message.chat.id, f"⚙️ *ADMIN PANEL*\n\nAuto-scheduler: {status_icon} {'ON' if sched.get('enabled') else 'OFF'}\nInterval: every {sched.get('interval', 60)} min\nGame type: {sched.get('game_type', 'random').title()}\nActive window: {sched.get('window_start', 10)}:00 — {sched.get('window_end', 23)}:00", reply_markup=markup, parse_mode="Markdown")
 
 # ---------------------------------------------------------------------------
-# SCHEDULE PANEL – BUILD & SHOW (with debug and fallback)
+# SCHEDULE PANEL – BUILD & SHOW (with fallback)
 # ---------------------------------------------------------------------------
 
 def _build_schedule_panel(chat_id):
@@ -424,25 +415,17 @@ def _build_schedule_panel(chat_id):
 def show_schedule_panel(chat_id, edit_message_id=None):
     sched = load_scheduler()
     text, markup = _build_schedule_panel(chat_id)
-    print(f"🔄 show_schedule_panel: edit_message_id={edit_message_id}")
-    print(f"📅 Current scheduler message_id: {sched.get('schedule_message_id')}")
 
-    # If we have an edit_message_id, use it
     if edit_message_id:
         try:
             bot.edit_message_text(text, chat_id, edit_message_id, reply_markup=markup, parse_mode="Markdown")
-            print(f"✅ Edited message {edit_message_id} successfully.")
             return
         except Exception as e:
-            print(f"❌ Failed to edit schedule panel: {e}")
-            # Fall through to send a new one
+            print(f"Failed to edit schedule panel: {e}")
 
-    # Send new message and store its ID
     msg = bot.send_message(chat_id, text, reply_markup=markup, parse_mode="Markdown")
     sched["schedule_message_id"] = msg.message_id
     save_scheduler(sched)
-    print(f"💬 New schedule panel sent, message_id={msg.message_id}")
-    print(f"💾 Scheduler saved with message_id={sched['schedule_message_id']}")
 
 # ---------------------------------------------------------------------------
 # STATS
@@ -489,7 +472,7 @@ def send_morning_message(bot):
         now = local_now()
         weekday = now.strftime("%A")
         date = now.strftime("%d %B %Y")
-        quote = database.get_random_quote()
+        quote = database.get_random_quote(bot)
         groups = database.get_all_groups()
         print(f"📊 Found {len(groups)} groups")
 
@@ -1041,7 +1024,87 @@ def handle_all_messages(message):
             except Exception as e:
                 bot.send_message(chat_id, f"❌ Banner generation failed: {e}")
         threading.Thread(target=generate_in_background, daemon=True).start()
-    # --- End debug commands ---
+
+    # ===================================================================
+    # NEW: Setup generated branch folder structure (admin only)
+    # ===================================================================
+    elif cmd == '/setupgenerated' and is_admin(user_id):
+        bot.reply_to(message, "🔧 Setting up generated branch structure...")
+        try:
+            # 1. Create daily_themes.json if missing
+            themes_data = {
+                "weeks": [
+                    {
+                        "week": 1,
+                        "monday": {"character": "Kratos", "category": "Gaming"},
+                        "tuesday": {"character": "Luffy", "category": "Anime"},
+                        "wednesday": {"character": "Terminator", "category": "Movies"},
+                        "thursday": {"character": "Gojo", "category": "General"},
+                        "friday": {"character": "Iron Man", "category": "Technology"},
+                        "saturday": {"character": "Flash", "category": "Sports"},
+                        "sunday": {"character": "Bible Verse", "category": "Bible"}
+                    },
+                    {
+                        "week": 2,
+                        "monday": {"character": "Master Chief", "category": "Gaming"},
+                        "tuesday": {"character": "Goku", "category": "Anime"},
+                        "wednesday": {"character": "Thanos", "category": "Movies"},
+                        "thursday": {"character": "Professor X", "category": "General"},
+                        "friday": {"character": "Cyborg", "category": "Technology"},
+                        "saturday": {"character": "Isagi", "category": "Sports"},
+                        "sunday": {"character": "Bible Verse", "category": "Bible"}
+                    },
+                    {
+                        "week": 3,
+                        "monday": {"character": "Mario", "category": "Gaming"},
+                        "tuesday": {"character": "Naruto", "category": "Anime"},
+                        "wednesday": {"character": "Gandalf", "category": "Movies"},
+                        "thursday": {"character": "Kakashi", "category": "General"},
+                        "friday": {"character": "Mr. Terrific", "category": "Technology"},
+                        "saturday": {"character": "Hinata", "category": "Sports"},
+                        "sunday": {"character": "Bible Verse", "category": "Bible"}
+                    },
+                    {
+                        "week": 4,
+                        "monday": {"character": "Dante", "category": "Gaming"},
+                        "tuesday": {"character": "Ash Ketchum", "category": "Anime"},
+                        "wednesday": {"character": "Timon & Pumbaa", "category": "Movies"},
+                        "thursday": {"character": "Koro-sensei", "category": "General"},
+                        "friday": {"character": "Optimus Prime", "category": "Technology"},
+                        "saturday": {"character": "Tetsuya", "category": "Sports"},
+                        "sunday": {"character": "Bible Verse", "category": "Bible"}
+                    }
+                ],
+                "current_week": 1,  # will auto-increment weekly
+                "last_updated": datetime.datetime.now().isoformat()
+            }
+            # Save to generated branch
+            success = database.save_remote_json(config.DAILY_THEMES_FILE, themes_data)
+            if not success:
+                # Try using the global _bot (already set)
+                pass
+
+            # 2. Create placeholder files for themes and scrambled folders
+            placeholder = b""
+            folders = [
+                f"{config.GENERATED_IMAGES_PATH}/themes/.gitkeep",
+                f"{config.GENERATED_IMAGES_PATH}/scrambled/.gitkeep"
+            ]
+            for folder_path in folders:
+                try:
+                    from github_uploader import upload_image_to_github
+                    upload_image_to_github(bot, placeholder, ".gitkeep", folder_path, branch=config.TRIVIA_BRANCH)
+                except Exception as e:
+                    print(f"Failed to upload .gitkeep to {folder_path}: {e}")
+
+            bot.reply_to(message, "✅ Generated branch structure created/updated.\n\n"
+                                  "📁 `data/daily_themes.json` created.\n"
+                                  "🖼️ `images/themes/` and `images/scrambled/` folders created.\n"
+                                  "Now you can upload GIFs/images to `images/themes/`.")
+        except Exception as e:
+            bot.reply_to(message, f"❌ Setup failed: {e}")
+
+    # --- End of new command ---
 
     elif cmd == '/addquote' and chat_id == user_id and is_admin(user_id):
         if not args:
@@ -1198,7 +1261,7 @@ def handle_spin(message):
     bot.reply_to(message, response, parse_mode="Markdown")
 
 # ---------------------------------------------------------------------------
-# CALLBACK HANDLER – with fallback for editing
+# CALLBACK HANDLER
 # ---------------------------------------------------------------------------
 
 @bot.callback_query_handler(func=lambda call: True)
@@ -1396,17 +1459,15 @@ def handle_all_callbacks(call):
                 save_scheduler(sched)
                 bot.answer_callback_query(call.id, f"Time limit set to {sched['answer_time_limit']}s", show_alert=True)
 
-            # Try to edit the stored message ID; if it fails, fall back to the current message
+            # Try stored ID, then fallback to current message
             msg_id = sched.get("schedule_message_id")
             if msg_id:
                 try:
                     show_schedule_panel(chat_id, edit_message_id=msg_id)
                 except Exception as e:
                     print(f"Editing stored msg {msg_id} failed: {e}")
-                    # Fallback: edit the message the button came from
                     show_schedule_panel(chat_id, edit_message_id=call.message.message_id)
             else:
-                # No stored ID – edit the current message
                 show_schedule_panel(chat_id, edit_message_id=call.message.message_id)
             return
 
@@ -2018,6 +2079,7 @@ def register_commands():
         telebot.types.BotCommand("listpending",  "📋 List pending broadcasts"),
         telebot.types.BotCommand("trackgroup",   "📌 Track this group manually"),
         telebot.types.BotCommand("generateall",  "🖼️ Generate banners for all users"),
+        telebot.types.BotCommand("setupgenerated", "🔧 Prepare generated branch (admin)"),
     ]
 
     try:
