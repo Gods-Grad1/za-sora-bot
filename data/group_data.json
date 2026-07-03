@@ -67,7 +67,7 @@
     "8234402535": {
         "8234402535": {
             "username": "User",
-            "points": 2560,
+            "points": 2760,
             "monthly_points": {
                 "2026-06": 3375,
                 "2026-07": 300
@@ -92,7 +92,8 @@
             "trivia_correct": 0,
             "versus_wins": 0,
             "daily_wins": 1,
-            "powerups": {}
+            "powerups": {},
+            "last_lightning": 1783095038.866431
         }
     }
 }
