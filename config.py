@@ -34,7 +34,9 @@ TRIVIA_CATEGORY_FILES = {
 TRIVIA_DB = "trivia_db.json"
 
 # --- PERSISTENT DATA (stored on generated branch) ---
-GENERATED_DATA_PATH = "data"  # folder on generated branch
+GENERATED_DATA_PATH = "data"
+GENERATED_IMAGES_PATH = "images"
+DAILY_THEMES_FILE = "daily_themes.json"   # stored under GENERATED_DATA_PATH
 
 # --- DATABASE FILE PATHS (local fallback) ---
 GROUP_DATA_FILE   = "group_data.json"
