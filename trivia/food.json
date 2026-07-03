@@ -98,7 +98,7 @@
   {"id": 1097, "category": "Food", "question": "What is the main ingredient in the dish 'Baba Ghanoush'?", "options": ["Eggplant", "Tomato", "Cucumber", "Onion"], "answer": "A", "difficulty": "medium"},
   {"id": 1098, "category": "Food", "question": "Which country is known for its 'Empanadas'?", "options": ["Argentina", "Chile", "Uruguay", "All of the above"], "answer": "D", "difficulty": "easy"},
   {"id": 1099, "category": "Food", "question": "What is the name of the traditional Chinese bread?", "options": ["Pao", "Man Tou", "Cong You Bing", "Jian Bing"], "answer": "B", "difficulty": "hard"},
-  {"id": 1100, "category": "Food", "question": "What is the main ingredient in the dish 'Biriyani'?", "options": ["Rice", "Meat", "Spices", "All of the above"], "answer": "D", "difficulty": "medium"}
+  {"id": 1100, "category": "Food", "question": "What is the main ingredient in the dish 'Biriyani'?", "options": ["Rice", "Meat", "Spices", "All of the above"], "answer": "D", "difficulty": "medium"},
   {"id": 1101, "category": "Food", "question": "What is the traditional Italian dish made of thin, flat pasta sheets layered with sauce and cheese?", "options": ["Lasagna", "Ravioli", "Tortellini", "Gnocchi"], "answer": "A", "difficulty": "easy"},
   {"id": 1102, "category": "Food", "question": "Which cheese is the main ingredient in a classic fondue?", "options": ["Cheddar", "Gruyère", "Mozzarella", "Parmesan"], "answer": "B", "difficulty": "medium"},
   {"id": 1103, "category": "Food", "question": "What is the primary protein in a traditional 'Chicken Tikka Masala'?", "options": ["Lamb", "Fish", "Chicken", "Paneer"], "answer": "C", "difficulty": "easy"},
