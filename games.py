@@ -206,7 +206,7 @@ def _get_time_limit():
         return int(sched.get("answer_time_limit", config.DEFAULT_ANSWER_TIME)) + config.TIME_LIMIT_BUFFER
     except Exception:
         return config.DEFAULT_ANSWER_TIME + config.TIME_LIMIT_BUFFER
-        
+
 def _is_game_active(chat_id):
     return chat_id in active_games
 
@@ -237,6 +237,27 @@ def _check_one_game_lock(bot, chat_id, user_id, game_type=None, category=None):
 
     bot.send_message(chat_id, "⚠️ A game is already in progress! Answer it, use /stop to cancel, or wait for the timer.")
     return True
+
+# ---------------------------------------------------------------------------
+# SCHEDULER HELPER – Update last_game timestamp on game START
+# ---------------------------------------------------------------------------
+
+def _update_scheduler_last_game():
+    """Update the scheduler's last_game timestamp to NOW (called when a game starts)."""
+    try:
+        import json
+        import os
+        scheduler_path = config.SCHEDULER_FILE
+        if os.path.exists(scheduler_path):
+            with open(scheduler_path, 'r') as f:
+                sched = json.load(f)
+        else:
+            sched = {}
+        sched["last_game"] = time.time()
+        with open(scheduler_path, 'w') as f:
+            json.dump(sched, f, indent=4)
+    except Exception as e:
+        print(f"⚠️ Failed to update scheduler last_game: {e}")
 
 # ---------------------------------------------------------------------------
 # SEND HELPERS (Hint button hidden for character games)
@@ -466,6 +487,10 @@ def start_character_game(bot, chat_id, category=None, user_id=None):
     _send_game_message(bot, chat_id, text, name, LOCAL_CHAR_DIR, img_url, markup)
 
     _start_timer(bot, chat_id, time_limit)
+    
+    # Update scheduler last_game timestamp (game started)
+    _update_scheduler_last_game()
+    
     return q
 
 # ---------------------------------------------------------------------------
@@ -536,6 +561,10 @@ def start_year_game(bot, chat_id, category=None, user_id=None):
 
     _send_game_message(bot, chat_id, text, title, LOCAL_MEDIA_DIR, img_url, markup)
     _start_timer(bot, chat_id, time_limit)
+    
+    # Update scheduler last_game timestamp (game started)
+    _update_scheduler_last_game()
+    
     return q
 
 def handle_year_answer(bot, call):
@@ -576,6 +605,7 @@ def handle_year_answer(bot, call):
             f"+{final} pts{streak_txt}",
             reply_markup=markup, parse_mode="Markdown"
         )
+        # Game ended – DO NOT update scheduler last_game
         del active_games[chat_id]
     else:
         database.penalise_wrong(bot, chat_id, user_id, username)
@@ -639,6 +669,10 @@ def start_picture_game(bot, chat_id, category=None, user_id=None):
     markup = _game_markup(chat_id, "picture")
     send_photo_and_delete(bot, chat_id, bio, caption=text, reply_markup=markup, parse_mode="Markdown")
     _start_timer(bot, chat_id, time_limit)
+    
+    # Update scheduler last_game timestamp (game started)
+    _update_scheduler_last_game()
+    
     return q
 
 # ---------------------------------------------------------------------------
@@ -669,6 +703,16 @@ def _start_timer(bot, chat_id, seconds):
                     parse_mode="Markdown",
                     delay=config.GAME_AUTO_DELETE_DELAY
                 )
+            elif active_games[chat_id].get("type") == "guess":
+                answer = active_games[chat_id].get("display", "Unknown")
+                send_and_delete(
+                    bot,
+                    chat_id,
+                    f"⏰ *Time's up!*\nThe answer was: *{answer}*",
+                    parse_mode="Markdown",
+                    delay=config.GAME_AUTO_DELETE_DELAY
+                )
+            # Game ended by timeout – DO NOT update scheduler last_game
             del active_games[chat_id]
             send_and_delete(
                 bot,
@@ -776,9 +820,14 @@ def start_trivia_game(bot, chat_id, category=None, user_id=None):
                 parse_mode="Markdown",
                 delay=config.GAME_AUTO_DELETE_DELAY
             )
+            # Game ended by timeout – DO NOT update scheduler last_game
             if chat_id in active_games:
                 del active_games[chat_id]
     threading.Thread(target=auto_reveal, daemon=True).start()
+    
+    # Update scheduler last_game timestamp (game started)
+    _update_scheduler_last_game()
+    
     return q
 
 def handle_trivia_answer(bot, call):
@@ -828,6 +877,7 @@ def handle_trivia_answer(bot, call):
             f"+{final} pts{streak_txt}",
             reply_markup=markup, parse_mode="Markdown"
         )
+        # Game ended – DO NOT update scheduler last_game
         del active_games[chat_id]
     else:
         database.penalise_wrong(bot, chat_id, user_id, username)
@@ -843,6 +893,7 @@ def handle_next_game(bot, call):
     game_type = parts[2]
 
     if chat_id in active_games:
+        # Game ended by user clicking Next – DO NOT update scheduler last_game
         del active_games[chat_id]
 
     bot.answer_callback_query(call.id)
@@ -1140,6 +1191,7 @@ def _evaluate_round(bot, chat_id):
     result_text = ""
 
     if c_correct and t_correct:
+        # First-answer tracking: compare timestamps
         if c_ans["timestamp"] <= t_ans["timestamp"]:
             winner_id   = c_id
             winner_name = vs["challenger_name"]
@@ -1469,6 +1521,7 @@ def check_user_answer(bot, message):
     if message.text and message.text.startswith('/'):
         cmd = message.text.split()[0].split('@')[0].lower()
         if cmd == '/stop':
+            # Game ended by stop – DO NOT update scheduler last_game
             del active_games[chat_id]
             send_and_delete(bot, chat_id, "🛑 Game canceled.")
             return True
@@ -1509,6 +1562,7 @@ def check_user_answer(bot, message):
                 f"💡 Hints used: {hints_shown - 1}",
                 reply_markup=markup, parse_mode="Markdown"
             )
+            # Game ended – DO NOT update scheduler last_game
             del active_games[chat_id]
             return True
         else:
@@ -1550,6 +1604,7 @@ def check_user_answer(bot, message):
             f"+{final} pts (Total: {pts}){streak_txt}",
             reply_markup=markup, parse_mode="Markdown"
         )
+        # Game ended – DO NOT update scheduler last_game
         del active_games[chat_id]
         return True
 
@@ -1600,6 +1655,7 @@ def handle_game_callback(bot, call):
     elif data.startswith("stopgame_"):
         chat_id = int(data.split("_")[1])
         if chat_id in active_games:
+            # Game ended by stop – DO NOT update scheduler last_game
             del active_games[chat_id]
         bot.answer_callback_query(call.id)
         send_and_delete(bot, chat_id, "🛑 Game stopped.")
@@ -1664,6 +1720,10 @@ def start_guess_game(bot, chat_id, user_id):
     )
 
     send_and_delete(bot, chat_id, text, reply_markup=markup, parse_mode="Markdown")
+    
+    # Update scheduler last_game timestamp (game started)
+    _update_scheduler_last_game()
+    
     return q
 
 def handle_guess_hint(bot, call):
@@ -1775,7 +1835,7 @@ def start_lightning_round(bot, chat_id, user_id):
     u["last_lightning"] = time.time()
     database.save_remote_json(config.GROUP_DATA_FILE, data)
 
-    # Start first question
+    # Start first question (no scheduler update needed for lightning)
     _send_lightning_question(bot, user_id)
 
 def _send_lightning_question(bot, user_id):
