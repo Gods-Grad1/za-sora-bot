@@ -10,7 +10,7 @@ ADMIN_ID    = int(os.environ.get("ADMIN_ID", 0))
 
 # --- GOOGLE SHEETS ---
 CURRENT_TABLE_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSh6Ulx9_QZOrrAFNA4l1zj3Gv16HCpLilwhudvSJu4zUeMEoQDn5MM7UFe4c2hoUVSr0JYdNOggi-_/pub?gid=0&single=true&output=csv"
-FIXTURES_CSV_URL      = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSh6Ulx9_QZOrrAFNA4l1zj3Gv16HCpLilwhudvSJu4zUeMEoQDn5MM7UFe4c2hoUVSr0JYdNOggi-_/pub?gid=745306980&single=true&output=csv"
+FIXTURES_CSV_URL      = "https://docs.google.comspreadsheets/d/e/2PACX-1vSh6Ulx9_QZOrrAFNA4l1zj3Gv16HCpLilwhudvSJu4zUeMEoQDn5MM7UFe4c2hoUVSr0JYdNOggi-_/pub?gid=745306980&single=true&output=csv"
 
 # --- GITHUB IMAGE BACKUP ---
 GITHUB_RAW_BASE_URL = "https://raw.githubusercontent.com/Gods-Grad1/za-sora-bot/main/images/"
@@ -35,7 +35,7 @@ TRIVIA_DB = "trivia_db.json"
 
 # --- PERSISTENT DATA (stored on generated branch) ---
 GENERATED_DATA_PATH = "data"
-GENERATED_IMAGES_PATH = "images"   # <-- add this
+GENERATED_IMAGES_PATH = "images"
 DAILY_THEMES_FILE = "daily_themes.json"
 
 # --- DATABASE FILE PATHS (local fallback) ---
@@ -75,6 +75,25 @@ POINTS_VERSUS_WIN      = 100
 POINTS_DAILY_CHALLENGE = 150
 POINTS_HINT_PENALTY    = 15
 POINTS_HINT_MAX        = 3
+
+# --- GUESS GAME (Character Quiz) ---
+POINTS_GUESS_BASE = 100          # 0 hints used
+POINTS_GUESS_STEP = 20           # deduction per hint used (100, 80, 60, 40, 20, 10)
+MAX_GUESS_HINTS = 5
+
+# --- LIGHTNING ROUND ---
+LIGHTNING_COOLDOWN = 300         # 5 minutes
+LIGHTNING_ENTRY_FEE = 200
+LIGHTNING_QUESTION_TIME = 15     # seconds per question
+LIGHTNING_QUESTIONS = 5
+LIGHTNING_REWARDS = {            # correct count -> points
+    5: 1000,
+    4: 400,
+    3: 300,
+    2: 200,
+    1: 100,
+    0: -200
+}
 
 # --- STREAK MULTIPLIERS ---
 STREAK_MULTIPLIERS = {0: 1.0, 3: 2.0, 5: 3.0, 10: 5.0}
