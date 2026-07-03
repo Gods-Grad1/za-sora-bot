@@ -3,7 +3,6 @@ import json
 import time
 import csv
 import datetime
-import sqlite3
 import threading
 import requests
 import base64
@@ -11,7 +10,6 @@ import config
 
 CSV_DATA_CACHE = {}
 _file_locks = {}
-BROADCAST_DB = "broadcasts.db"
 GLOBAL_CHAT_ID = None
 _trivia_cache = None
 
@@ -124,61 +122,56 @@ def save_remote_json(filename, data):
         return False
 
 # ---------------------------------------------------------------------------
-# BROADCAST DATABASE (SQLite – local)
+# BROADCAST SYSTEM (Uses broadcasts.json – NOT SQLite)
 # ---------------------------------------------------------------------------
 
 _broadcast_lock = threading.Lock()
 
-def init_broadcast_db():
-    with _broadcast_lock:
-        conn = sqlite3.connect(BROADCAST_DB)
-        c = conn.cursor()
-        c.execute('''
-            CREATE TABLE IF NOT EXISTS broadcasts (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                chat_id INTEGER,
-                message TEXT NOT NULL,
-                send_time INTEGER NOT NULL,
-                sent INTEGER DEFAULT 0
-            )
-        ''')
-        conn.commit()
-        conn.close()
+def _load_broadcasts():
+    """Load broadcasts from broadcasts.json."""
+    return load_remote_json(config.BROADCAST_FILE, [])
+
+def _save_broadcasts(data):
+    """Save broadcasts to broadcasts.json."""
+    save_remote_json(config.BROADCAST_FILE, data)
 
 def add_broadcast(bot, chat_id, message, send_time):
+    """Add a scheduled broadcast."""
     with _broadcast_lock:
-        conn = sqlite3.connect(BROADCAST_DB)
-        c = conn.cursor()
-        c.execute("INSERT INTO broadcasts (chat_id, message, send_time, sent) VALUES (?, ?, ?, 0)", (chat_id, message, send_time))
-        conn.commit()
-        conn.close()
+        broadcasts = _load_broadcasts()
+        broadcast_id = max([b.get("id", 0) for b in broadcasts], default=0) + 1
+        broadcasts.append({
+            "id": broadcast_id,
+            "chat_id": chat_id,
+            "message": message,
+            "send_time": send_time,
+            "sent": 0
+        })
+        _save_broadcasts(broadcasts)
 
 def get_pending_broadcasts():
+    """Get all unsent broadcasts where send_time <= now."""
     with _broadcast_lock:
-        conn = sqlite3.connect(BROADCAST_DB)
-        c = conn.cursor()
+        broadcasts = _load_broadcasts()
         now = int(time.time()) + 5
-        c.execute("SELECT id, chat_id, message, send_time FROM broadcasts WHERE sent = 0 AND send_time <= ?", (now,))
-        rows = c.fetchall()
-        conn.close()
-        return [{"id": r[0], "chat_id": r[1], "message": r[2], "send_time": r[3]} for r in rows]
+        pending = [b for b in broadcasts if b.get("sent", 0) == 0 and b.get("send_time", 0) <= now]
+        return pending
 
 def mark_broadcast_sent(broadcast_id):
+    """Mark a broadcast as sent."""
     with _broadcast_lock:
-        conn = sqlite3.connect(BROADCAST_DB)
-        c = conn.cursor()
-        c.execute("UPDATE broadcasts SET sent = 1 WHERE id = ?", (broadcast_id,))
-        conn.commit()
-        conn.close()
+        broadcasts = _load_broadcasts()
+        for b in broadcasts:
+            if b.get("id") == broadcast_id:
+                b["sent"] = 1
+                break
+        _save_broadcasts(broadcasts)
 
 def get_all_broadcasts():
+    """Get all broadcasts for listing."""
     with _broadcast_lock:
-        conn = sqlite3.connect(BROADCAST_DB)
-        c = conn.cursor()
-        c.execute("SELECT id, chat_id, message, send_time, sent FROM broadcasts ORDER BY send_time")
-        rows = c.fetchall()
-        conn.close()
-        return [{"id": r[0], "chat_id": r[1], "message": r[2], "send_time": r[3], "sent": r[4]} for r in rows]
+        broadcasts = _load_broadcasts()
+        return broadcasts
 
 # ---------------------------------------------------------------------------
 # TRIVIA LOADER
