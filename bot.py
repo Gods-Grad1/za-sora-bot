@@ -30,11 +30,12 @@ database.set_bot(bot)
 BOT_START_TIME = time.time()
 
 # ---------------------------------------------------------------------------
-# SCHEDULER STATE (Local file)
+# SCHEDULER STATE (PERSISTENT on GitHub)
 # ---------------------------------------------------------------------------
 
 def load_scheduler():
-    return database.load_json(config.SCHEDULER_FILE, {
+    """Load scheduler state from GitHub (persists across redeploys)."""
+    return database.load_remote_json(config.SCHEDULER_FILE, {
         "enabled": False,
         "interval": 60,
         "game_type": "random",
@@ -47,8 +48,9 @@ def load_scheduler():
     })
 
 def save_scheduler(data):
-    database.save_json(bot, config.SCHEDULER_FILE, data)
-    
+    """Save scheduler state to GitHub (persists across redeploys)."""
+    database.save_remote_json(config.SCHEDULER_FILE, data)
+
 # ---------------------------------------------------------------------------
 # HELPERS
 # ---------------------------------------------------------------------------
@@ -295,7 +297,6 @@ def tag_all_members(message, custom_msg=""):
         return
     sched = load_scheduler()
     now = time.time()
-    # Only THE Admin bypasses cooldown
     if not is_admin(message.from_user.id):
         if now - sched.get("tagall_last", 0) < config.TAGALL_COOLDOWN_HOURS * 3600:
             remaining = int((config.TAGALL_COOLDOWN_HOURS * 3600 - (now - sched["tagall_last"])) / 60)
@@ -359,7 +360,7 @@ def show_quotes_page(chat_id, page=1):
     return text, markup
 
 # ---------------------------------------------------------------------------
-# ADMIN PANEL (Captain only)
+# CAPTAIN'S CABIN (Admin Panel - Captain Only)
 # ---------------------------------------------------------------------------
 
 def show_admin_panel(message):
@@ -384,13 +385,15 @@ def show_admin_panel(message):
         telebot.types.InlineKeyboardButton("🚫 Block User",            callback_data="admin_block"),
         telebot.types.InlineKeyboardButton("🔓 Unblock User",          callback_data="admin_unblock"),
         telebot.types.InlineKeyboardButton("📋 Group Schedules",       callback_data="admin_groupschedules"),
+        telebot.types.InlineKeyboardButton("📅 Set Group Schedule",    callback_data="admin_setgroupschedule"),
+        telebot.types.InlineKeyboardButton("🗑️ Remove Group Schedule", callback_data="admin_removegroupschedule"),
     )
     sched = load_scheduler()
     status_icon = "✅" if sched.get("enabled") else "❌"
-    bot.send_message(message.chat.id, f"⚙️ *ADMIN PANEL*\n\nAuto-scheduler: {status_icon} {'ON' if sched.get('enabled') else 'OFF'}\nInterval: every {sched.get('interval', 60)} min\nGame type: {sched.get('game_type', 'random').title()}\nActive window: {sched.get('window_start', 10)}:00 — {sched.get('window_end', 23)}:00", reply_markup=markup, parse_mode="Markdown")
+    bot.send_message(message.chat.id, f"🏴‍☠️ *CAPTAIN'S CABIN*\n\nAuto-scheduler: {status_icon} {'ON' if sched.get('enabled') else 'OFF'}\nInterval: every {sched.get('interval', 60)} min\nGame type: {sched.get('game_type', 'random').title()}\nActive window: {sched.get('window_start', 10)}:00 — {sched.get('window_end', 23)}:00", reply_markup=markup, parse_mode="Markdown")
 
 # ---------------------------------------------------------------------------
-# SCHEDULE PANEL – BUILD & SHOW (with fallback)
+# SCHEDULE PANEL
 # ---------------------------------------------------------------------------
 
 def _build_schedule_panel(chat_id):
@@ -541,7 +544,7 @@ def send_morning_message(bot):
         database.log_error_to_admin(bot, "Morning Message Overall", e)
 
 # ---------------------------------------------------------------------------
-# BROADCAST HELPERS (Always tag)
+# BROADCAST HELPERS
 # ---------------------------------------------------------------------------
 
 def _send_pending_broadcasts(bot):
@@ -719,9 +722,7 @@ def handle_all_messages(message):
     username = message.from_user.username or message.from_user.first_name
     chat_id  = message.chat.id
 
-    # Check if user is blocked
     if database.is_blocked(user_id):
-        # Silently ignore blocked users
         return
 
     database.track_member(bot, chat_id, user_id, username)
@@ -734,6 +735,79 @@ def handle_all_messages(message):
 
     cmd = message.text.split()[0].split('@')[0].lower()
     args = message.text.split()[1:] if len(message.text.split()) > 1 else []
+
+    # --- Admin state handling (DM only) ---
+    if chat_id == config.ADMIN_ID:
+        admin_state = database.load_json("admin_state.json", {})
+        if admin_state.get("user_id") == user_id:
+            action = admin_state.get("action")
+            
+            if action == "setgroupschedule":
+                parts = message.text.split()
+                if message.text.lower() == "/cancel":
+                    database.save_json(bot, "admin_state.json", {})
+                    bot.reply_to(message, "❌ Cancelled.")
+                    return
+                if len(parts) != 4:
+                    bot.reply_to(message, "❌ Invalid format. Use: `<group_id> <interval> <game_type> <enabled>`\n\nExample: `-100123456789 30 trivia true`")
+                    return
+                
+                try:
+                    group_id = int(parts[0])
+                    interval = int(parts[1])
+                    game_type = parts[2].lower()
+                    enabled = parts[3].lower() in ["true", "yes", "1", "on"]
+                    
+                    if game_type not in ["character", "year", "picture", "trivia", "random"]:
+                        bot.reply_to(message, f"❌ Invalid game type. Choose from: character, year, picture, trivia, random")
+                        return
+                    
+                    settings = {
+                        "enabled": enabled,
+                        "interval": interval,
+                        "game_type": game_type,
+                        "window_start": 10,
+                        "window_end": 23
+                    }
+                    database.set_group_schedule(group_id, settings)
+                    
+                    try:
+                        chat = bot.get_chat(group_id)
+                        group_name = chat.title or f"Group {group_id}"
+                    except Exception:
+                        group_name = f"Group {group_id}"
+                    
+                    bot.reply_to(message, f"✅ *{group_name}* schedule updated!\n\n"
+                                          f"📊 Enabled: {'✅' if enabled else '❌'}\n"
+                                          f"⏱️ Interval: {interval} min\n"
+                                          f"🎮 Type: {game_type.title()}")
+                except ValueError:
+                    bot.reply_to(message, "❌ Invalid group ID or interval. Use numbers.")
+                
+                database.save_json(bot, "admin_state.json", {})
+                return
+            
+            elif action == "removegroupschedule":
+                if message.text.lower() == "/cancel":
+                    database.save_json(bot, "admin_state.json", {})
+                    bot.reply_to(message, "❌ Cancelled.")
+                    return
+                try:
+                    group_id = int(message.text.strip())
+                    if database.remove_group_schedule(group_id):
+                        try:
+                            chat = bot.get_chat(group_id)
+                            group_name = chat.title or f"Group {group_id}"
+                        except Exception:
+                            group_name = f"Group {group_id}"
+                        bot.reply_to(message, f"✅ *{group_name}* schedule removed. Now using global schedule.")
+                    else:
+                        bot.reply_to(message, f"❌ Group `{group_id}` had no custom schedule.")
+                except ValueError:
+                    bot.reply_to(message, "❌ Invalid group ID. Use a number.")
+                
+                database.save_json(bot, "admin_state.json", {})
+                return
 
     if cmd == '/start':
         try:
@@ -769,7 +843,6 @@ def handle_all_messages(message):
         feedback_msg = " ".join(args)
         database.add_feedback(user_id, username, feedback_msg)
         bot.reply_to(message, "✅ Your feedback has been sent to the Captain! 🏴‍☠️")
-        # Also forward to admin DM
         try:
             bot.send_message(config.ADMIN_ID, f"💬 *NEW FEEDBACK*\n\nFrom: {username} (ID: {user_id})\nChat: {chat_id}\n\n📝 {feedback_msg}", parse_mode="Markdown")
         except Exception:
@@ -810,7 +883,6 @@ def handle_all_messages(message):
 
     elif cmd == '/stop':
         if chat_id in games.active_games:
-            # Game ended by stop – DO NOT update scheduler last_game
             del games.active_games[chat_id]
             bot.reply_to(message, "🛑 Game stopped.")
 
@@ -1038,7 +1110,6 @@ def handle_all_messages(message):
             show_schedule_panel(chat_id)
         bot.reply_to(message, f"✅ Window set to {start}:00 – {end}:00")
 
-    # --- Debug commands ---
     elif cmd == '/listpending' and is_admin(user_id):
         pending = database.get_pending_broadcasts()
         if not pending:
@@ -1169,56 +1240,44 @@ def handle_all_messages(message):
             return
         text = "📋 *GROUP SCHEDULES*\n\n"
         for gid, settings in schedules.items():
-            text += f"📊 *Group {gid}:*\n"
+            group_name = settings.get("group_name", f"Group {gid}")
+            text += f"📊 *{group_name}* (ID: {gid})\n"
             text += f"   Enabled: {'✅' if settings.get('enabled') else '❌'}\n"
             text += f"   Interval: {settings.get('interval', 60)} min\n"
             text += f"   Type: {settings.get('game_type', 'random').title()}\n"
             text += f"   Window: {settings.get('window_start', 10)}:00 – {settings.get('window_end', 23)}:00\n\n"
-        bot.reply_to(message, text, parse_mode="Markdown")
+        if len(text) > 4000:
+            parts = [text[i:i+4000] for i in range(0, len(text), 4000)]
+            for part in parts:
+                bot.send_message(chat_id, part, parse_mode="Markdown")
+        else:
+            bot.send_message(chat_id, text, parse_mode="Markdown")
 
     elif cmd == '/setschedule_group' and is_admin(user_id):
-        if len(args) < 4:
-            bot.reply_to(message, "Usage: /setschedule_group <group_id> <interval> <game_type> <enabled>\n\n"
-                                  "Example: /setschedule_group -100123456 60 trivia true\n"
-                                  "Game types: character, year, picture, trivia, random\n"
-                                  "Enabled: true or false")
-            return
-        group_id = int(args[0])
-        interval = int(args[1])
-        game_type = args[2].lower()
-        enabled = args[3].lower() in ["true", "yes", "1", "on"]
-        
-        if game_type not in ["character", "year", "picture", "trivia", "random"]:
-            bot.reply_to(message, f"❌ Invalid game type. Choose from: character, year, picture, trivia, random")
-            return
-        
-        settings = {
-            "enabled": enabled,
-            "interval": interval,
-            "game_type": game_type,
-            "window_start": 10,
-            "window_end": 23
-        }
-        database.set_group_schedule(group_id, settings)
-        bot.reply_to(message, f"✅ Group {group_id} schedule updated!")
+        bot.reply_to(message, "📅 *SET GROUP SCHEDULE*\n\n"
+                              "Send me the settings in this format:\n\n"
+                              "`<group_id> <interval> <game_type> <enabled>`\n\n"
+                              "Example: `-100123456789 30 trivia true`\n\n"
+                              "Game types: character, year, picture, trivia, random\n"
+                              "Enabled: true or false\n\n"
+                              "Type `/cancel` to cancel.",
+                     parse_mode="Markdown")
+        database.save_json(bot, "admin_state.json", {"action": "setgroupschedule", "user_id": user_id})
 
     elif cmd == '/remove_schedule_group' and is_admin(user_id):
-        if not args or not args[0].isdigit():
-            bot.reply_to(message, "Usage: /remove_schedule_group <group_id>")
-            return
-        group_id = int(args[0])
-        if database.remove_group_schedule(group_id):
-            bot.reply_to(message, f"✅ Group {group_id} schedule removed. Now using global schedule.")
-        else:
-            bot.reply_to(message, f"❌ Group {group_id} had no custom schedule.")
+        bot.reply_to(message, "🗑️ *REMOVE GROUP SCHEDULE*\n\n"
+                              "Send me the group ID:\n\n"
+                              "Example: `-100123456789`\n\n"
+                              "Type `/cancel` to cancel.",
+                     parse_mode="Markdown")
+        database.save_json(bot, "admin_state.json", {"action": "removegroupschedule", "user_id": user_id})
 
 # ---------------------------------------------------------------------------
-# CLEAN BOT MESSAGES – ONLY DELETES THIS BOT'S OWN MESSAGES
+# CLEAN BOT MESSAGES
 # ---------------------------------------------------------------------------
 
 def clean_bot_messages(chat_id, trigger_message):
     """Delete only this bot's own messages, except important ones."""
-    # Check if bot has delete permission
     try:
         bot_member = bot.get_chat_member(chat_id, bot.get_me().id)
         can_delete = bot_member.can_delete_messages or bot_member.status == "creator"
@@ -1232,18 +1291,16 @@ def clean_bot_messages(chat_id, trigger_message):
     
     bot.reply_to(trigger_message, "🧹 Cleaning up my messages...")
     
-    # Get the last 100 messages
     try:
         messages = bot.get_chat_history(chat_id, limit=100)
     except Exception as e:
         bot.reply_to(trigger_message, f"❌ Could not fetch messages: {e}")
         return
     
-    bot_id = bot.get_me().id  # Get this bot's own ID
+    bot_id = bot.get_me().id
     deleted_count = 0
     kept_count = 0
     
-    # Messages to KEEP (do not delete)
     keep_patterns = [
         "BROADCAST", "📢 *ANNOUNCEMENT*", "📢 *Tagging everyone*",
         "🌅 send_morning_message", "☀️ *Good Morning, Family!*",
@@ -1263,24 +1320,20 @@ def clean_bot_messages(chat_id, trigger_message):
     ]
     
     for msg in messages:
-        # Skip the trigger message itself
         if msg.message_id == trigger_message.message_id:
             continue
         
-        # Only delete messages sent by THIS bot (not other bots or users)
         if not msg.from_user or msg.from_user.id != bot_id:
             continue
         
         text = msg.text or msg.caption or ""
         should_keep = False
         
-        # Check if message should be kept
         for pattern in keep_patterns:
             if pattern in text or pattern.lower() in text.lower():
                 should_keep = True
                 break
         
-        # Also keep messages that are results (contain "won" or "wins" or "Final score")
         if "won" in text.lower() or "wins" in text.lower() or "final score" in text.lower():
             should_keep = True
         
@@ -1288,7 +1341,7 @@ def clean_bot_messages(chat_id, trigger_message):
             try:
                 bot.delete_message(chat_id, msg.message_id)
                 deleted_count += 1
-                time.sleep(0.05)  # Avoid rate limits
+                time.sleep(0.05)
             except Exception as e:
                 print(f"Failed to delete message {msg.message_id}: {e}")
         else:
@@ -1409,7 +1462,7 @@ def handle_spin(message):
     bot.reply_to(message, response, parse_mode="Markdown")
 
 # ---------------------------------------------------------------------------
-# CALLBACK HANDLER (UPDATED)
+# CALLBACK HANDLER
 # ---------------------------------------------------------------------------
 
 @bot.callback_query_handler(func=lambda call: True)
@@ -1417,14 +1470,13 @@ def handle_all_callbacks(call):
     data    = call.data
     chat_id = call.message.chat.id
     user_id = call.from_user.id
+    username = call.from_user.username or call.from_user.first_name  # FIXED: username defined here
 
     try:
-        # --- NEW: GUESS HINT callback ---
         if data.startswith("guess_hint_"):
             games.handle_guess_hint(bot, call)
             return
 
-        # --- NEW: LIGHTNING ANSWER callback ---
         if data.startswith("lightning_ans_"):
             games.handle_lightning_answer(bot, call)
             return
@@ -1528,7 +1580,6 @@ def handle_all_callbacks(call):
 
         if data.startswith("shop_"):
             item_id  = data.replace("shop_", "")
-            username = call.from_user.username or call.from_user.first_name
             ok, msg  = database.purchase_item(bot, chat_id, user_id, username, item_id)
             bot.answer_callback_query(call.id, msg, show_alert=True)
             return
@@ -1576,6 +1627,7 @@ def handle_all_callbacks(call):
                 bot.send_message(chat_id, "✅ Check complete. Admin has been notified.")
             elif action == "trackgroup":
                 bot.answer_callback_query(call.id)
+                # FIXED: username is now defined at the top of the callback handler
                 database.track_member(bot, chat_id, user_id, username)
                 bot.send_message(chat_id, "✅ This group is now tracked in the database.")
             elif action == "block":
@@ -1586,7 +1638,22 @@ def handle_all_callbacks(call):
                 bot.send_message(chat_id, "🔓 Use `/unblock <user_id>` to unblock a user.", parse_mode="Markdown")
             elif action == "groupschedules":
                 bot.answer_callback_query(call.id)
-                bot.send_message(chat_id, "📋 Use `/groupschedules` to list all group schedules.", parse_mode="Markdown")
+                # Trigger the /groupschedules command
+                from types import SimpleNamespace
+                dummy_msg = SimpleNamespace(text="/groupschedules", chat=SimpleNamespace(id=chat_id), from_user=SimpleNamespace(id=user_id))
+                handle_all_messages(dummy_msg)
+            elif action == "setgroupschedule":
+                bot.answer_callback_query(call.id)
+                # Trigger the /setschedule_group command
+                from types import SimpleNamespace
+                dummy_msg = SimpleNamespace(text="/setschedule_group", chat=SimpleNamespace(id=chat_id), from_user=SimpleNamespace(id=user_id))
+                handle_all_messages(dummy_msg)
+            elif action == "removegroupschedule":
+                bot.answer_callback_query(call.id)
+                # Trigger the /remove_schedule_group command
+                from types import SimpleNamespace
+                dummy_msg = SimpleNamespace(text="/remove_schedule_group", chat=SimpleNamespace(id=chat_id), from_user=SimpleNamespace(id=user_id))
+                handle_all_messages(dummy_msg)
             elif action == "back":
                 sched = load_scheduler()
                 msg_id = sched.get("schedule_message_id")
@@ -1603,7 +1670,7 @@ def handle_all_callbacks(call):
             return
 
         # -------------------------------------------------------------------
-        # SCHEDULER SETTINGS – Edit in place with fallback
+        # SCHEDULER SETTINGS
         # -------------------------------------------------------------------
         if data.startswith("sched_") and is_authorized(chat_id, user_id):
             sched  = load_scheduler()
@@ -1683,6 +1750,7 @@ def handle_all_callbacks(call):
             bot.answer_callback_query(call.id)
             return
 
+        # ── Fixtures ──────────────────────────────────────────────────────
         if data == "fix_back":
             text = "📋 *FIXTURES*\n\nChoose how you want to browse:"
             markup, _ = _build_fixtures_menu_markup(
@@ -1855,7 +1923,7 @@ def _serve_fixtures_page(chat_id, message_id, player, context, status, page):
             img.close()
 
 # ---------------------------------------------------------------------------
-# BROADCAST CHECKER
+# BROADCAST CHECKER THREAD
 # ---------------------------------------------------------------------------
 
 broadcast_checker_thread = None
@@ -1930,11 +1998,9 @@ def background_scheduler():
                     time.sleep(61)
 
                 if sched.get("enabled"):
-                    # Check for per-group schedule override
                     groups = database.get_all_groups()
                     
                     for g_id in groups:
-                        # Check if this group has custom schedule
                         group_sched = database.get_group_schedule(g_id)
                         
                         if group_sched:
@@ -1948,7 +2014,6 @@ def background_scheduler():
                             if not enabled:
                                 continue
                         else:
-                            # Use global schedule
                             window_start = sched.get("window_start", config.SCHEDULER_WINDOW_START)
                             window_end   = sched.get("window_end", config.SCHEDULER_WINDOW_END)
                             in_window    = window_start <= hour < window_end
@@ -2150,7 +2215,7 @@ def notify_missing_images():
             print(f"Missing images notification failed for part {i+1}: {e}")
 
 # ---------------------------------------------------------------------------
-# IMAGE UPLOAD VIA TELEGRAM (Admin DM only)
+# IMAGE UPLOAD VIA TELEGRAM
 # ---------------------------------------------------------------------------
 
 def handle_image_upload(message):
@@ -2215,7 +2280,7 @@ def handle_image_upload(message):
         print(f"[IMG UPLOAD] Error: {e}")
 
 # ---------------------------------------------------------------------------
-# REGISTER COMMANDS WITH TELEGRAM
+# REGISTER COMMANDS
 # ---------------------------------------------------------------------------
 
 def register_commands():
@@ -2241,7 +2306,7 @@ def register_commands():
     ]
 
     admin_commands = public_commands + [
-        telebot.types.BotCommand("admin",        "⚙️ Admin control panel (Captain only)"),
+        telebot.types.BotCommand("admin",        "⚙️ Captain's Cabin"),
         telebot.types.BotCommand("tagall",       "📢 Tag all members (Group admins)"),
         telebot.types.BotCommand("setschedule",  "🕐 Configure auto-game scheduler (Group admins)"),
         telebot.types.BotCommand("setwindow",    "⏰ Set game window (Group admins)"),
