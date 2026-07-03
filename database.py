@@ -321,6 +321,14 @@ def get_user(data, chat_str, user_str, username):
         u["username"] = username
     return u
 
+def get_user_data_field(bot, chat_id, user_id, field, default=None):
+    """Helper to fetch a single user field easily."""
+    data = load_remote_json(config.GROUP_DATA_FILE, {})
+    chat_str = str(chat_id)
+    user_str = str(user_id)
+    u = get_user(data, chat_str, user_str, "User")
+    return u.get(field, default)
+
 def track_member(bot, chat_id, user_id, username):
     data = load_remote_json(config.GROUP_DATA_FILE, {})
     chat_str = str(chat_id)
