@@ -195,6 +195,7 @@ def precache_assets(bot):
 
 active_games = {}
 versus_games = {}
+lightning_sessions = {}  # NEW: Track active lightning rounds per user
 last_game_type = {}
 last_game_category = {}
 pending_admin_actions = {}
@@ -857,6 +858,11 @@ def handle_next_game(bot, call):
         start_trivia_game(bot, chat_id, category=cat)
     elif game_type == "picture":
         start_picture_game(bot, chat_id, category=cat)
+    elif game_type == "guess":
+        start_guess_game(bot, chat_id, user_id=None)
+    elif game_type == "lightning":
+        # Lightning doesn't support "next" in the same way
+        send_and_delete(bot, chat_id, "⚡ Use /lightning to start a new Lightning Round!", parse_mode="Markdown")
 
 # ---------------------------------------------------------------------------
 # VERSUS MODE
@@ -1443,7 +1449,7 @@ def handle_daily_answer(bot, call):
         bot.answer_callback_query(call.id, "❌ Wrong! Better luck tomorrow.", show_alert=True)
 
 # ---------------------------------------------------------------------------
-# ANSWER CHECKER
+# ANSWER CHECKER (UPDATED with GUESS and LIGHTNING support)
 # ---------------------------------------------------------------------------
 
 def check_user_answer(bot, message):
@@ -1480,6 +1486,34 @@ def check_user_answer(bot, message):
     if session.get("type") == "year":
         send_and_delete(bot, chat_id, "⚠️ Please use the buttons to select a year!")
         return True
+
+    # --- GUESS GAME handling ---
+    if session.get("type") == "guess":
+        aliases = session.get("aliases", [])
+        if is_character_match(user_guess, session["answer"], aliases):
+            hints_shown = session.get("hints_shown", 1)
+            # Points: 100 - (hints_shown - 1) * 20, min 10
+            points = max(10, config.POINTS_GUESS_BASE - (hints_shown - 1) * config.POINTS_GUESS_STEP)
+            pts, streak, mult, final = database.reward_user(bot, chat_id, user_id, username, points)
+            streak_txt = f"\n🔥 Streak: *{streak}* (x{mult})!" if streak > 1 else ""
+
+            import telebot
+            markup = telebot.types.InlineKeyboardMarkup()
+            markup.row(telebot.types.InlineKeyboardButton("⏭️ Next Game", callback_data=f"nextgame_{chat_id}_guess"))
+
+            send_and_delete(
+                bot,
+                chat_id,
+                f"🎉 *CORRECT!* It was *{session['display']}*!\n"
+                f"+{final} pts (Total: {pts}){streak_txt}\n"
+                f"💡 Hints used: {hints_shown - 1}",
+                reply_markup=markup, parse_mode="Markdown"
+            )
+            del active_games[chat_id]
+            return True
+        else:
+            # Wrong answer – streak freeze logic is handled below
+            pass
 
     double_down_active = False
     if session.get("type") in ("character", "picture"):
@@ -1534,7 +1568,7 @@ def check_user_answer(bot, message):
     return True
 
 # ---------------------------------------------------------------------------
-# CALLBACK ROUTER
+# CALLBACK ROUTER (UPDATED with GUESS and LIGHTNING)
 # ---------------------------------------------------------------------------
 
 def handle_game_callback(bot, call):
@@ -1569,3 +1603,312 @@ def handle_game_callback(bot, call):
             del active_games[chat_id]
         bot.answer_callback_query(call.id)
         send_and_delete(bot, chat_id, "🛑 Game stopped.")
+    elif data.startswith("guess_hint_"):
+        handle_guess_hint(bot, call)
+    elif data.startswith("lightning_ans_"):
+        handle_lightning_answer(bot, call)
+
+# ---------------------------------------------------------------------------
+# GUESS GAME (Character Quiz) – NEW
+# ---------------------------------------------------------------------------
+
+def start_guess_game(bot, chat_id, user_id):
+    """Text-based character quiz with progressive hints (max 5)."""
+    if _check_one_game_lock(bot, chat_id, user_id, game_type="guess"):
+        return None
+
+    # Pick a random character from all char DBs
+    characters = _load_all(config.CHAR_ALL_DBS)
+    if not characters:
+        send_and_delete(bot, chat_id, "⚠️ No character data found.")
+        return None
+
+    q = random.choice(characters)
+    name = str(q.get('name', 'Unknown')).strip()
+    hints = q.get('hints') or q.get('hint', 'No hints available.')
+    hints_list = hints if isinstance(hints, list) else [hints]
+    img_url = q.get('image') or q.get('image_url') or q.get('img')
+    aliases = q.get('aliases', [])
+
+    # Store session
+    active_games[chat_id] = {
+        "type": "guess",
+        "answer": name.lower(),
+        "display": name,
+        "hints_list": hints_list,
+        "hints_shown": 1,          # we already show hint 1
+        "max_hints": config.MAX_GUESS_HINTS,
+        "img_url": img_url,
+        "aliases": [a.lower() for a in aliases],
+        "answered": False,
+    }
+
+    last_game_type[chat_id] = "guess"
+    last_game_category[chat_id] = "random"
+
+    # Build initial message with hint 1
+    hint_text = hints_list[0] if hints_list else "No extra hints available."
+    text = f"🔍 *GUESS THE CHARACTER – QUIZ*\n\n"
+    text += f"💡 *Hint 1:* {hint_text}\n\n"
+    text += f"Type your answer as a text message.\n"
+    text += f"Use the buttons below for more hints.\n\n"
+    text += f"🏆 *Points:* 100 pts (0 hints) → 10 pts (5 hints)\n"
+    text += f"❌ Wrong: -15 pts (streak breaks)"
+
+    import telebot
+    markup = telebot.types.InlineKeyboardMarkup(row_width=2)
+    markup.add(
+        telebot.types.InlineKeyboardButton("💡 Next Hint", callback_data=f"guess_hint_{chat_id}"),
+        telebot.types.InlineKeyboardButton("⏭️ Next Game", callback_data=f"nextgame_{chat_id}_guess"),
+        telebot.types.InlineKeyboardButton("🛑 Stop", callback_data=f"stopgame_{chat_id}"),
+    )
+
+    send_and_delete(bot, chat_id, text, reply_markup=markup, parse_mode="Markdown")
+    return q
+
+def handle_guess_hint(bot, call):
+    chat_id = call.message.chat.id
+    if chat_id not in active_games or active_games[chat_id].get("type") != "guess":
+        bot.answer_callback_query(call.id, "No active guess game.")
+        return
+
+    session = active_games[chat_id]
+    hints_shown = session.get("hints_shown", 1)
+    max_hints = session.get("max_hints", config.MAX_GUESS_HINTS)
+
+    if hints_shown >= max_hints:
+        bot.answer_callback_query(call.id, f"Max {max_hints} hints already shown.", show_alert=True)
+        return
+
+    # Increment and show next hint
+    hints_shown += 1
+    session["hints_shown"] = hints_shown
+    hints_list = session.get("hints_list", [])
+    hint_text = hints_list[hints_shown - 1] if hints_shown - 1 < len(hints_list) else "No more hints."
+
+    # If this is the 5th hint, send the image
+    if hints_shown == max_hints:
+        img_url = session.get("img_url")
+        name = session.get("display", "Character")
+        if img_url:
+            img_data = get_image_bytes(bot, name, LOCAL_CHAR_DIR, img_url)
+            if img_data:
+                # Send the image as a new message
+                bot.send_photo(chat_id, img_data, caption=f"🖼️ *Hint {hints_shown}:* Image of the character")
+                bot.answer_callback_query(call.id, f"Hint {hints_shown} shown (image sent).")
+                return
+
+    # Send a new message with the hint
+    bot.send_message(chat_id, f"💡 *Hint {hints_shown}:* {hint_text}", parse_mode="Markdown")
+    bot.answer_callback_query(call.id, f"Hint {hints_shown} shown.")
+
+# ---------------------------------------------------------------------------
+# LIGHTNING ROUND – NEW
+# ---------------------------------------------------------------------------
+
+def start_lightning_round(bot, chat_id, user_id):
+    """High-risk rapid-fire trivia. 5 questions, 15s each."""
+    username = database.get_user_data_field(bot, chat_id, user_id, "username") or "Player"
+
+    # Check if already in a lightning session
+    if user_id in lightning_sessions:
+        send_and_delete(bot, chat_id, "⚠️ You already have an active Lightning Round. Finish it first.")
+        return
+
+    # Check cooldown
+    data = database.load_remote_json(config.GROUP_DATA_FILE, {})
+    chat_str = str(chat_id)
+    user_str = str(user_id)
+    u = database.get_user(data, chat_str, user_str, username)
+    last = u.get("last_lightning", 0)
+    if time.time() - last < config.LIGHTNING_COOLDOWN:
+        remaining = int((last + config.LIGHTNING_COOLDOWN - time.time()) / 60)
+        send_and_delete(bot, chat_id, f"⏳ Lightning Round on cooldown. Try again in {remaining} minutes.")
+        return
+
+    # Check entry fee
+    if u.get("points", 0) < config.LIGHTNING_ENTRY_FEE:
+        send_and_delete(bot, chat_id, f"❌ You need *{config.LIGHTNING_ENTRY_FEE}* points to enter the Lightning Round. You have {u.get('points',0)}.")
+        return
+
+    # Deduct fee
+    database.deduct_points(bot, chat_id, user_id, username, config.LIGHTNING_ENTRY_FEE)
+
+    # Load trivia and pick 5 questions (1 easy, 3 medium, 1 hard)
+    all_q = database.load_trivia_from_github()
+    if not all_q:
+        # Refund
+        database.reward_user(bot, chat_id, user_id, username, config.LIGHTNING_ENTRY_FEE)
+        send_and_delete(bot, chat_id, "⚠️ Trivia database unavailable. Entry fee refunded.")
+        return
+
+    easy = [q for q in all_q if q.get("difficulty", "").lower() == "easy"]
+    medium = [q for q in all_q if q.get("difficulty", "").lower() == "medium"]
+    hard = [q for q in all_q if q.get("difficulty", "").lower() == "hard"]
+
+    selected = []
+    if easy: selected.append(random.choice(easy))
+    else: selected.append(random.choice(all_q))
+    for _ in range(3):
+        if medium: selected.append(random.choice(medium))
+        else: selected.append(random.choice(all_q))
+    if hard: selected.append(random.choice(hard))
+    else: selected.append(random.choice(all_q))
+
+    # Shuffle the selected questions to avoid difficulty order being predictable
+    random.shuffle(selected)
+
+    # Build session
+    lightning_sessions[user_id] = {
+        "chat_id": chat_id,
+        "username": username,
+        "questions": selected,
+        "current_q": 0,
+        "correct": 0,
+        "answers": [],         # store user's choices (for display)
+        "finished": False,
+        "start_time": time.time(),
+        "timer_running": False,
+    }
+
+    # Update last_lightning
+    u["last_lightning"] = time.time()
+    database.save_remote_json(config.GROUP_DATA_FILE, data)
+
+    # Start first question
+    _send_lightning_question(bot, user_id)
+
+def _send_lightning_question(bot, user_id):
+    session = lightning_sessions.get(user_id)
+    if not session or session.get("finished"):
+        return
+
+    chat_id = session["chat_id"]
+    q_index = session["current_q"]
+    if q_index >= len(session["questions"]):
+        _finish_lightning_round(bot, user_id)
+        return
+
+    q = session["questions"][q_index]
+    options = q["options"]
+    letters = ["A", "B", "C", "D"]
+
+    import telebot
+    markup = telebot.types.InlineKeyboardMarkup(row_width=2)
+    for i, opt in enumerate(options):
+        markup.add(telebot.types.InlineKeyboardButton(
+            f"{letters[i]}. {opt}",
+            callback_data=f"lightning_ans_{user_id}_{q_index}_{i}"
+        ))
+
+    text = f"⚡ *LIGHTNING ROUND* ⚡\n\n"
+    text += f"Question {q_index+1} of {len(session['questions'])}\n"
+    text += f"*{q['question']}*\n\n"
+    for i, opt in enumerate(options):
+        text += f"{letters[i]}. {opt}\n"
+    text += f"\n⏱️ You have {config.LIGHTNING_QUESTION_TIME} seconds!"
+
+    bot.send_message(chat_id, text, reply_markup=markup, parse_mode="Markdown")
+
+    # Start a timer for this question
+    session["timer_running"] = True
+    def timeout():
+        time.sleep(config.LIGHTNING_QUESTION_TIME)
+        if session.get("timer_running") and not session.get("finished"):
+            # Mark as wrong and advance
+            session["answers"].append(None)  # no answer
+            session["current_q"] += 1
+            session["timer_running"] = False
+            # If we have more questions, send next; else finish
+            if session["current_q"] < len(session["questions"]):
+                _send_lightning_question(bot, user_id)
+            else:
+                _finish_lightning_round(bot, user_id)
+    threading.Thread(target=timeout, daemon=True).start()
+
+def handle_lightning_answer(bot, call):
+    parts = call.data.split("_")
+    user_id = int(parts[2])
+    q_index = int(parts[3])
+    choice = int(parts[4])
+
+    if user_id not in lightning_sessions:
+        bot.answer_callback_query(call.id, "Session expired.", show_alert=True)
+        return
+
+    session = lightning_sessions[user_id]
+    if session.get("finished"):
+        bot.answer_callback_query(call.id, "This round is already finished.", show_alert=True)
+        return
+
+    # Check if they already answered this question
+    if len(session["answers"]) > q_index:
+        bot.answer_callback_query(call.id, "You already answered this question!", show_alert=True)
+        return
+
+    # Validate q_index matches current
+    if q_index != session["current_q"]:
+        bot.answer_callback_query(call.id, "This question is outdated.", show_alert=True)
+        return
+
+    # Cancel the timer (by marking timer_running False)
+    session["timer_running"] = False
+
+    # Check correctness
+    q = session["questions"][q_index]
+    correct = (choice == ord(q["answer"]) - ord("A"))
+    session["answers"].append(choice)
+    if correct:
+        session["correct"] += 1
+        feedback = "✅ Correct!"
+    else:
+        feedback = "❌ Wrong!"
+
+    bot.answer_callback_query(call.id, feedback, show_alert=False)
+
+    # Advance to next question
+    session["current_q"] += 1
+    if session["current_q"] < len(session["questions"]):
+        _send_lightning_question(bot, user_id)
+    else:
+        _finish_lightning_round(bot, user_id)
+
+def _finish_lightning_round(bot, user_id):
+    session = lightning_sessions.get(user_id)
+    if not session or session.get("finished"):
+        return
+    session["finished"] = True
+
+    chat_id = session["chat_id"]
+    correct = session["correct"]
+    total = len(session["questions"])
+    reward = config.LIGHTNING_REWARDS.get(correct, 0)
+
+    # Apply points
+    username = session["username"]
+    if reward > 0:
+        database.reward_user(bot, chat_id, user_id, username, reward)
+        points_text = f"+{reward} pts"
+    else:
+        database.deduct_points(bot, chat_id, user_id, username, abs(reward))
+        points_text = f"{reward} pts (lost entry fee)"
+
+    summary = f"⚡ *LIGHTNING ROUND COMPLETE*\n\n"
+    summary += f"✅ Correct: {correct}/{total}\n"
+    summary += f"💰 Points: {points_text}\n\n"
+    for i, q in enumerate(session["questions"]):
+        ans = session["answers"][i] if i < len(session["answers"]) else None
+        correct_letter = q["answer"]
+        correct_text = q["options"][ord(correct_letter) - ord("A")]
+        if ans is not None:
+            chosen_letter = chr(ord("A") + ans)
+            chosen_text = q["options"][ans]
+            status = "✅" if chosen_letter == correct_letter else "❌"
+            summary += f"{status} Q{i+1}: Your answer: {chosen_letter}. {chosen_text} (Correct: {correct_letter}. {correct_text})\n"
+        else:
+            summary += f"⏰ Q{i+1}: Timeout (Correct: {correct_letter}. {correct_text})\n"
+
+    bot.send_message(chat_id, summary, parse_mode="Markdown")
+
+    # Clean up
+    del lightning_sessions[user_id]
