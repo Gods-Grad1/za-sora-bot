@@ -203,10 +203,10 @@ pending_admin_actions = {}
 def _get_time_limit():
     try:
         sched = database.load_remote_json(config.SCHEDULER_FILE, {})
-        return int(sched.get("answer_time_limit", config.DEFAULT_ANSWER_TIME))
+        return int(sched.get("answer_time_limit", config.DEFAULT_ANSWER_TIME)) + config.TIME_LIMIT_BUFFER
     except Exception:
-        return config.DEFAULT_ANSWER_TIME
-
+        return config.DEFAULT_ANSWER_TIME + config.TIME_LIMIT_BUFFER
+        
 def _is_game_active(chat_id):
     return chat_id in active_games
 
