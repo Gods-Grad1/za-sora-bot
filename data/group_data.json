@@ -31,25 +31,27 @@
         },
         "6231510981": {
             "username": "aldeniho",
-            "points": 3722,
+            "points": 3689,
             "monthly_points": {
-                "2026-06": 3889,
-                "2026-07": 33
+                "2026-06": 3889
             },
             "yearly_points": {
-                "2026": 3922
+                "2026": 3889
             },
-            "alltime_points": 3922,
-            "streak": 1,
+            "alltime_points": 3889,
+            "streak": 0,
             "best_streak": 7,
-            "games_played": 36,
-            "correct": 27,
+            "games_played": 35,
+            "correct": 26,
             "title": "\u26a1 Lightning",
             "title_expires": 1785689038.2686548,
             "hint_tokens": 0,
             "double_xp_until": null,
             "last_spin": 0,
-            "badges": [],
+            "badges": [
+                "first_blood",
+                "streak_5"
+            ],
             "trivia_correct": 0,
             "versus_wins": 0,
             "daily_wins": 0,
