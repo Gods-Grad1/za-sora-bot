@@ -48,7 +48,7 @@ def load_scheduler():
 
 def save_scheduler(data):
     database.save_json(bot, config.SCHEDULER_FILE, data)
-
+    
 # ---------------------------------------------------------------------------
 # HELPERS
 # ---------------------------------------------------------------------------
