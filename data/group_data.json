@@ -31,18 +31,19 @@
         },
         "6231510981": {
             "username": "aldeniho",
-            "points": 3689,
+            "points": 3839,
             "monthly_points": {
-                "2026-06": 3889
+                "2026-06": 3889,
+                "2026-07": 150
             },
             "yearly_points": {
-                "2026": 3889
+                "2026": 4039
             },
-            "alltime_points": 3889,
-            "streak": 0,
+            "alltime_points": 4039,
+            "streak": 1,
             "best_streak": 7,
-            "games_played": 35,
-            "correct": 26,
+            "games_played": 36,
+            "correct": 27,
             "title": "⚡ Lightning",
             "title_expires": 1785689038.2686548,
             "hint_tokens": 0,
