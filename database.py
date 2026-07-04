@@ -766,7 +766,6 @@ def set_group_schedule(group_id, settings):
     # Try to get group name
     group_name = f"Group {group_id}"
     try:
-        # We need the bot instance to get chat info
         if _bot:
             chat = _bot.get_chat(group_id)
             group_name = chat.title or group_name
@@ -791,3 +790,203 @@ def remove_group_schedule(group_id):
         save_group_schedules(schedules)
         return True
     return False
+
+# ---------------------------------------------------------------------------
+# THEME SYSTEM – Daily Themed Messages
+# ---------------------------------------------------------------------------
+
+def load_daily_themes():
+    """Load the daily themes from daily_themes.json."""
+    return load_remote_json(config.DAILY_THEMES_FILE, {})
+
+def save_daily_themes(themes):
+    """Save the daily themes to daily_themes.json."""
+    save_remote_json(config.DAILY_THEMES_FILE, themes)
+
+def get_current_week():
+    """Calculate the current week (1-4) based on theme start date."""
+    themes = load_daily_themes()
+    current_week = themes.get("current_week", 1)
+    last_updated = themes.get("last_updated")
+    
+    if last_updated:
+        try:
+            start_date = datetime.datetime.fromisoformat(last_updated)
+            days_diff = (datetime.datetime.now() - start_date).days
+            weeks_passed = days_diff // 7
+            current_week = ((themes.get("current_week", 1) + weeks_passed - 1) % 4) + 1
+        except Exception:
+            pass
+    
+    return current_week
+
+def get_character_for_day(week, day):
+    """Get character and category for a specific week and day."""
+    themes = load_daily_themes()
+    weeks = themes.get("weeks", [])
+    
+    day_map = {
+        "monday": "monday",
+        "tuesday": "tuesday",
+        "wednesday": "wednesday",
+        "thursday": "thursday",
+        "friday": "friday",
+        "saturday": "saturday",
+        "sunday": "sunday"
+    }
+    
+    day_key = day_map.get(day.lower())
+    if not day_key:
+        return None, None
+    
+    for w in weeks:
+        if w.get("week") == week:
+            day_data = w.get(day_key, {})
+            return day_data.get("character"), day_data.get("category")
+    
+    return None, None
+
+def get_todays_character():
+    """Get today's character and category based on current date."""
+    now = datetime.datetime.now()
+    day = now.strftime("%A").lower()
+    week = get_current_week()
+    return get_character_for_day(week, day)
+
+# ---------------------------------------------------------------------------
+# CHARACTER GREETINGS AND GOODNIGHT MESSAGES
+# ---------------------------------------------------------------------------
+
+def get_character_greeting(character, message_type="morning"):
+    """Get the greeting or goodnight message for a character."""
+    # Full database of character greetings and goodnight messages
+    greetings = {
+        # WEEK 1
+        "kratos": {
+            "morning": "Rise, warrior. The sun is already higher than your excuses. 🪓 The day waits for no one – not even a God of War.\n\nA true warrior finds strength in stillness. Now go, and make the day yours.",
+            "goodnight": "The sun has set, warrior. Lay down your burdens and rest. 🪓 You fought well today. Tomorrow brings new battles, new challenges, and new victories. But tonight, you need only to breathe. Sleep deeply. A true warrior knows that rest is not weakness – it is preparation. The flames of your spirit will rise again with the sun. Goodnight, warrior."
+        },
+        "luffy": {
+            "morning": "ZAAA SORAAA! Rise and shine, Nakama! The sun's up, the sea's waiting, and I'm starving! 🏴‍☠️ Let's set sail and find some adventure!\n\nI don't want to conquer anything. I just want to be free. Let's make today legendary!",
+            "goodnight": "The sun's going down, Nakama! 🏴‍☠️ But don't worry – the adventure doesn't end, it just takes a break. Tomorrow, we set sail again! The sea is waiting, and the One Piece isn't going to find itself. But for now... sleep well. Dream of the Grand Line and all the treasure we'll find. I'll be here when you wake up, ready to go! Goodnight, crew!"
+        },
+        "terminator": {
+            "morning": "Wake up. The day has begun. Your mission, should you choose to accept it, is to make today count. 🤖\n\nThe future is not set. There is no fate but what we make. Now move out.",
+            "goodnight": "Shutting down for the night. 🤖 System check complete – you performed well today. Your mission is complete for now. The future is not set, but tonight, you have earned your rest. No threats detected. No alarms. Just peace. Initiate sleep mode. We'll resume at dawn."
+        },
+        "gojo": {
+            "morning": "Rise and shine! The world needs the honored one today, and that includes you! 🔥 Don't keep reality waiting.\n\nI don't care about the rules. I care about protecting my students. So go out there and be great!",
+            "goodnight": "The sun's down, and even the honored one needs to rest! 🔥 Don't think you have to carry the world all day. Tomorrow, we'll continue protecting what matters. But tonight, protect yourself. Sleep well, my students. I'll be here when you need me. Being the strongest means knowing when to recharge. Goodnight!"
+        },
+        "iron man": {
+            "morning": "Good morning, genius! The world doesn't save itself – that's our job! 💎 Put on your armor and get ready!\n\nThe suit makes me a hero, but the man inside is what matters. Now get out there and be brilliant!",
+            "goodnight": "Alright, crew – the arc reactor is powering down for the night. 💎 Even geniuses need sleep. Tomorrow, we'll save the world again. But tonight? We rest. The suit doesn't make the hero – the heart does. And yours needs rest to keep beating strong. I am Iron Man... and I am going to sleep. Goodnight!"
+        },
+        "flash": {
+            "morning": "Rise and shine! The speed force never takes a break, but you should! ⚡ Every second counts, so get moving!\n\nThe world needs hope. That's what I give them. Now go out there and be faster than yesterday!",
+            "goodnight": "The speed force never takes a break, but you should! ⚡ It's time to slow down and recharge. You were fast today – faster than yesterday. But even the fastest need to rest. The world will be here tomorrow. And it'll need you at your fastest. So rest up, and dream of the finish line. Goodnight!"
+        },
+        "bible verse": {
+            "morning": "Good morning, family! 🌅 'This is the day the Lord has made; let us rejoice and be glad in it.' – Psalm 118:24 🙏\n\nBe strong and courageous. Do not be afraid. Go in peace, and make this day a blessing to others.",
+            "goodnight": "The sun has set, family. Rest in His peace tonight. 🙏 'In peace I will lie down and sleep, for you alone, Lord, make me dwell in safety.' – Psalm 4:8. May His angels watch over you and bring you comfort. Sleep peacefully, knowing you are loved and held by the Lord. Goodnight, family."
+        },
+        # WEEK 2
+        "master chief": {
+            "morning": "Wake up, soldier! The mission is already on the clock, and I need you at your best. 💪 No excuses – just victory.\n\nFinish the fight. That's what heroes do. Now get out there and make it happen.",
+            "goodnight": "The mission is complete for today, soldier. 💪 Rest now. You've earned it. The battle doesn't end, but tonight, you are safe. Let the quiet of the night bring you peace. Tomorrow, we'll need you at full strength. But tonight, you need only to rest. I'll keep watch. Sleep well. Goodnight, soldier."
+        },
+        "goku": {
+            "morning": "GOOD MORNING! The sun's up and so is my power level! 💥 I can sense today's going to be amazing – let's train hard!\n\nI will not let you destroy my world! That goes for today's challenges too – fight with everything you've got!",
+            "goodnight": "Alright, everyone! Training is over for the day! 💥 Good workout, everybody! Tomorrow, we'll power up even more! I can already feel today's gains! But for now... sleep. Recharge your energy. You'll need it for the next battle. I'll be here, ready to train again. Goodnight!"
+        },
+        "thanos": {
+            "morning": "Awaken. The day has come to prove your worth. 💜 I have watched civilizations rise and fall – let us see if you can rise.\n\nPerfectly balanced, as all things should be. Go forth and find your balance today... or be erased.",
+            "goodnight": "The day has found its balance, my friends. 💜 You have done what you could, and that is enough. Rest now. The night brings peace, and tomorrow brings new challenges. In the stillness, find your center. In the silence, find your strength. Perfectly balanced, as all things should be. Goodnight."
+        },
+        "professor x": {
+            "morning": "Good morning, my X-Men! The mind is the most powerful weapon we possess, so sharpen yours today. 🧠\n\nMutants and humans must learn to coexist. Just as you must learn to balance your day with purpose.",
+            "goodnight": "The day's lessons are over, my X-Men. 🧠 Rest your minds and bodies. Tomorrow, new questions will arise, new challenges will present themselves. But tonight, you can be at peace. The mind needs time to rest and process. Do not deny yourself that gift. Sleep well, my students. I'll be here in the morning. Goodnight."
+        },
+        "cyborg": {
+            "morning": "Good morning, heroes! The systems are online and I'm ready to go. 🤖 Victor Stone here – let's make today count!\n\nBeing half-machine doesn't make me less human – it just gives me more tools to protect the people I care about. Go out there and be a hero!",
+            "goodnight": "Shutting down for the night, heroes. 🤖 System diagnostics show you gave it your all today. The future needs you ready, and that means you need to reboot. Close your eyes, and let the quiet reset everything. Being half-machine doesn't make me less human – it just means I understand the importance of a good restart. See you at sunrise. Goodnight!"
+        },
+        "isagi": {
+            "morning": "Rise and grind, team! The field is calling, and the goal is just ahead! ⚽ Let's show them what we're made of!\n\nThe field is where I prove my worth. Today, you prove yours. Let's do this!",
+            "goodnight": "The final whistle has blown, team! ⚽ Today was a good match – but tomorrow is the championship! Rest up. Dream of the goal. Visualize your victory. The field will be there tomorrow, and so will I. We're going to dominate! Goodnight, team. See you at the start!"
+        },
+        # WEEK 3
+        "mario": {
+            "morning": "WAHOO! It's-a me, Mario, and I'm here to-a start the day right! 🍄 The sun is shining, the day is bright – let's-a go!\n\nYou can do anything if you believe in yourself! Now go out there and be the hero of your own story!",
+            "goodnight": "It's-a been a great day, everyone! 🍄 But even the best plumber needs to sleep! Tonight, rest your feet, rest your spirit, and let the stars guide you. Tomorrow, a new adventure awaits! The castle is waiting, and I'm-a ready! Buona notte, my friends! See you in the morning!"
+        },
+        "naruto": {
+            "morning": "BELIEVE IT! The sun is up, and I'm more fired up than ever! 🍥 Today's going to be our day – I can feel it!\n\nI never go back on my word. That's my ninja way! So go out there and prove what you're made of!",
+            "goodnight": "BELIEVE IT! Even I need to rest! 🍥 Today was incredible – thank you for all that you do. Tomorrow, we'll get stronger together. The path to Hokage is a long one, but I won't give up! But for tonight... just rest. You've done enough. You've done more than enough. Dattebayo! Goodnight!"
+        },
+        "gandalf": {
+            "morning": "The day is upon us, my friends! Let us go forth with courage and a merry heart. 🧙‍♂️ Darkness holds no power here.\n\nEven the smallest person can change the course of the future. Remember that as you go today.",
+            "goodnight": "The day has ended, my friends. 🧙‍♂️ The light has faded, but the stars shine bright above. Rest now. Tomorrow will bring new journeys, new friends, and new dangers. But tonight, let the quiet wrap around you like a warm embrace. May the road always rise to meet you. Goodnight!"
+        },
+        "kakashi": {
+            "morning": "Morning, everyone. The hidden leaf is awake, and the day is full of possibilities. 📖 Let's not waste a moment.\n\nThe most important thing is to protect those you care about. Let that guide you today.",
+            "goodnight": "The sun is gone, and the hidden leaf is silent. 📖 Tonight is for rest and reflection. Tomorrow brings new challenges, new missions. But tonight, you are at peace. Close your eyes and let go of the day's weight. You've carried enough. Goodnight, everyone."
+        },
+        "mr terrific": {
+            "morning": "Wake up! It's time to use that brilliant brain of yours! 🧠 Today's a puzzle, and you're the one who's going to solve it!\n\nIntelligence is the greatest superpower. And you've got it – now go out there and prove it!",
+            "goodnight": "Alright, team! Brain power down! 🧠 You used a lot of it today, and I'm impressed. Tomorrow, we'll solve more problems. We'll build, we'll create, we'll innovate. But tonight, let your mind wander. Let it rest. Let it dream. Goodnight, thinkers!"
+        },
+        "hinata": {
+            "morning": "Good morning! Let's fly high today! 🏐 Even the shortest player can reach the sky – and so can you!\n\nEven if I'm not the tallest, I can still fly the highest. That's what today is about – reaching your highest potential.",
+            "goodnight": "The sun has fallen, but our spirits are still high! 🏐 Today was a good day – we flew high together. Tomorrow, we'll fly even higher. But tonight, let yourself rest. You've earned this peace. You've earned this quiet. Goodnight, team. See you in the morning!"
+        },
+        # WEEK 4
+        "dante": {
+            "morning": "WAKE UP! Let's rock this day like a Devil May Cry boss fight! ⚔️ No holding back – go full throttle!\n\nI fight for the ones who can't fight for themselves. So go out there and be someone's hero today.",
+            "goodnight": "Alright, party's over for tonight! ⚔️ We had a good run, but even the devil needs sleep. Tomorrow, we'll fight again – harder, faster, better. But tonight? We rest. Put down your weapons, close your eyes, and let the quiet heal what needs healing. Sleep well, my fellow fighters. Goodnight!"
+        },
+        "ash ketchum": {
+            "morning": "Pikachu! The sun is shining, and a new adventure is waiting! ⚡ Let's get out there and explore the world!\n\nBeing a Pokémon Master isn't about winning – it's about friendship. So go out there and make some memories.",
+            "goodnight": "Pikachu's tired, I'm tired, and you should be too! ⚡ Today was an amazing adventure! Tomorrow, there are more Pokémon to meet, more friends to make, and more battles to win. But tonight, let yourself rest. The journey continues at sunrise. Gotta rest 'em all! Goodnight!"
+        },
+        "timon pumbaa": {
+            "morning": "Hakuna Matata! No worries, just wake up and enjoy the day! 🦁🐗 The sun is up, and so should you be!\n\nWhen the world turns its back on you, you turn your back on the world. That's the spirit for today!",
+            "goodnight": "Hakuna Matata! No worries tonight, friends! 🦁🐗 The day was great, but now it's time to chill. Tomorrow, no worries – we'll face it together. But tonight? Just relax. No stress, no fear, no concerns. Just peace. Sleep well! Hakuna Matata!"
+        },
+        "koro sensei": {
+            "morning": "TIME FOR CLASS! Wake up, students! 🐙 A new day means new lessons to learn, and I'm not taking any excuses!\n\nThe greatest lesson is to find your own path. So go out there and forge your own destiny today.",
+            "goodnight": "CLASS DISMISSED, students! 🐙 You did well today – I'm proud of you. Tomorrow, we'll learn more. We'll grow more. But tonight, you are free. No homework. No lessons. Just rest. Goodnight, students! See you in class!"
+        },
+        "optimus prime": {
+            "morning": "Rise, Autobots! The day is upon us, and freedom is the right of all sentient beings! 🚛 Let us protect it!\n\nFreedom is the right of all sentient beings. Remember that as you go out and make a difference today.",
+            "goodnight": "The Autobots shall rest tonight, my friends. 🚛 Today, we protected what mattered. Today, we were free. Tomorrow, the fight continues. The Decepticons never rest – and neither must our vigilance. But tonight, let your spark dim and your mind find peace. Until we meet again, Autobots. Goodnight."
+        },
+        "tetsuya": {
+            "morning": "Let's dance, team! The court is calling, and the ball is waiting! 🏀 Today we're not just players – we're champions!\n\nTrue strength isn't about being the best – it's about trusting your teammates. That's the spirit for today!",
+            "goodnight": "The final buzzer has sounded, team! 🏀 Today was an epic match – you were incredible! Tomorrow, the court awaits. Tomorrow, we become champions. But tonight... you've earned this rest. Let the victory settle in. Dream of the ball, and the glory. Goodnight!"
+        }
+    }
+    
+    # Normalize character name for lookup
+    char_key = character.lower().strip()
+    
+    # Handle special cases
+    if char_key == "timon & pumbaa":
+        char_key = "timon pumbaa"
+    elif char_key == "koro-sensei":
+        char_key = "koro sensei"
+    elif char_key == "mr. terrific":
+        char_key = "mr terrific"
+    elif char_key == "master chief":
+        char_key = "master chief"
+    elif char_key == "professor x":
+        char_key = "professor x"
+    
+    char_data = greetings.get(char_key, {})
+    
+    if message_type == "morning":
+        return char_data.get("morning", "Good morning, family! Rise and shine! 🌅")
+    elif message_type == "goodnight":
+        return char_data.get("goodnight", "The day is done, family. Rest well. 🌙")
+    
+    return "Good morning, family! Rise and shine! 🌅"
