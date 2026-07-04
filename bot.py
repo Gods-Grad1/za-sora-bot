@@ -87,6 +87,10 @@ def load_scheduler():
             "schedule_message_id": None,
         }
 
+def save_scheduler(data):
+    """Save scheduler state to GitHub (persists across redeploys)."""
+    database.save_remote_json(config.SCHEDULER_FILE, data)
+
 # ---------------------------------------------------------------------------
 # HELPERS
 # ---------------------------------------------------------------------------
@@ -493,7 +497,7 @@ def show_stats(chat_id):
     bot.send_message(chat_id, f"📊 *GROUP STATS*\n\n👥 Tracked members: {len(users)}\n🎮 Total games played: {total_games}\n💰 Total points distributed: {total_pts}\n🏃 Most active: {most_active.get('username','?')} ({most_active.get('games_played',0)} games)\n🏆 Top scorer: {top_scorer.get('username','?')} ({top_scorer.get('alltime_points',0)} pts)\n🔥 Best streak: {best_streak.get('username','?')} ({best_streak.get('best_streak',0)} in a row)", parse_mode="Markdown")
 
 # ---------------------------------------------------------------------------
-# WEEKLY RECAP & MORNING MESSAGE
+# THEMED MORNING MESSAGE
 # ---------------------------------------------------------------------------
 
 def send_weekly_recap(bot):
@@ -514,12 +518,28 @@ def send_weekly_recap(bot):
             print(f"Weekly recap failed for {group_id}: {e}")
 
 def send_morning_message(bot):
+    """Send themed morning message with character greeting, GIF, and daily content."""
     try:
         print("🌅 send_morning_message() called")
         now = local_now()
-        weekday = now.strftime("%A")
+        weekday = now.strftime("%A").lower()
         date = now.strftime("%d %B %Y")
-        quote = database.get_random_quote(bot)
+        
+        # Get today's character and category
+        character, category = database.get_todays_character()
+        if not character:
+            character = "Luffy"
+            category = "Anime"
+        
+        # Get character greeting
+        morning_greeting = database.get_character_greeting(character, "morning")
+        if not morning_greeting:
+            morning_greeting = f"Good morning, family! Rise and shine! 🌅"
+        
+        # Get random saying
+        saying = database.get_random_quote(bot)
+        
+        # Get top 3
         groups = database.get_all_groups()
         print(f"📊 Found {len(groups)} groups")
 
@@ -534,19 +554,26 @@ def send_morning_message(bot):
                 else:
                     top3 = "No scores yet this month!\n"
 
-                msg = (
-                    f"☀️ *Good Morning, Family!*\n"
-                    f"_{weekday}, {date}_\n\n"
-                )
-                if quote:
-                    msg += f"💬 *{quote['text']}*\n_— {quote['author']}_\n\n"
-
-                msg += (
-                    f"🏆 *Monthly Top 3:*\n{top3}\n\n"
-                    f"🎮 *Start your adventure:*\n"
-                    f"/start — Welcome to the crew!\n\n"
-                    f"Let's have a great day! 🙏🔥"
-                )
+                # Build the morning message
+                msg = f"☀️ *Good Morning, Family!*\n_{weekday.capitalize()}, {date}_\n\n"
+                
+                # Character greeting (themed)
+                msg += f"🎭 *Today's Character:* {character}\n\n"
+                msg += f"{morning_greeting}\n\n"
+                
+                # Character quote (extra)
+                msg += f"💬 *{character} says:* _{morning_greeting.split(chr(10))[-1] if chr(10) in morning_greeting else 'Stay strong today!'}_\n\n"
+                
+                # Random saying
+                if saying:
+                    msg += f"📖 *A thought for the day:*\n_{saying['text']}_\n_— {saying['author']}_\n\n"
+                
+                # Top 3
+                msg += f"🏆 *Monthly Top 3:*\n{top3}\n"
+                
+                # Invite
+                msg += f"🎮 *Start your adventure:*\n/start — Welcome to the crew!\n\n"
+                msg += f"Let's have a great day! 🙏🔥"
 
                 members = database.get_all_members(group_id)
                 if members:
@@ -562,7 +589,15 @@ def send_morning_message(bot):
                         if len(members) > 50:
                             tag_line_trunc += f"\n_and {len(members)-50} more..._"
                         full_msg = msg + "\n\n" + tag_line_trunc
-                    bot.send_message(group_id, full_msg, parse_mode="Markdown")
+                    
+                    # Try to send GIF
+                    try:
+                        character_lower = character.lower().replace(" ", "_")
+                        gif_url = f"https://raw.githubusercontent.com/{config.GITHUB_REPO}/{config.TRIVIA_BRANCH}/images/morning/{character_lower}.gif"
+                        bot.send_animation(group_id, gif_url, caption=full_msg, parse_mode="Markdown")
+                    except Exception:
+                        # Fallback – send without GIF
+                        bot.send_message(group_id, full_msg, parse_mode="Markdown")
                 else:
                     bot.send_message(group_id, msg, parse_mode="Markdown")
 
@@ -578,6 +613,59 @@ def send_morning_message(bot):
     except Exception as e:
         print(f"❌ Morning message overall error: {e}")
         database.log_error_to_admin(bot, "Morning Message Overall", e)
+
+# ---------------------------------------------------------------------------
+# GOODNIGHT MESSAGE
+# ---------------------------------------------------------------------------
+
+def send_goodnight_message(bot):
+    """Send themed goodnight message with character closing the day."""
+    try:
+        print("🌙 send_goodnight_message() called")
+        now = local_now()
+        weekday = now.strftime("%A").lower()
+        date = now.strftime("%d %B %Y")
+        
+        # Get today's character
+        character, category = database.get_todays_character()
+        if not character:
+            character = "Luffy"
+        
+        # Get goodnight message
+        goodnight_msg = database.get_character_greeting(character, "goodnight")
+        if not goodnight_msg:
+            goodnight_msg = f"The day is done, family. Rest well. 🌙"
+        
+        groups = database.get_all_groups()
+        print(f"📊 Found {len(groups)} groups for goodnight")
+
+        for group_id in groups:
+            try:
+                # Build the goodnight message
+                msg = f"🌙 *Goodnight, Family!*\n_{weekday.capitalize()}, {date}_\n\n"
+                
+                # Character goodnight
+                msg += f"🎭 *{character} sends you off:*\n\n{goodnight_msg}\n\n"
+                
+                msg += f"🛌 Sleep well, crew! See you tomorrow! 🙏🌟"
+
+                # Try to send GIF
+                try:
+                    character_lower = character.lower().replace(" ", "_")
+                    gif_url = f"https://raw.githubusercontent.com/{config.GITHUB_REPO}/{config.TRIVIA_BRANCH}/images/goodnight/{character_lower}.gif"
+                    bot.send_animation(group_id, gif_url, caption=msg, parse_mode="Markdown")
+                except Exception:
+                    # Fallback – send without GIF
+                    bot.send_message(group_id, msg, parse_mode="Markdown")
+
+                print(f"✅ Goodnight message sent to {group_id}")
+            except Exception as e:
+                print(f"❌ Goodnight message failed for {group_id}: {e}")
+                database.log_error_to_admin(bot, "Goodnight Message", e)
+
+    except Exception as e:
+        print(f"❌ Goodnight message overall error: {e}")
+        database.log_error_to_admin(bot, "Goodnight Message Overall", e)
 
 # ---------------------------------------------------------------------------
 # BROADCAST HELPERS
@@ -644,6 +732,83 @@ def _send_pending_broadcasts(bot):
             print(f"   ✅ Broadcast ID {broadcast['id']} marked as sent.")
         else:
             print(f"   ⚠️ Broadcast ID {broadcast['id']} NOT marked – will retry later.")
+
+# ---------------------------------------------------------------------------
+# CLEAN BOT MESSAGES
+# ---------------------------------------------------------------------------
+
+def clean_bot_messages(chat_id, trigger_message):
+    """Delete only this bot's own tracked messages, except important ones."""
+    # Check permission
+    try:
+        bot_member = bot.get_chat_member(chat_id, bot.get_me().id)
+        can_delete = bot_member.can_delete_messages or bot_member.status == "creator"
+    except Exception:
+        can_delete = False
+    
+    if not can_delete:
+        bot.reply_to(trigger_message, "❌ I don't have permission to delete messages!\n\nPlease promote me to Admin with 'Delete Messages' permission.")
+        return
+    
+    bot.reply_to(trigger_message, "🧹 Cleaning up my messages...")
+    
+    # Get tracked messages from games module
+    tracked = games.tracked_messages
+    msg_data = tracked.get(chat_id, [])
+    print(f"🧹 Found {len(msg_data)} tracked messages in chat {chat_id}")
+    
+    if not msg_data:
+        bot.reply_to(trigger_message, "🧹 No messages to clean up! ✅")
+        return
+    
+    # Patterns to KEEP
+    keep_patterns = [
+        "BROADCAST", "📢 *ANNOUNCEMENT*", "📢 *Tagging everyone*",
+        "☀️ *Good Morning, Family!*",
+        "📊 *WEEKLY RECAP*", "📅 *SUNDAY STANDINGS*",
+        "🏆 *Monthly Results*", "🎊 *Yearly Champion*",
+        "📊 *GROUP STATS*", "🏆 *ZA SORA ZENITH LEAGUE STANDINGS*",
+        "📋 *FIXTURES*", "⚔️ *MATCH OVER*", "⚔️ *MATCH DRAWN*",
+        "🏳️ *", "🤝 *MATCH DRAWN*",
+        "/mystats", "/viewstats", "Your Stats",
+        "📖 *ZA SORA GAME CLUB — HELP*",
+        "⚙️ *ADMIN PANEL*", "📅 *SCHEDULE SETTINGS*",
+        "🛒 *POINT SHOP*", "🏆 *Leaderboard*",
+        "✅ *Challenge Accepted*", "⚔️ *VERSUS CHALLENGE*",
+        "💰 *BET RESULTS*", "🌙 *Goodnight, Family!*"
+    ]
+    
+    deleted_count = 0
+    kept_count = 0
+    
+    for data in msg_data:
+        msg_id = data.get("id")
+        text = data.get("text", "")
+        
+        should_keep = False
+        for pattern in keep_patterns:
+            if pattern in text or pattern.lower() in text.lower():
+                should_keep = True
+                break
+        
+        if "won" in text.lower() or "wins" in text.lower() or "final score" in text.lower():
+            should_keep = True
+        
+        if not should_keep:
+            try:
+                bot.delete_message(chat_id, msg_id)
+                deleted_count += 1
+                time.sleep(0.05)
+            except Exception as e:
+                print(f"Failed to delete message {msg_id}: {e}")
+        else:
+            kept_count += 1
+    
+    # Clear tracked messages after cleanup
+    if chat_id in tracked:
+        tracked[chat_id] = []
+    
+    bot.reply_to(trigger_message, f"🧹 *Cleanup Complete*\n\n🗑️ Deleted: {deleted_count} of my messages\n📌 Kept: {kept_count} important messages", parse_mode="Markdown")
 
 # ---------------------------------------------------------------------------
 # COMMAND ROUTER
@@ -991,6 +1156,13 @@ def handle_all_messages(message):
         else:
             bot.reply_to(message, "❌ Captain only.")
 
+    elif cmd == '/testgoodnight':
+        if is_admin(user_id):
+            send_goodnight_message(bot)
+            bot.reply_to(message, "✅ Goodnight message sent (test).")
+        else:
+            bot.reply_to(message, "❌ Captain only.")
+
     elif cmd == '/checknow' and is_admin(user_id):
         bot.reply_to(message, "🔄 Manually checking for pending broadcasts...")
         _send_pending_broadcasts(bot)
@@ -1171,6 +1343,7 @@ def handle_all_messages(message):
     elif cmd == '/setupgenerated' and is_admin(user_id):
         status_msg = bot.reply_to(message, "🔧 Setting up generated branch structure...")
         try:
+            # --- Step 1: Create daily_themes.json ---
             themes_data = {
                 "weeks": [
                     {"week": 1, "monday": {"character": "Kratos", "category": "Gaming"}, "tuesday": {"character": "Luffy", "category": "Anime"}, "wednesday": {"character": "Terminator", "category": "Movies"}, "thursday": {"character": "Gojo", "category": "General"}, "friday": {"character": "Iron Man", "category": "Technology"}, "saturday": {"character": "Flash", "category": "Sports"}, "sunday": {"character": "Bible Verse", "category": "Bible"}},
@@ -1187,9 +1360,10 @@ def handle_all_messages(message):
             else:
                 bot.send_message(chat_id, "❌ Failed to create daily_themes.json – check GITHUB_TOKEN and branch permissions.")
 
+            # --- Step 2: Create folders with .gitkeep ---
             from github_uploader import upload_image_to_github
             placeholder = b""
-            folders = ["themes", "scrambled"]
+            folders = ["themes", "scrambled", "morning", "goodnight"]
             for folder in folders:
                 try:
                     result = upload_image_to_github(bot, placeholder, ".gitkeep", folder, branch=config.TRIVIA_BRANCH)
@@ -1200,7 +1374,7 @@ def handle_all_messages(message):
                 except Exception as e:
                     bot.send_message(chat_id, f"❌ Error creating images/{folder}/: {e}")
 
-            bot.send_message(chat_id, "✅ Setup complete. Check your generated branch on GitHub to confirm.")
+            bot.send_message(chat_id, "✅ Setup complete! Folders created:\n• images/themes/\n• images/scrambled/\n• images/morning/\n• images/goodnight/\n\nUpload your GIFs to the appropriate folders!")
         except Exception as e:
             bot.send_message(chat_id, f"❌ Setup failed: {e}")
 
@@ -1307,83 +1481,6 @@ def handle_all_messages(message):
                               "Type `/cancel` to cancel.",
                      parse_mode="Markdown")
         database.save_json(bot, "admin_state.json", {"action": "removegroupschedule", "user_id": user_id})
-
-# ---------------------------------------------------------------------------
-# CLEAN BOT MESSAGES
-# ---------------------------------------------------------------------------
-
-def clean_bot_messages(chat_id, trigger_message):
-    """Delete only this bot's own messages, except important ones."""
-    try:
-        bot_member = bot.get_chat_member(chat_id, bot.get_me().id)
-        can_delete = bot_member.can_delete_messages or bot_member.status == "creator"
-    except Exception:
-        can_delete = False
-    
-    if not can_delete:
-        bot.reply_to(trigger_message, "❌ I don't have permission to delete messages!\n\n"
-                                      "Please promote me to Admin with 'Delete Messages' permission.")
-        return
-    
-    bot.reply_to(trigger_message, "🧹 Cleaning up my messages...")
-    
-    try:
-        messages = bot.get_chat_history(chat_id, limit=100)
-    except Exception as e:
-        bot.reply_to(trigger_message, f"❌ Could not fetch messages: {e}")
-        return
-    
-    bot_id = bot.get_me().id
-    deleted_count = 0
-    kept_count = 0
-    
-    keep_patterns = [
-        "BROADCAST", "📢 *ANNOUNCEMENT*", "📢 *Tagging everyone*",
-        "🌅 send_morning_message", "☀️ *Good Morning, Family!*",
-        "📊 *WEEKLY RECAP*", "📅 *SUNDAY STANDINGS*",
-        "🏆 *Monthly Results*", "🎊 *Yearly Champion*",
-        "📊 *GROUP STATS*", "🏆 *ZA SORA ZENITH LEAGUE STANDINGS*",
-        "📋 *FIXTURES*", "⚔️ *MATCH OVER*", "⚔️ *MATCH DRAWN*",
-        "🏳️ *", "🤝 *MATCH DRAWN*",
-        "/mystats", "/viewstats", "Your Stats", "Stats",
-        "📖 *ZA SORA GAME CLUB — HELP*",
-        "⚙️ *ADMIN PANEL*", "📅 *SCHEDULE SETTINGS*",
-        "🛒 *POINT SHOP*", "🏆 *Leaderboard*",
-        "📋 *FIXTURES*",
-        "🎰 *WHEEL OF FORTUNE*",
-        "✅ *Challenge Accepted*", "⚔️ *VERSUS CHALLENGE*",
-        "💰 *BET RESULTS*"
-    ]
-    
-    for msg in messages:
-        if msg.message_id == trigger_message.message_id:
-            continue
-        
-        if not msg.from_user or msg.from_user.id != bot_id:
-            continue
-        
-        text = msg.text or msg.caption or ""
-        should_keep = False
-        
-        for pattern in keep_patterns:
-            if pattern in text or pattern.lower() in text.lower():
-                should_keep = True
-                break
-        
-        if "won" in text.lower() or "wins" in text.lower() or "final score" in text.lower():
-            should_keep = True
-        
-        if not should_keep:
-            try:
-                bot.delete_message(chat_id, msg.message_id)
-                deleted_count += 1
-                time.sleep(0.05)
-            except Exception as e:
-                print(f"Failed to delete message {msg.message_id}: {e}")
-        else:
-            kept_count += 1
-    
-    bot.reply_to(trigger_message, f"🧹 *Cleanup Complete*\n\n🗑️ Deleted: {deleted_count} of my messages\n📌 Kept: {kept_count} important messages", parse_mode="Markdown")
 
 # ---------------------------------------------------------------------------
 # STATUS COMMAND
@@ -2010,6 +2107,11 @@ def background_scheduler():
                     send_morning_message(bot)
                     time.sleep(61)
 
+                if hour == config.GOODNIGHT_HOUR and minute == config.GOODNIGHT_MIN:
+                    print("🌙 Sending goodnight message...")
+                    send_goodnight_message(bot)
+                    time.sleep(61)
+
                 if now.weekday() == 0 and hour == 9 and minute == 0:
                     print("📊 Sending weekly recap...")
                     send_weekly_recap(bot)
@@ -2041,70 +2143,69 @@ def background_scheduler():
                     database.check_and_run_yearly_reset(bot)
                     time.sleep(61)
 
-if sched.get("enabled"):
-    groups = database.get_all_groups()
-    
-    for g_id in groups:
-        group_sched = database.get_group_schedule(g_id)
-        
-        if group_sched:
-            window_start = group_sched.get("window_start", config.SCHEDULER_WINDOW_START)
-            window_end   = group_sched.get("window_end", config.SCHEDULER_WINDOW_END)
-            in_window    = window_start <= hour < window_end
-            interval_sec = group_sched.get("interval", 60) * 60
-            game_type    = group_sched.get("game_type", "random")
-            enabled      = group_sched.get("enabled", True)
-            
-            if not enabled:
-                continue
-        else:
-            window_start = sched.get("window_start", config.SCHEDULER_WINDOW_START)
-            window_end   = sched.get("window_end", config.SCHEDULER_WINDOW_END)
-            in_window    = window_start <= hour < window_end
-            interval_sec = sched.get("interval", 60) * 60
-            game_type    = sched.get("game_type", "random")
-        
-        last_game    = sched.get("last_game", 0)
-        now_ts       = time.time()
-        
-        # ⚠️ Prevent immediate game start on bot startup
-        if last_game == 0:
-            if now_ts < BOT_START_TIME + 60:
-                continue  # Wait for bot to fully initialize
-            else:
-                # First game after boot – set timestamp and continue
-                print(f"⏰ Bot started, setting initial last_game to {now_ts}")
-                sched["last_game"] = now_ts
-                save_scheduler(sched)
-                continue
-        
-        if in_window and (now_ts - last_game) >= interval_sec:
-            print(f"⏳ Scheduler: group={g_id}, in_window={in_window}, diff={now_ts - last_game}, interval={interval_sec}")
-            
-            if game_type == "random":
-                game_type = random.choice(["character", "year", "picture", "trivia"])
-            
-            if games._is_game_active(g_id) or g_id in games.versus_games:
-                continue
-            
-            started = False
-            if game_type == "character":
-                games.start_character_game(bot, g_id)
-                started = True
-            elif game_type == "year":
-                games.start_year_game(bot, g_id)
-                started = True
-            elif game_type == "picture":
-                games.start_picture_game(bot, g_id)
-                started = True
-            elif game_type == "trivia":
-                games.start_trivia_game(bot, g_id)
-                started = True
-            
-            if started:
-                print(f"✅ Started {game_type} game in group {g_id}")
-            else:
-                print(f"ℹ️ No game started in group {g_id} (active game present)")
+                if sched.get("enabled"):
+                    groups = database.get_all_groups()
+                    
+                    for g_id in groups:
+                        group_sched = database.get_group_schedule(g_id)
+                        
+                        if group_sched:
+                            window_start = group_sched.get("window_start", config.SCHEDULER_WINDOW_START)
+                            window_end   = group_sched.get("window_end", config.SCHEDULER_WINDOW_END)
+                            in_window    = window_start <= hour < window_end
+                            interval_sec = group_sched.get("interval", 60) * 60
+                            game_type    = group_sched.get("game_type", "random")
+                            enabled      = group_sched.get("enabled", True)
+                            
+                            if not enabled:
+                                continue
+                        else:
+                            window_start = sched.get("window_start", config.SCHEDULER_WINDOW_START)
+                            window_end   = sched.get("window_end", config.SCHEDULER_WINDOW_END)
+                            in_window    = window_start <= hour < window_end
+                            interval_sec = sched.get("interval", 60) * 60
+                            game_type    = sched.get("game_type", "random")
+                        
+                        last_game    = sched.get("last_game", 0)
+                        now_ts       = time.time()
+                        
+                        # Prevent immediate game start on bot startup
+                        if last_game == 0:
+                            if now_ts < BOT_START_TIME + 60:
+                                continue
+                            else:
+                                print(f"⏰ Bot started, setting initial last_game to {now_ts}")
+                                sched["last_game"] = now_ts
+                                save_scheduler(sched)
+                                continue
+                        
+                        if in_window and (now_ts - last_game) >= interval_sec:
+                            print(f"⏳ Scheduler: group={g_id}, in_window={in_window}, diff={now_ts - last_game}, interval={interval_sec}")
+                            
+                            if game_type == "random":
+                                game_type = random.choice(["character", "year", "picture", "trivia"])
+                            
+                            if games._is_game_active(g_id) or g_id in games.versus_games:
+                                continue
+                            
+                            started = False
+                            if game_type == "character":
+                                games.start_character_game(bot, g_id)
+                                started = True
+                            elif game_type == "year":
+                                games.start_year_game(bot, g_id)
+                                started = True
+                            elif game_type == "picture":
+                                games.start_picture_game(bot, g_id)
+                                started = True
+                            elif game_type == "trivia":
+                                games.start_trivia_game(bot, g_id)
+                                started = True
+                            
+                            if started:
+                                print(f"✅ Started {game_type} game in group {g_id}")
+                            else:
+                                print(f"ℹ️ No game started in group {g_id} (active game present)")
 
             except Exception as e:
                 print(f"Scheduler error: {e}")
@@ -2375,6 +2476,7 @@ def register_commands():
         telebot.types.BotCommand("testbroadcast","🧪 Test broadcast system (Captain only)"),
         telebot.types.BotCommand("rebuildcache", "🔄 Rebuild image cache (Captain only)"),
         telebot.types.BotCommand("testmorning",  "🧪 Test morning message (Captain only)"),
+        telebot.types.BotCommand("testgoodnight", "🌙 Test goodnight message (Captain only)"),
         telebot.types.BotCommand("status",       "🤖 Bot status (Captain only)"),
         telebot.types.BotCommand("listbroadcasts","📋 List scheduled broadcasts (Captain only)"),
         telebot.types.BotCommand("addquote",     "➕ Add a quote (DM only, Captain only)"),
