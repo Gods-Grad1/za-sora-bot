@@ -12,12 +12,24 @@ import config
 import database
 
 # ---------------------------------------------------------------------------
+# TRACKED MESSAGES – For /clean command
+# ---------------------------------------------------------------------------
+
+tracked_messages = {}  # chat_id -> list of {"id": msg_id, "text": text}
+
+# ---------------------------------------------------------------------------
 # AUTO-DELETE HELPERS
 # ---------------------------------------------------------------------------
 
 def send_and_delete(bot, chat_id, text, parse_mode="Markdown", reply_markup=None, delay=config.AUTO_DELETE_DELAY):
-    """Sends a message and schedules it for deletion."""
+    """Sends a message, tracks it for cleanup, and schedules it for deletion."""
     msg = bot.send_message(chat_id, text, parse_mode=parse_mode, reply_markup=reply_markup)
+    
+    # Track message for cleanup
+    if chat_id not in tracked_messages:
+        tracked_messages[chat_id] = []
+    tracked_messages[chat_id].append({"id": msg.message_id, "text": text})
+    
     def delete():
         try:
             bot.delete_message(chat_id, msg.message_id)
@@ -28,9 +40,15 @@ def send_and_delete(bot, chat_id, text, parse_mode="Markdown", reply_markup=None
     timer.start()
     return msg
 
-def send_photo_and_delete(bot, chat_id, photo, caption="", reply_markup=None, parse_mode="Markdown", delay=config.AUTO_DELETE_DELAY):
-    """Sends a photo and schedules it for deletion."""
+def send_photo_and_delete(bot, chat_id, photo, caption="", reply_markup=None, parse_mode="Markdown", delay=config.GAME_AUTO_DELETE_DELAY):
+    """Sends a photo, tracks it for cleanup, and schedules it for deletion."""
     msg = bot.send_photo(chat_id, photo, caption=caption, reply_markup=reply_markup, parse_mode=parse_mode)
+    
+    # Track message for cleanup
+    if chat_id not in tracked_messages:
+        tracked_messages[chat_id] = []
+    tracked_messages[chat_id].append({"id": msg.message_id, "text": caption or "Photo"})
+    
     def delete():
         try:
             bot.delete_message(chat_id, msg.message_id)
@@ -195,7 +213,7 @@ def precache_assets(bot):
 
 active_games = {}
 versus_games = {}
-lightning_sessions = {}  # NEW: Track active lightning rounds per user
+lightning_sessions = {}  # Track active lightning rounds per user
 last_game_type = {}
 last_game_category = {}
 pending_admin_actions = {}
@@ -245,17 +263,11 @@ def _check_one_game_lock(bot, chat_id, user_id, game_type=None, category=None):
 def _update_scheduler_last_game():
     """Update the scheduler's last_game timestamp to NOW (called when a game starts)."""
     try:
-        import json
-        import os
-        scheduler_path = config.SCHEDULER_FILE
-        if os.path.exists(scheduler_path):
-            with open(scheduler_path, 'r') as f:
-                sched = json.load(f)
-        else:
+        sched = database.load_remote_json(config.SCHEDULER_FILE, {})
+        if not sched:
             sched = {}
         sched["last_game"] = time.time()
-        with open(scheduler_path, 'w') as f:
-            json.dump(sched, f, indent=4)
+        database.save_remote_json(config.SCHEDULER_FILE, sched)
     except Exception as e:
         print(f"⚠️ Failed to update scheduler last_game: {e}")
 
@@ -383,7 +395,7 @@ def process_hint(bot, message=None, call=None):
 
     session = active_games[chat_id]
     
-    # NEW: Block hints for character games
+    # Block hints for character games
     if session.get("type") == "character":
         reply("💡 Hints are not available for Character Guessing games. Just look at the picture and guess!")
         return
