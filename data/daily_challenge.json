@@ -1,17 +1,14 @@
 {
-    "date": "2026-07-03",
-    "question": "What does 'VPN' stand for?",
+    "date": "2026-07-04",
+    "question": "Who was the first man created by God according to the Bible?",
     "options": [
-        "Virtual Private Network",
-        "Verified Public Node",
-        "Virtual Protected Network",
-        "Variable Proxy Node"
+        "Abel",
+        "Noah",
+        "Adam",
+        "Cain"
     ],
-    "answer": "A",
-    "display": "Virtual Private Network",
-    "category": "Technology",
-    "answered": [
-        8234402535,
-        6231510981
-    ]
+    "answer": "C",
+    "display": "Adam",
+    "category": "Bible",
+    "answered": []
 }
