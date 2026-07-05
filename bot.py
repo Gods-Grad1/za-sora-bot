@@ -37,8 +37,7 @@ def load_scheduler():
     """Load scheduler state from GitHub (persists across redeploys)."""
     try:
         data = database.load_remote_json(config.SCHEDULER_FILE, None)
-        
-        # If file doesn't exist or is corrupted, create defaults
+
         if data is None or not isinstance(data, dict):
             print("🔧 Creating new scheduler.json with defaults...")
             data = {
@@ -54,8 +53,7 @@ def load_scheduler():
             }
             save_scheduler(data)
             return data
-        
-        # Ensure all required keys exist
+
         defaults = {
             "enabled": False,
             "interval": 60,
@@ -70,7 +68,7 @@ def load_scheduler():
         for key, value in defaults.items():
             if key not in data:
                 data[key] = value
-        
+
         print(f"📋 Scheduler loaded: enabled={data.get('enabled')}, interval={data.get('interval')}, last_game={data.get('last_game')}")
         return data
     except Exception as e:
@@ -114,12 +112,6 @@ def is_authorized(chat_id, user_id):
         return True
     return False
 
-def utc_to_local(utc_hour):
-    return (utc_hour + 2) % 24
-
-def local_hour():
-    return (datetime.datetime.utcnow().hour + 2) % 24
-
 def local_now():
     return datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=2)
 
@@ -152,7 +144,7 @@ def safe_edit_message_media(chat_id, message_id, media, reply_markup=None):
         raise
 
 # ---------------------------------------------------------------------------
-# HELP MENU (5 Categories)
+# HELP MENU (Public)
 # ---------------------------------------------------------------------------
 
 def _build_help_menu():
@@ -218,7 +210,7 @@ def show_help(message):
     bot.send_message(chat_id, text, reply_markup=markup, parse_mode="Markdown")
 
 # ---------------------------------------------------------------------------
-# LEADERBOARD PAGINATION HELPERS
+# LEADERBOARD PAGINATION
 # ---------------------------------------------------------------------------
 
 def _build_leaderboard_markup(mode, page, total_pages):
@@ -237,70 +229,6 @@ def _build_leaderboard_markup(mode, page, total_pages):
             nav_btns.append(telebot.types.InlineKeyboardButton("Next ➡️", callback_data=f"lb_{mode}_{page+1}"))
         markup.row(*nav_btns)
     return markup
-
-# ---------------------------------------------------------------------------
-# LEAGUE TABLE & FIXTURES
-# ---------------------------------------------------------------------------
-
-def show_league_table(message):
-    bot.send_chat_action(message.chat.id, 'upload_photo')
-    try:
-        img = graphics.generate_table_image(bot)
-        if img:
-            bot.send_photo(message.chat.id, img, caption="🏆 *ZA SORA ZENITH LEAGUE STANDINGS*", parse_mode="Markdown")
-            if hasattr(img, 'close'): img.close()
-        else:
-            bot.reply_to(message, "❌ Standings unavailable.")
-    except Exception as e:
-        database.log_error_to_admin(bot, "Table Command", e)
-
-def _build_fixtures_menu_markup(rows):
-    home_idx, away_idx, _, _, _ = graphics.detect_fixtures_columns(rows)
-    header_offset = 1 if ("home" in str(rows[0][home_idx]).lower() or rows[0][0].lower() in ["md", "matchday"]) else 0
-    teams = set()
-    for row in rows[header_offset:]:
-        if len(row) > max(home_idx, away_idx):
-            h = row[home_idx].strip()
-            a = row[away_idx].strip()
-            if h and not h.isdigit(): teams.add(h)
-            if a and not a.isdigit(): teams.add(a)
-    markup = telebot.types.InlineKeyboardMarkup(row_width=1)
-    markup.add(
-        telebot.types.InlineKeyboardButton("📅  View by Matchday", callback_data="fix_md_menu"),
-        telebot.types.InlineKeyboardButton("👤  View by Player", callback_data="fix_pl_menu"),
-    )
-    return markup, sorted(list(teams))
-
-def show_fixtures_inline(chat_id, message_id=None):
-    rows = database.fetch_csv_cached(bot, config.FIXTURES_CSV_URL)
-    if not rows or len(rows) <= 1:
-        bot.send_message(chat_id, "❌ Fixtures unavailable.")
-        return
-    markup, _ = _build_fixtures_menu_markup(rows)
-    text = "📋 *FIXTURES*\n\nChoose how you want to browse:"
-    if message_id:
-        try:
-            safe_edit_message(chat_id, message_id, text, reply_markup=markup)
-            return
-        except Exception:
-            pass
-    bot.send_message(chat_id, text, reply_markup=markup, parse_mode="Markdown")
-
-def show_fixtures(message):
-    try:
-        rows = database.fetch_csv_cached(bot, config.FIXTURES_CSV_URL)
-        if not rows or len(rows) <= 1:
-            bot.reply_to(message, "❌ Fixtures unavailable.")
-            return
-        markup, _ = _build_fixtures_menu_markup(rows)
-        bot.send_message(message.chat.id, "📋 *FIXTURES*\n\nChoose how you want to browse:", reply_markup=markup, parse_mode="Markdown")
-    except Exception as e:
-        database.log_error_to_admin(bot, "Fixtures Command", e)
-        bot.reply_to(message, "💥 Failed to fetch fixtures.")
-
-# ---------------------------------------------------------------------------
-# LEADERBOARD
-# ---------------------------------------------------------------------------
 
 def show_leaderboard(message):
     bot.send_chat_action(message.chat.id, 'upload_photo')
@@ -343,7 +271,6 @@ def tag_all_members(message, custom_msg=""):
             bot.reply_to(message, f"⏳ Tag all on cooldown. {remaining} minutes remaining.")
             return
     markup = telebot.types.InlineKeyboardMarkup()
-    safe_msg = custom_msg[:200].replace('"', "'")
     markup.row(
         telebot.types.InlineKeyboardButton("✅ Confirm Send", callback_data="tagall_confirm"),
         telebot.types.InlineKeyboardButton("❌ Cancel", callback_data="tagall_cancel")
@@ -400,7 +327,7 @@ def show_quotes_page(chat_id, page=1):
     return text, markup
 
 # ---------------------------------------------------------------------------
-# CAPTAIN'S CABIN (Admin Panel - Captain Only)
+# CAPTAIN'S CABIN
 # ---------------------------------------------------------------------------
 
 def show_admin_panel(message):
@@ -414,23 +341,30 @@ def show_admin_panel(message):
         telebot.types.InlineKeyboardButton("🖼️ Start Picture Game",   callback_data="admin_startpicture"),
         telebot.types.InlineKeyboardButton("❓ Start Trivia",          callback_data="admin_starttrivia"),
         telebot.types.InlineKeyboardButton("📅 Set Schedule",          callback_data="admin_schedule"),
-        telebot.types.InlineKeyboardButton("📢 Tag All",               callback_data="admin_tagall"),
         telebot.types.InlineKeyboardButton("🏆 Leaderboard",           callback_data="admin_leaderboard"),
         telebot.types.InlineKeyboardButton("🔄 Rebuild Cache",         callback_data="admin_rebuild"),
         telebot.types.InlineKeyboardButton("📊 Stats",                 callback_data="admin_stats"),
-        telebot.types.InlineKeyboardButton("🔇 Mute User",             callback_data="admin_mute"),
-        telebot.types.InlineKeyboardButton("📢 Broadcast",             callback_data="admin_broadcast"),
         telebot.types.InlineKeyboardButton("🔍 Check Images",          callback_data="admin_checkimages"),
         telebot.types.InlineKeyboardButton("📌 Track Group",           callback_data="admin_trackgroup"),
-        telebot.types.InlineKeyboardButton("🚫 Block User",            callback_data="admin_block"),
-        telebot.types.InlineKeyboardButton("🔓 Unblock User",          callback_data="admin_unblock"),
         telebot.types.InlineKeyboardButton("📋 Group Schedules",       callback_data="admin_groupschedules"),
-        telebot.types.InlineKeyboardButton("📅 Set Group Schedule",    callback_data="admin_setgroupschedule"),
-        telebot.types.InlineKeyboardButton("🗑️ Remove Group Schedule", callback_data="admin_removegroupschedule"),
+        telebot.types.InlineKeyboardButton("🧹 Clean Messages",        callback_data="admin_clean"),
+        telebot.types.InlineKeyboardButton("🖼️ Generate All Banners",  callback_data="admin_generateall"),
+        telebot.types.InlineKeyboardButton("🔧 Setup Generated",       callback_data="admin_setupgenerated"),
+        telebot.types.InlineKeyboardButton("📊 Bot Status",            callback_data="admin_status"),
+        telebot.types.InlineKeyboardButton("📤 Force Broadcast",       callback_data="admin_forcebroadcast"),
+        telebot.types.InlineKeyboardButton("🔄 Check Broadcasts",      callback_data="admin_checknow"),
+        telebot.types.InlineKeyboardButton("📋 List Broadcasts",       callback_data="admin_listbroadcasts"),
+        telebot.types.InlineKeyboardButton("📋 List Pending",          callback_data="admin_listpending"),
+        telebot.types.InlineKeyboardButton("🧪 Test Broadcast",        callback_data="admin_testbroadcast"),
+        telebot.types.InlineKeyboardButton("🌅 Test Morning",          callback_data="admin_testmorning"),
+        telebot.types.InlineKeyboardButton("🌙 Test Goodnight",        callback_data="admin_testgoodnight"),
+        telebot.types.InlineKeyboardButton("📝 List Quotes",           callback_data="admin_listquotes"),
+        telebot.types.InlineKeyboardButton("🔄 Reload Stats",          callback_data="admin_reloadstats"),
     )
     sched = load_scheduler()
     status_icon = "✅" if sched.get("enabled") else "❌"
-    bot.send_message(message.chat.id, f"🏴‍☠️ *CAPTAIN'S CABIN*\n\nAuto-scheduler: {status_icon} {'ON' if sched.get('enabled') else 'OFF'}\nInterval: every {sched.get('interval', 60)} min\nGame type: {sched.get('game_type', 'random').title()}\nActive window: {sched.get('window_start', 10)}:00 — {sched.get('window_end', 23)}:00", reply_markup=markup, parse_mode="Markdown")
+    text = f"🏴‍☠️ *CAPTAIN'S CABIN*\n\nAuto-scheduler: {status_icon} {'ON' if sched.get('enabled') else 'OFF'}\nInterval: every {sched.get('interval', 60)} min\nGame type: {sched.get('game_type', 'random').title()}\nActive window: {sched.get('window_start', 10)}:00 — {sched.get('window_end', 23)}:00\n\n📢 *Commands (type them in chat – require extra input):*\n/tagall — Tag all members\n/broadcast — Schedule a broadcast\n/mute — Mute a user\n/unmute — Unmute a user\n/block — Block a user\n/unblock — Unblock a user\n/setwindow — Set game window\n/addquote — Add a quote (DM)\n/editquote — Edit a quote (DM)\n/deletequote — Delete a quote (DM)\n/previewquote — Preview a quote (DM)\n/uploadtrivia — Upload trivia questions\n/saveimage — Save image to GitHub\n/setschedule_group — Set per-group schedule\n/remove_schedule_group — Remove per-group schedule"
+    bot.send_message(message.chat.id, text, reply_markup=markup, parse_mode="Markdown")
 
 # ---------------------------------------------------------------------------
 # SCHEDULE PANEL
@@ -497,12 +431,15 @@ def show_stats(chat_id):
     bot.send_message(chat_id, f"📊 *GROUP STATS*\n\n👥 Tracked members: {len(users)}\n🎮 Total games played: {total_games}\n💰 Total points distributed: {total_pts}\n🏃 Most active: {most_active.get('username','?')} ({most_active.get('games_played',0)} games)\n🏆 Top scorer: {top_scorer.get('username','?')} ({top_scorer.get('alltime_points',0)} pts)\n🔥 Best streak: {best_streak.get('username','?')} ({best_streak.get('best_streak',0)} in a row)", parse_mode="Markdown")
 
 # ---------------------------------------------------------------------------
-# THEMED MORNING MESSAGE
+# THEMED MORNING & GOODNIGHT MESSAGES
 # ---------------------------------------------------------------------------
 
 def send_weekly_recap(bot):
     groups = database.get_all_groups()
     for group_id in groups:
+        # Check opt-in
+        if not database.get_weekly_table_opt_in(group_id):
+            continue
         lb = database.get_leaderboard(group_id, mode="monthly", top_n=3)
         top3 = ""
         if lb:
@@ -518,28 +455,26 @@ def send_weekly_recap(bot):
             print(f"Weekly recap failed for {group_id}: {e}")
 
 def send_morning_message(bot):
-    """Send themed morning message with character greeting, GIF, and daily content."""
+    """Send themed morning message with character greeting, integrated quote, and daily content."""
     try:
         print("🌅 send_morning_message() called")
         now = local_now()
         weekday = now.strftime("%A").lower()
         date = now.strftime("%d %B %Y")
-        
-        # Get today's character and category
+
         character, category = database.get_todays_character()
         if not character:
             character = "Luffy"
             category = "Anime"
-        
-        # Get character greeting
+
+        # Get character greeting (includes their quote naturally)
         morning_greeting = database.get_character_greeting(character, "morning")
         if not morning_greeting:
             morning_greeting = f"Good morning, family! Rise and shine! 🌅"
-        
-        # Get random saying
+
+        # Get random saying from quote system
         saying = database.get_random_quote(bot)
-        
-        # Get top 3
+
         groups = database.get_all_groups()
         print(f"📊 Found {len(groups)} groups")
 
@@ -554,24 +489,19 @@ def send_morning_message(bot):
                 else:
                     top3 = "No scores yet this month!\n"
 
-                # Build the morning message
-                msg = f"☀️ *Good Morning, Family!*\n_{weekday.capitalize()}, {date}_\n\n"
+                # Build the message – no generic "Good Morning" header, character greeting opens
+                msg = f"{morning_greeting}\n\n"
                 
-                # Character greeting (themed)
-                msg += f"🎭 *Today's Character:* {character}\n\n"
-                msg += f"{morning_greeting}\n\n"
+                # Add category mention
+                if category:
+                    msg += f"Today's category is *{category}* – let's see what you've got!\n\n"
                 
-                # Character quote (extra)
-                msg += f"💬 *{character} says:* _{morning_greeting.split(chr(10))[-1] if chr(10) in morning_greeting else 'Stay strong today!'}_\n\n"
-                
-                # Random saying
+                # Add the random saying
                 if saying:
                     msg += f"📖 *A thought for the day:*\n_{saying['text']}_\n_— {saying['author']}_\n\n"
                 
                 # Top 3
                 msg += f"🏆 *Monthly Top 3:*\n{top3}\n"
-                
-                # Invite
                 msg += f"🎮 *Start your adventure:*\n/start — Welcome to the crew!\n\n"
                 msg += f"Let's have a great day! 🙏🔥"
 
@@ -589,14 +519,13 @@ def send_morning_message(bot):
                         if len(members) > 50:
                             tag_line_trunc += f"\n_and {len(members)-50} more..._"
                         full_msg = msg + "\n\n" + tag_line_trunc
-                    
+
                     # Try to send GIF
                     try:
                         character_lower = character.lower().replace(" ", "_")
                         gif_url = f"https://raw.githubusercontent.com/{config.GITHUB_REPO}/{config.TRIVIA_BRANCH}/images/morning/{character_lower}.gif"
                         bot.send_animation(group_id, gif_url, caption=full_msg, parse_mode="Markdown")
                     except Exception:
-                        # Fallback – send without GIF
                         bot.send_message(group_id, full_msg, parse_mode="Markdown")
                 else:
                     bot.send_message(group_id, msg, parse_mode="Markdown")
@@ -614,10 +543,6 @@ def send_morning_message(bot):
         print(f"❌ Morning message overall error: {e}")
         database.log_error_to_admin(bot, "Morning Message Overall", e)
 
-# ---------------------------------------------------------------------------
-# GOODNIGHT MESSAGE
-# ---------------------------------------------------------------------------
-
 def send_goodnight_message(bot):
     """Send themed goodnight message with character closing the day."""
     try:
@@ -625,28 +550,21 @@ def send_goodnight_message(bot):
         now = local_now()
         weekday = now.strftime("%A").lower()
         date = now.strftime("%d %B %Y")
-        
-        # Get today's character
+
         character, category = database.get_todays_character()
         if not character:
             character = "Luffy"
-        
-        # Get goodnight message
+
         goodnight_msg = database.get_character_greeting(character, "goodnight")
         if not goodnight_msg:
             goodnight_msg = f"The day is done, family. Rest well. 🌙"
-        
+
         groups = database.get_all_groups()
         print(f"📊 Found {len(groups)} groups for goodnight")
 
         for group_id in groups:
             try:
-                # Build the goodnight message
-                msg = f"🌙 *Goodnight, Family!*\n_{weekday.capitalize()}, {date}_\n\n"
-                
-                # Character goodnight
-                msg += f"🎭 *{character} sends you off:*\n\n{goodnight_msg}\n\n"
-                
+                msg = f"{goodnight_msg}\n\n"
                 msg += f"🛌 Sleep well, crew! See you tomorrow! 🙏🌟"
 
                 # Try to send GIF
@@ -655,7 +573,6 @@ def send_goodnight_message(bot):
                     gif_url = f"https://raw.githubusercontent.com/{config.GITHUB_REPO}/{config.TRIVIA_BRANCH}/images/goodnight/{character_lower}.gif"
                     bot.send_animation(group_id, gif_url, caption=msg, parse_mode="Markdown")
                 except Exception:
-                    # Fallback – send without GIF
                     bot.send_message(group_id, msg, parse_mode="Markdown")
 
                 print(f"✅ Goodnight message sent to {group_id}")
@@ -685,10 +602,10 @@ def _send_pending_broadcasts(bot):
             save_scheduler(sched)
         else:
             tag_all = sched[f"broadcast_tagall_{broadcast['send_time']}"]
-        
+
         if tag_all:
             print(f"   → Tag-all enabled for broadcast {broadcast['id']}")
-        
+
         if broadcast["chat_id"] is None:
             groups = database.get_all_groups()
             print(f"   → Global broadcast – groups found: {len(groups)}")
@@ -723,7 +640,7 @@ def _send_pending_broadcasts(bot):
             except Exception as e:
                 print(f"   ❌ Failed: {e}")
                 success = False
-        
+
         if success:
             database.mark_broadcast_sent(broadcast["id"])
             if tag_all:
@@ -734,81 +651,76 @@ def _send_pending_broadcasts(bot):
             print(f"   ⚠️ Broadcast ID {broadcast['id']} NOT marked – will retry later.")
 
 # ---------------------------------------------------------------------------
-# CLEAN BOT MESSAGES
+# CLEAN BOT MESSAGES (PAGINATED, ENTIRE HISTORY)
 # ---------------------------------------------------------------------------
 
 def clean_bot_messages(chat_id, trigger_message):
-    """Delete only this bot's own tracked messages, except important ones."""
-    # Check permission
+    """Delete all bot messages across entire chat history (paginated), keeping only important ones."""
     try:
         bot_member = bot.get_chat_member(chat_id, bot.get_me().id)
         can_delete = bot_member.can_delete_messages or bot_member.status == "creator"
     except Exception:
         can_delete = False
-    
+
     if not can_delete:
         bot.reply_to(trigger_message, "❌ I don't have permission to delete messages!\n\nPlease promote me to Admin with 'Delete Messages' permission.")
         return
-    
-    bot.reply_to(trigger_message, "🧹 Cleaning up my messages...")
-    
-    # Get tracked messages from games module
-    tracked = games.tracked_messages
-    msg_data = tracked.get(chat_id, [])
-    print(f"🧹 Found {len(msg_data)} tracked messages in chat {chat_id}")
-    
-    if not msg_data:
-        bot.reply_to(trigger_message, "🧹 No messages to clean up! ✅")
-        return
-    
-    # Patterns to KEEP
-    keep_patterns = [
-        "BROADCAST", "📢 *ANNOUNCEMENT*", "📢 *Tagging everyone*",
-        "☀️ *Good Morning, Family!*",
-        "📊 *WEEKLY RECAP*", "📅 *SUNDAY STANDINGS*",
-        "🏆 *Monthly Results*", "🎊 *Yearly Champion*",
-        "📊 *GROUP STATS*", "🏆 *ZA SORA ZENITH LEAGUE STANDINGS*",
-        "📋 *FIXTURES*", "⚔️ *MATCH OVER*", "⚔️ *MATCH DRAWN*",
-        "🏳️ *", "🤝 *MATCH DRAWN*",
-        "/mystats", "/viewstats", "Your Stats",
-        "📖 *ZA SORA GAME CLUB — HELP*",
-        "⚙️ *ADMIN PANEL*", "📅 *SCHEDULE SETTINGS*",
-        "🛒 *POINT SHOP*", "🏆 *Leaderboard*",
-        "✅ *Challenge Accepted*", "⚔️ *VERSUS CHALLENGE*",
-        "💰 *BET RESULTS*", "🌙 *Goodnight, Family!*"
-    ]
-    
+
+    bot.reply_to(trigger_message, "🧹 Cleaning up my messages across the entire chat history... This may take a while.")
+
+    bot_id = bot.get_me().id
     deleted_count = 0
     kept_count = 0
-    
-    for data in msg_data:
-        msg_id = data.get("id")
-        text = data.get("text", "")
-        
-        should_keep = False
-        for pattern in keep_patterns:
-            if pattern in text or pattern.lower() in text.lower():
-                should_keep = True
+    offset = 0
+    limit = 100
+    total_processed = 0
+    keep_patterns = database.get_keep_patterns()
+
+    while True:
+        try:
+            messages = bot.get_chat_history(chat_id, limit=limit, offset=offset)
+            if not messages:
                 break
-        
-        if "won" in text.lower() or "wins" in text.lower() or "final score" in text.lower():
-            should_keep = True
-        
-        if not should_keep:
-            try:
-                bot.delete_message(chat_id, msg_id)
-                deleted_count += 1
-                time.sleep(0.05)
-            except Exception as e:
-                print(f"Failed to delete message {msg_id}: {e}")
-        else:
-            kept_count += 1
-    
-    # Clear tracked messages after cleanup
-    if chat_id in tracked:
-        tracked[chat_id] = []
-    
-    bot.reply_to(trigger_message, f"🧹 *Cleanup Complete*\n\n🗑️ Deleted: {deleted_count} of my messages\n📌 Kept: {kept_count} important messages", parse_mode="Markdown")
+
+            for msg in messages:
+                if not msg.from_user or msg.from_user.id != bot_id:
+                    continue
+
+                total_processed += 1
+                text = msg.text or msg.caption or ""
+
+                # Check if message should be kept
+                should_keep = False
+                for pattern in keep_patterns:
+                    if pattern in text or pattern.lower() in text.lower():
+                        should_keep = True
+                        break
+
+                if should_keep:
+                    kept_count += 1
+                    continue
+
+                try:
+                    bot.delete_message(chat_id, msg.message_id)
+                    deleted_count += 1
+                    time.sleep(0.05)  # Rate limit
+                except Exception as e:
+                    print(f"Failed to delete message {msg.message_id}: {e}")
+
+            offset += limit
+            # Send progress update every 500 messages
+            if total_processed % 500 == 0:
+                try:
+                    bot.send_message(chat_id, f"🧹 Cleaned {total_processed} messages... Deleted: {deleted_count}, Kept: {kept_count}")
+                except:
+                    pass
+            time.sleep(0.5)  # Pause between batches
+
+        except Exception as e:
+            print(f"Error during cleanup: {e}")
+            break
+
+    bot.reply_to(trigger_message, f"🧹 *Cleanup Complete*\n\n🗑️ Deleted: {deleted_count} of my messages\n📌 Kept: {kept_count} important messages\n📊 Processed: {total_processed} total messages", parse_mode="Markdown")
 
 # ---------------------------------------------------------------------------
 # COMMAND ROUTER
@@ -835,7 +747,7 @@ def handle_document(message):
         response.raise_for_status()
         content = response.content.decode('utf-8')
         filename = message.document.file_name.lower()
-        
+
         if filename.endswith('.json'):
             import json
             new_questions = json.loads(content)
@@ -847,7 +759,7 @@ def handle_document(message):
         else:
             bot.reply_to(message, "❌ Unsupported file format. Use JSON or CSV.")
             return
-        
+
         if not new_questions:
             bot.reply_to(message, "❌ No questions found in file.")
             return
@@ -855,12 +767,12 @@ def handle_document(message):
         if not cat:
             bot.reply_to(message, "❌ Missing 'category' field in questions.")
             return
-        
+
         filename = config.TRIVIA_CATEGORY_FILES.get(cat)
         if not filename:
             bot.reply_to(message, f"❌ Unknown category: {cat}. Supported: {', '.join(config.TRIVIA_CATEGORY_FILES.keys())}")
             return
-        
+
         url = f"https://api.github.com/repos/{config.GITHUB_REPO}/contents/{config.TRIVIA_REMOTE_PATH}/{filename}?ref={config.TRIVIA_BRANCH}"
         headers = {"Authorization": f"token {config.GITHUB_TOKEN}"}
         resp = requests.get(url, headers=headers)
@@ -873,13 +785,13 @@ def handle_document(message):
             sha = content_data['sha']
         else:
             pass
-        
+
         max_id = max([q['id'] for q in existing_data], default=0)
         for q in new_questions:
             max_id += 1
             q['id'] = max_id
             existing_data.append(q)
-        
+
         payload = {
             "message": f"Add {len(new_questions)} trivia questions to {cat}",
             "content": base64.b64encode(json.dumps(existing_data, indent=2).encode()).decode(),
@@ -893,7 +805,7 @@ def handle_document(message):
             database.reload_trivia()
         else:
             bot.reply_to(message, f"❌ Failed to upload: {put_resp.text}")
-        
+
         database.save_json(bot, "upload_state.json", {"pending": False})
     except Exception as e:
         bot.reply_to(message, f"❌ Error: {e}")
@@ -942,7 +854,7 @@ def handle_all_messages(message):
         admin_state = database.load_json("admin_state.json", {})
         if admin_state.get("user_id") == user_id:
             action = admin_state.get("action")
-            
+
             if action == "setgroupschedule":
                 parts = message.text.split()
                 if message.text.lower() == "/cancel":
@@ -952,17 +864,17 @@ def handle_all_messages(message):
                 if len(parts) != 4:
                     bot.reply_to(message, "❌ Invalid format. Use: `<group_id> <interval> <game_type> <enabled>`\n\nExample: `-100123456789 30 trivia true`")
                     return
-                
+
                 try:
                     group_id = int(parts[0])
                     interval = int(parts[1])
                     game_type = parts[2].lower()
                     enabled = parts[3].lower() in ["true", "yes", "1", "on"]
-                    
+
                     if game_type not in ["character", "year", "picture", "trivia", "random"]:
                         bot.reply_to(message, f"❌ Invalid game type. Choose from: character, year, picture, trivia, random")
                         return
-                    
+
                     settings = {
                         "enabled": enabled,
                         "interval": interval,
@@ -971,23 +883,23 @@ def handle_all_messages(message):
                         "window_end": 23
                     }
                     database.set_group_schedule(group_id, settings)
-                    
+
                     try:
                         chat = bot.get_chat(group_id)
                         group_name = chat.title or f"Group {group_id}"
                     except Exception:
                         group_name = f"Group {group_id}"
-                    
+
                     bot.reply_to(message, f"✅ *{group_name}* schedule updated!\n\n"
                                           f"📊 Enabled: {'✅' if enabled else '❌'}\n"
                                           f"⏱️ Interval: {interval} min\n"
                                           f"🎮 Type: {game_type.title()}")
                 except ValueError:
                     bot.reply_to(message, "❌ Invalid group ID or interval. Use numbers.")
-                
+
                 database.save_json(bot, "admin_state.json", {})
                 return
-            
+
             elif action == "removegroupschedule":
                 if message.text.lower() == "/cancel":
                     database.save_json(bot, "admin_state.json", {})
@@ -1006,7 +918,7 @@ def handle_all_messages(message):
                         bot.reply_to(message, f"❌ Group `{group_id}` had no custom schedule.")
                 except ValueError:
                     bot.reply_to(message, "❌ Invalid group ID. Use a number.")
-                
+
                 database.save_json(bot, "admin_state.json", {})
                 return
 
@@ -1042,10 +954,23 @@ def handle_all_messages(message):
             bot.reply_to(message, "📝 Usage: /feedback <your message>")
             return
         feedback_msg = " ".join(args)
-        database.add_feedback(user_id, username, feedback_msg)
+        # Get group name for admin notification
+        group_name = None
+        try:
+            chat = bot.get_chat(chat_id)
+            group_name = chat.title or None
+        except Exception:
+            pass
+        database.add_feedback(user_id, username, feedback_msg, chat_id, group_name)
         bot.reply_to(message, "✅ Your feedback has been sent to the Captain! 🏴‍☠️")
         try:
-            bot.send_message(config.ADMIN_ID, f"💬 *NEW FEEDBACK*\n\nFrom: {username} (ID: {user_id})\nChat: {chat_id}\n\n📝 {feedback_msg}", parse_mode="Markdown")
+            admin_msg = f"💬 *NEW FEEDBACK*\n\nFrom: {username} (ID: {user_id})\n"
+            if group_name:
+                admin_msg += f"Group: {group_name} (ID: {chat_id})\n"
+            else:
+                admin_msg += f"Chat ID: {chat_id}\n"
+            admin_msg += f"\n📝 {feedback_msg}"
+            bot.send_message(config.ADMIN_ID, admin_msg, parse_mode="Markdown")
         except Exception:
             pass
 
@@ -1282,13 +1207,13 @@ def handle_all_messages(message):
         if not message_text:
             bot.reply_to(message, "❌ Please provide a message.")
             return
-        
+
         tag_all = True
         database.add_broadcast(bot, None, message_text, send_time)
         sched = load_scheduler()
         sched[f"broadcast_tagall_{send_time}"] = tag_all
         save_scheduler(sched)
-        
+
         bot.reply_to(message, f"✅ Global broadcast scheduled for {time_str}.")
         if send_time - time.time() <= 10:
             bot.reply_to(message, "📤 Sending broadcast now (within 10 seconds)...")
@@ -1343,13 +1268,12 @@ def handle_all_messages(message):
     elif cmd == '/setupgenerated' and is_admin(user_id):
         status_msg = bot.reply_to(message, "🔧 Setting up generated branch structure...")
         try:
-            # --- Step 1: Create daily_themes.json ---
             themes_data = {
                 "weeks": [
-                    {"week": 1, "monday": {"character": "Kratos", "category": "Gaming"}, "tuesday": {"character": "Luffy", "category": "Anime"}, "wednesday": {"character": "Terminator", "category": "Movies"}, "thursday": {"character": "Gojo", "category": "General"}, "friday": {"character": "Iron Man", "category": "Technology"}, "saturday": {"character": "Flash", "category": "Sports"}, "sunday": {"character": "Bible Verse", "category": "Bible"}},
-                    {"week": 2, "monday": {"character": "Master Chief", "category": "Gaming"}, "tuesday": {"character": "Goku", "category": "Anime"}, "wednesday": {"character": "Thanos", "category": "Movies"}, "thursday": {"character": "Professor X", "category": "General"}, "friday": {"character": "Cyborg", "category": "Technology"}, "saturday": {"character": "Isagi", "category": "Sports"}, "sunday": {"character": "Bible Verse", "category": "Bible"}},
-                    {"week": 3, "monday": {"character": "Mario", "category": "Gaming"}, "tuesday": {"character": "Naruto", "category": "Anime"}, "wednesday": {"character": "Gandalf", "category": "Movies"}, "thursday": {"character": "Kakashi", "category": "General"}, "friday": {"character": "Mr. Terrific", "category": "Technology"}, "saturday": {"character": "Hinata", "category": "Sports"}, "sunday": {"character": "Bible Verse", "category": "Bible"}},
-                    {"week": 4, "monday": {"character": "Dante", "category": "Gaming"}, "tuesday": {"character": "Ash Ketchum", "category": "Anime"}, "wednesday": {"character": "Timon & Pumbaa", "category": "Movies"}, "thursday": {"character": "Koro-sensei", "category": "General"}, "friday": {"character": "Optimus Prime", "category": "Technology"}, "saturday": {"character": "Tetsuya", "category": "Sports"}, "sunday": {"character": "Bible Verse", "category": "Bible"}}
+                    {"week": 1, "monday": {"character": "Kratos", "category": "Gaming"}, "tuesday": {"character": "Luffy", "category": "Anime"}, "wednesday": {"character": "Terminator", "category": "Movies"}, "thursday": {"character": "Gojo", "category": "General"}, "friday": {"character": "Iron Man", "category": "Technology"}, "saturday": {"character": "Flash", "category": "Sports"}, "sunday": {"character": "David", "category": "Bible"}},
+                    {"week": 2, "monday": {"character": "Master Chief", "category": "Gaming"}, "tuesday": {"character": "Goku", "category": "Anime"}, "wednesday": {"character": "Thanos", "category": "Movies"}, "thursday": {"character": "Professor X", "category": "General"}, "friday": {"character": "Cyborg", "category": "Technology"}, "saturday": {"character": "Isagi", "category": "Sports"}, "sunday": {"character": "Samson", "category": "Bible"}},
+                    {"week": 3, "monday": {"character": "Mario", "category": "Gaming"}, "tuesday": {"character": "Naruto", "category": "Anime"}, "wednesday": {"character": "Gandalf", "category": "Movies"}, "thursday": {"character": "Kakashi", "category": "General"}, "friday": {"character": "Mr. Terrific", "category": "Technology"}, "saturday": {"character": "Hinata", "category": "Sports"}, "sunday": {"character": "Isaiah", "category": "Bible"}},
+                    {"week": 4, "monday": {"character": "Dante", "category": "Gaming"}, "tuesday": {"character": "Ash Ketchum", "category": "Anime"}, "wednesday": {"character": "Timon & Pumbaa", "category": "Movies"}, "thursday": {"character": "Koro-sensei", "category": "General"}, "friday": {"character": "Optimus Prime", "category": "Technology"}, "saturday": {"character": "Tetsuya", "category": "Sports"}, "sunday": {"character": "Moses", "category": "Bible"}}
                 ],
                 "current_week": 1,
                 "last_updated": datetime.datetime.now().isoformat()
@@ -1360,7 +1284,6 @@ def handle_all_messages(message):
             else:
                 bot.send_message(chat_id, "❌ Failed to create daily_themes.json – check GITHUB_TOKEN and branch permissions.")
 
-            # --- Step 2: Create folders with .gitkeep ---
             from github_uploader import upload_image_to_github
             placeholder = b""
             folders = ["themes", "scrambled", "morning", "goodnight"]
@@ -1481,6 +1404,10 @@ def handle_all_messages(message):
                               "Type `/cancel` to cancel.",
                      parse_mode="Markdown")
         database.save_json(bot, "admin_state.json", {"action": "removegroupschedule", "user_id": user_id})
+
+    elif cmd == '/reloadstats' and is_admin(user_id):
+        database.reload_trivia()
+        bot.reply_to(message, "✅ Stats reloaded from GitHub.")
 
 # ---------------------------------------------------------------------------
 # STATUS COMMAND
@@ -1734,9 +1661,6 @@ def handle_all_callbacks(call):
             elif action == "schedule":
                 bot.answer_callback_query(call.id)
                 show_schedule_panel(chat_id)
-            elif action == "tagall":
-                bot.answer_callback_query(call.id)
-                bot.send_message(chat_id, "📢 Use `/tagall Your message here` to tag all members.", parse_mode="Markdown")
             elif action == "leaderboard":
                 bot.answer_callback_query(call.id)
                 show_leaderboard(call.message)
@@ -1747,12 +1671,6 @@ def handle_all_callbacks(call):
             elif action == "stats":
                 bot.answer_callback_query(call.id)
                 show_stats(chat_id)
-            elif action == "mute":
-                bot.answer_callback_query(call.id)
-                bot.send_message(chat_id, "🔇 Use `/mute @username 1h` to mute a user.", parse_mode="Markdown")
-            elif action == "broadcast":
-                bot.answer_callback_query(call.id)
-                bot.send_message(chat_id, "📢 Use `/broadcast YYYY-MM-DD HH:MM Your message here`", parse_mode="Markdown")
             elif action == "checkimages":
                 bot.answer_callback_query(call.id)
                 bot.send_message(chat_id, "🔍 Checking for missing images...")
@@ -1762,39 +1680,111 @@ def handle_all_callbacks(call):
                 bot.answer_callback_query(call.id)
                 database.track_member(bot, chat_id, user_id, username)
                 bot.send_message(chat_id, "✅ This group is now tracked in the database.")
-            elif action == "block":
-                bot.answer_callback_query(call.id)
-                bot.send_message(chat_id, "🚫 Use `/block <user_id> [reason]` to block a user.", parse_mode="Markdown")
-            elif action == "unblock":
-                bot.answer_callback_query(call.id)
-                bot.send_message(chat_id, "🔓 Use `/unblock <user_id>` to unblock a user.", parse_mode="Markdown")
             elif action == "groupschedules":
                 bot.answer_callback_query(call.id)
-                from types import SimpleNamespace
-                dummy_msg = SimpleNamespace(
-                    text="/groupschedules",
-                    chat=SimpleNamespace(id=chat_id),
-                    from_user=SimpleNamespace(id=user_id, username=username, first_name=username)
-                )
-                handle_all_messages(dummy_msg)
-            elif action == "setgroupschedule":
+                schedules = database.load_group_schedules()
+                if not schedules:
+                    bot.send_message(chat_id, "📋 No group-specific schedules set. All groups use the global schedule.")
+                    return
+                text = "📋 *GROUP SCHEDULES*\n\n"
+                for gid, settings in schedules.items():
+                    group_name = settings.get("group_name", f"Group {gid}")
+                    text += f"📊 *{group_name}* (ID: {gid})\n"
+                    text += f"   Enabled: {'✅' if settings.get('enabled') else '❌'}\n"
+                    text += f"   Interval: {settings.get('interval', 60)} min\n"
+                    text += f"   Type: {settings.get('game_type', 'random').title()}\n"
+                    text += f"   Window: {settings.get('window_start', 10)}:00 – {settings.get('window_end', 23)}:00\n\n"
+                if len(text) > 4000:
+                    parts = [text[i:i+4000] for i in range(0, len(text), 4000)]
+                    for part in parts:
+                        bot.send_message(chat_id, part, parse_mode="Markdown")
+                else:
+                    bot.send_message(chat_id, text, parse_mode="Markdown")
+            elif action == "clean":
                 bot.answer_callback_query(call.id)
+                # Trigger /clean command
                 from types import SimpleNamespace
-                dummy_msg = SimpleNamespace(
-                    text="/setschedule_group",
-                    chat=SimpleNamespace(id=chat_id),
-                    from_user=SimpleNamespace(id=user_id, username=username, first_name=username)
-                )
-                handle_all_messages(dummy_msg)
-            elif action == "removegroupschedule":
+                dummy_msg = SimpleNamespace(chat=SimpleNamespace(id=chat_id), from_user=SimpleNamespace(id=user_id))
+                clean_bot_messages(chat_id, dummy_msg)
+            elif action == "generateall":
                 bot.answer_callback_query(call.id)
+                bot.send_message(chat_id, "🖼️ Starting background banner generation for all users...")
+                def generate_in_background():
+                    try:
+                        profile_banner.pre_generate_all_banners(bot)
+                        bot.send_message(chat_id, "✅ Banner generation completed for all users.")
+                    except Exception as e:
+                        bot.send_message(chat_id, f"❌ Banner generation failed: {e}")
+                threading.Thread(target=generate_in_background, daemon=True).start()
+            elif action == "setupgenerated":
+                bot.answer_callback_query(call.id)
+                # Trigger /setupgenerated
                 from types import SimpleNamespace
-                dummy_msg = SimpleNamespace(
-                    text="/remove_schedule_group",
-                    chat=SimpleNamespace(id=chat_id),
-                    from_user=SimpleNamespace(id=user_id, username=username, first_name=username)
-                )
+                dummy_msg = SimpleNamespace(text="/setupgenerated", chat=SimpleNamespace(id=chat_id), from_user=SimpleNamespace(id=user_id, username=username, first_name=username))
                 handle_all_messages(dummy_msg)
+            elif action == "status":
+                bot.answer_callback_query(call.id)
+                handle_status(call.message)
+            elif action == "forcebroadcast":
+                bot.answer_callback_query(call.id)
+                bot.send_message(chat_id, "📤 Force-sending all unsent broadcasts...")
+                _send_pending_broadcasts(bot)
+                bot.send_message(chat_id, "✅ Force-send completed.")
+            elif action == "checknow":
+                bot.answer_callback_query(call.id)
+                bot.send_message(chat_id, "🔄 Manually checking for pending broadcasts...")
+                _send_pending_broadcasts(bot)
+                bot.send_message(chat_id, "✅ Broadcast check completed.")
+            elif action == "listbroadcasts":
+                bot.answer_callback_query(call.id)
+                broadcasts = database.get_all_broadcasts()
+                if not broadcasts:
+                    bot.send_message(chat_id, "📭 No broadcasts scheduled.")
+                    return
+                text = "📋 *Scheduled Broadcasts*\n\n"
+                for i, b in enumerate(broadcasts):
+                    status = "✅ Sent" if b["sent"] else "⏳ Pending"
+                    dt = datetime.datetime.fromtimestamp(b["send_time"]).strftime("%Y-%m-%d %H:%M")
+                    target = "All Groups" if b["chat_id"] is None else f"Chat {b['chat_id']}"
+                    text += f"{i+1}. {dt} – {b['message'][:30]}... ({status}) – Target: {target}\n"
+                bot.send_message(chat_id, text, parse_mode="Markdown")
+            elif action == "listpending":
+                bot.answer_callback_query(call.id)
+                pending = database.get_pending_broadcasts()
+                if not pending:
+                    bot.send_message(chat_id, "📭 No pending broadcasts.")
+                else:
+                    lines = [f"ID {b['id']} | chat: {b['chat_id']} | time: {b['send_time']} ({time.ctime(b['send_time'])})" for b in pending]
+                    bot.send_message(chat_id, "📋 Pending broadcasts:\n" + "\n".join(lines))
+            elif action == "testbroadcast":
+                bot.answer_callback_query(call.id)
+                msg = "🧪 *Test Broadcast*\n\nThis is a test of the broadcast system. If you received this, it's working! 🎉"
+                bot.send_message(chat_id, "📤 Sending test broadcast...")
+                groups = database.get_all_groups()
+                count = 0
+                for gid in groups:
+                    try:
+                        bot.send_message(gid, msg, parse_mode="Markdown")
+                        count += 1
+                    except Exception as e:
+                        print(f"Test broadcast failed for {gid}: {e}")
+                bot.send_message(chat_id, f"✅ Test broadcast sent to {count} groups.")
+            elif action == "testmorning":
+                bot.answer_callback_query(call.id)
+                send_morning_message(bot)
+                bot.send_message(chat_id, "✅ Morning message sent (test).")
+            elif action == "testgoodnight":
+                bot.answer_callback_query(call.id)
+                send_goodnight_message(bot)
+                bot.send_message(chat_id, "✅ Goodnight message sent (test).")
+            elif action == "listquotes":
+                bot.answer_callback_query(call.id)
+                text, markup = show_quotes_page(chat_id, 1)
+                bot.send_message(chat_id, text, reply_markup=markup, parse_mode="Markdown")
+            elif action == "reloadstats":
+                bot.answer_callback_query(call.id)
+                database.reload_trivia()
+                bot.send_message(chat_id, "✅ Stats reloaded from GitHub.")
             elif action == "back":
                 sched = load_scheduler()
                 msg_id = sched.get("schedule_message_id")
@@ -2130,11 +2120,12 @@ def background_scheduler():
                     img_data = graphics.generate_table_image(bot)
                     if img_data:
                         for g_id in groups:
-                            try:
-                                img_data.seek(0)
-                                bot.send_photo(g_id, img_data, caption="📅 *SUNDAY STANDINGS*", parse_mode="Markdown")
-                            except Exception:
-                                pass
+                            if database.get_weekly_table_opt_in(g_id):
+                                try:
+                                    img_data.seek(0)
+                                    bot.send_photo(g_id, img_data, caption="📅 *SUNDAY STANDINGS*", parse_mode="Markdown")
+                                except Exception:
+                                    pass
                         if hasattr(img_data, 'close'): img_data.close()
                     time.sleep(61)
 
@@ -2145,10 +2136,10 @@ def background_scheduler():
 
                 if sched.get("enabled"):
                     groups = database.get_all_groups()
-                    
+
                     for g_id in groups:
                         group_sched = database.get_group_schedule(g_id)
-                        
+
                         if group_sched:
                             window_start = group_sched.get("window_start", config.SCHEDULER_WINDOW_START)
                             window_end   = group_sched.get("window_end", config.SCHEDULER_WINDOW_END)
@@ -2156,7 +2147,7 @@ def background_scheduler():
                             interval_sec = group_sched.get("interval", 60) * 60
                             game_type    = group_sched.get("game_type", "random")
                             enabled      = group_sched.get("enabled", True)
-                            
+
                             if not enabled:
                                 continue
                         else:
@@ -2165,11 +2156,10 @@ def background_scheduler():
                             in_window    = window_start <= hour < window_end
                             interval_sec = sched.get("interval", 60) * 60
                             game_type    = sched.get("game_type", "random")
-                        
+
                         last_game    = sched.get("last_game", 0)
                         now_ts       = time.time()
-                        
-                        # Prevent immediate game start on bot startup
+
                         if last_game == 0:
                             if now_ts < BOT_START_TIME + 60:
                                 continue
@@ -2178,16 +2168,16 @@ def background_scheduler():
                                 sched["last_game"] = now_ts
                                 save_scheduler(sched)
                                 continue
-                        
+
                         if in_window and (now_ts - last_game) >= interval_sec:
                             print(f"⏳ Scheduler: group={g_id}, in_window={in_window}, diff={now_ts - last_game}, interval={interval_sec}")
-                            
+
                             if game_type == "random":
                                 game_type = random.choice(["character", "year", "picture", "trivia"])
-                            
+
                             if games._is_game_active(g_id) or g_id in games.versus_games:
                                 continue
-                            
+
                             started = False
                             if game_type == "character":
                                 games.start_character_game(bot, g_id)
@@ -2201,7 +2191,7 @@ def background_scheduler():
                             elif game_type == "trivia":
                                 games.start_trivia_game(bot, g_id)
                                 started = True
-                            
+
                             if started:
                                 print(f"✅ Started {game_type} game in group {g_id}")
                             else:
@@ -2494,6 +2484,7 @@ def register_commands():
         telebot.types.BotCommand("groupschedules","📋 List group schedules (Captain only)"),
         telebot.types.BotCommand("setschedule_group","📋 Set group schedule (Captain only)"),
         telebot.types.BotCommand("remove_schedule_group","🗑️ Remove group schedule (Captain only)"),
+        telebot.types.BotCommand("reloadstats",  "🔄 Reload stats (Captain only)"),
     ]
 
     try:
@@ -2584,7 +2575,7 @@ def show_my_stats(message, target_id=None, target_name=None):
             return
     except Exception as e:
         print(f"Banner generation failed for {target_id}: {e}")
-    
+
     if target_id == message.from_user.id:
         bot.reply_to(message, text, parse_mode="Markdown")
     else:
@@ -2605,6 +2596,51 @@ def check_startup_fallbacks():
         send_morning_message(bot)
 
     _send_pending_broadcasts(bot)
+
+# ---------------------------------------------------------------------------
+# LEAGUE TABLE & FIXTURES (Forwarding to graphics)
+# ---------------------------------------------------------------------------
+
+def show_league_table(message):
+    bot.send_chat_action(message.chat.id, 'upload_photo')
+    try:
+        img = graphics.generate_table_image(bot)
+        if img:
+            bot.send_photo(message.chat.id, img, caption="🏆 *ZA SORA ZENITH LEAGUE STANDINGS*", parse_mode="Markdown")
+            if hasattr(img, 'close'): img.close()
+        else:
+            bot.reply_to(message, "❌ Standings unavailable.")
+    except Exception as e:
+        database.log_error_to_admin(bot, "Table Command", e)
+
+def _build_fixtures_menu_markup(rows):
+    home_idx, away_idx, _, _, _ = graphics.detect_fixtures_columns(rows)
+    header_offset = 1 if ("home" in str(rows[0][home_idx]).lower() or rows[0][0].lower() in ["md", "matchday"]) else 0
+    teams = set()
+    for row in rows[header_offset:]:
+        if len(row) > max(home_idx, away_idx):
+            h = row[home_idx].strip()
+            a = row[away_idx].strip()
+            if h and not h.isdigit(): teams.add(h)
+            if a and not a.isdigit(): teams.add(a)
+    markup = telebot.types.InlineKeyboardMarkup(row_width=1)
+    markup.add(
+        telebot.types.InlineKeyboardButton("📅  View by Matchday", callback_data="fix_md_menu"),
+        telebot.types.InlineKeyboardButton("👤  View by Player", callback_data="fix_pl_menu"),
+    )
+    return markup, sorted(list(teams))
+
+def show_fixtures(message):
+    try:
+        rows = database.fetch_csv_cached(bot, config.FIXTURES_CSV_URL)
+        if not rows or len(rows) <= 1:
+            bot.reply_to(message, "❌ Fixtures unavailable.")
+            return
+        markup, _ = _build_fixtures_menu_markup(rows)
+        bot.send_message(message.chat.id, "📋 *FIXTURES*\n\nChoose how you want to browse:", reply_markup=markup, parse_mode="Markdown")
+    except Exception as e:
+        database.log_error_to_admin(bot, "Fixtures Command", e)
+        bot.reply_to(message, "💥 Failed to fetch fixtures.")
 
 # ---------------------------------------------------------------------------
 # MAIN
