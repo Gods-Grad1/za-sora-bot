@@ -75,6 +75,27 @@
             "title_expires": null,
             "hint_tokens": 0,
             "double_xp_until": null
+        },
+        "8161105657": {
+            "username": "Kennedy",
+            "points": 0,
+            "monthly_points": {},
+            "yearly_points": {},
+            "alltime_points": 0,
+            "streak": 0,
+            "best_streak": 0,
+            "games_played": 0,
+            "correct": 0,
+            "title": null,
+            "title_expires": null,
+            "hint_tokens": 0,
+            "double_xp_until": null,
+            "last_spin": 0,
+            "badges": [],
+            "trivia_correct": 0,
+            "versus_wins": 0,
+            "daily_wins": 0,
+            "powerups": {}
         }
     },
     "8234402535": {
