@@ -1,17 +1,14 @@
 {
-    "date": "2026-07-04",
-    "question": "Who was the first man created by God according to the Bible?",
+    "date": "2026-07-05",
+    "question": "How many letters (epistles) did Paul write in the New Testament?",
     "options": [
-        "Abel",
-        "Noah",
-        "Adam",
-        "Cain"
+        "11",
+        "13",
+        "15",
+        "9"
     ],
-    "answer": "C",
-    "display": "Adam",
+    "answer": "B",
+    "display": "13",
     "category": "Bible",
-    "answered": [
-        6231510981,
-        8234402535
-    ]
+    "answered": []
 }
