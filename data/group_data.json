@@ -59,25 +59,26 @@
         },
         "1454425797": {
             "username": "Ntokozo144",
-            "points": 200,
+            "points": 50,
             "monthly_points": {
-                "2026-06": 50,
-                "2026-07": 150
+                "2026-06": 50
             },
             "yearly_points": {
-                "2026": 200
+                "2026": 50
             },
-            "alltime_points": 200,
-            "streak": 2,
-            "best_streak": 2,
-            "games_played": 2,
-            "correct": 2,
+            "alltime_points": 50,
+            "streak": 1,
+            "best_streak": 1,
+            "games_played": 1,
+            "correct": 1,
             "title": null,
             "title_expires": null,
             "hint_tokens": 0,
             "double_xp_until": null,
             "last_spin": 0,
-            "badges": [],
+            "badges": [
+                "first_blood"
+            ],
             "trivia_correct": 0,
             "versus_wins": 0,
             "daily_wins": 0,
