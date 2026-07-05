@@ -76,12 +76,10 @@
             "hint_tokens": 0,
             "double_xp_until": null,
             "last_spin": 0,
-            "badges": [
-                "first_blood"
-            ],
+            "badges": [],
             "trivia_correct": 0,
             "versus_wins": 0,
-            "daily_wins": 0,
+            "daily_wins": 1,
             "powerups": {}
         },
         "8161105657": {
