@@ -126,6 +126,10 @@ AUTO_DELETE_DELAY      = 300
 GAME_AUTO_DELETE_DELAY = 1800
 ADMIN_PANEL_DELAY      = 600
 
+# --- LEAGUE TABLE ---
+SEASON_MAX_GAMES = 38   # Total matches per team in a full season
+WEEKLY_TABLE_DEFAULT_OPT_IN = True  # New groups automatically get the weekly table
+
 # --- DESIGN PALETTE ---
 THEME_BG            = "#0d0d0f"
 THEME_BG_GRADIENT   = "#1a1a1f"
