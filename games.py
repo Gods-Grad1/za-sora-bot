@@ -17,6 +17,21 @@ import database
 
 tracked_messages = {}  # chat_id -> list of {"id": msg_id, "text": text}
 
+def track_message(chat_id, message_id, text):
+    """Track a message for cleanup."""
+    if chat_id not in tracked_messages:
+        tracked_messages[chat_id] = []
+    tracked_messages[chat_id].append({"id": message_id, "text": text})
+
+def get_tracked_messages(chat_id):
+    """Get tracked messages for a chat."""
+    return tracked_messages.get(chat_id, [])
+
+def clear_tracked_messages(chat_id):
+    """Clear tracked messages for a chat."""
+    if chat_id in tracked_messages:
+        tracked_messages[chat_id] = []
+
 # ---------------------------------------------------------------------------
 # AUTO-DELETE HELPERS
 # ---------------------------------------------------------------------------
@@ -26,9 +41,7 @@ def send_and_delete(bot, chat_id, text, parse_mode="Markdown", reply_markup=None
     msg = bot.send_message(chat_id, text, parse_mode=parse_mode, reply_markup=reply_markup)
     
     # Track message for cleanup
-    if chat_id not in tracked_messages:
-        tracked_messages[chat_id] = []
-    tracked_messages[chat_id].append({"id": msg.message_id, "text": text})
+    track_message(chat_id, msg.message_id, text)
     
     def delete():
         try:
@@ -45,9 +58,7 @@ def send_photo_and_delete(bot, chat_id, photo, caption="", reply_markup=None, pa
     msg = bot.send_photo(chat_id, photo, caption=caption, reply_markup=reply_markup, parse_mode=parse_mode)
     
     # Track message for cleanup
-    if chat_id not in tracked_messages:
-        tracked_messages[chat_id] = []
-    tracked_messages[chat_id].append({"id": msg.message_id, "text": caption or "Photo"})
+    track_message(chat_id, msg.message_id, caption or "Photo")
     
     def delete():
         try:
