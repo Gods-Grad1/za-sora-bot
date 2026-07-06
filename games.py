@@ -18,17 +18,14 @@ import database
 tracked_messages = {}  # chat_id -> list of {"id": msg_id, "text": text}
 
 def track_message(chat_id, message_id, text):
-    """Track a message for cleanup."""
     if chat_id not in tracked_messages:
         tracked_messages[chat_id] = []
     tracked_messages[chat_id].append({"id": message_id, "text": text})
 
 def get_tracked_messages(chat_id):
-    """Get tracked messages for a chat."""
     return tracked_messages.get(chat_id, [])
 
 def clear_tracked_messages(chat_id):
-    """Clear tracked messages for a chat."""
     if chat_id in tracked_messages:
         tracked_messages[chat_id] = []
 
@@ -37,12 +34,8 @@ def clear_tracked_messages(chat_id):
 # ---------------------------------------------------------------------------
 
 def send_and_delete(bot, chat_id, text, parse_mode="Markdown", reply_markup=None, delay=config.AUTO_DELETE_DELAY):
-    """Sends a message, tracks it for cleanup, and schedules it for deletion."""
     msg = bot.send_message(chat_id, text, parse_mode=parse_mode, reply_markup=reply_markup)
-    
-    # Track message for cleanup
     track_message(chat_id, msg.message_id, text)
-    
     def delete():
         try:
             bot.delete_message(chat_id, msg.message_id)
@@ -54,12 +47,8 @@ def send_and_delete(bot, chat_id, text, parse_mode="Markdown", reply_markup=None
     return msg
 
 def send_photo_and_delete(bot, chat_id, photo, caption="", reply_markup=None, parse_mode="Markdown", delay=config.GAME_AUTO_DELETE_DELAY):
-    """Sends a photo, tracks it for cleanup, and schedules it for deletion."""
     msg = bot.send_photo(chat_id, photo, caption=caption, reply_markup=reply_markup, parse_mode=parse_mode)
-    
-    # Track message for cleanup
     track_message(chat_id, msg.message_id, caption or "Photo")
-    
     def delete():
         try:
             bot.delete_message(chat_id, msg.message_id)
@@ -114,7 +103,6 @@ def get_image_bytes(bot, name, folder, url):
     _ensure_dirs()
     safe_name = _name_to_filename(name)
 
-    # Determine remote folder
     if folder == config.LOCAL_CHAR_IMAGES_DIR:
         remote_folder = "characters"
     elif folder == config.LOCAL_MEDIA_IMAGES_DIR:
@@ -122,7 +110,6 @@ def get_image_bytes(bot, name, folder, url):
     else:
         remote_folder = folder
 
-    # 1. Try GitHub first
     github_url = f"{config.GITHUB_RAW_BASE_URL}{remote_folder}/{safe_name}.jpg"
     data = _download_image(github_url)
     if data:
@@ -131,23 +118,19 @@ def get_image_bytes(bot, name, folder, url):
         bio.seek(0)
         return bio
 
-    # 2. Fallback to original URL (and upload to GitHub)
     if url:
         data = _download_image(url)
         if data:
-            # Upload to GitHub in the background
             import threading
             from github_uploader import upload_image_to_github
             def upload():
                 upload_image_to_github(bot, data, f"{safe_name}.jpg", remote_folder)
             threading.Thread(target=upload, daemon=True).start()
-
             bio = BytesIO(data)
             bio.name = "image.jpg"
             bio.seek(0)
             return bio
 
-    # 3. Total failure – notify admin
     try:
         bot.send_message(config.ADMIN_ID,
             f"❌ *Image unavailable:* `{name}` — sending text only.",
@@ -194,7 +177,6 @@ def _precache_all_images(bot):
                    entry.get('img') or entry.get('poster'))
             if not url:
                 continue
-            # Try to get from GitHub
             safe_name = _name_to_filename(entry.get('name') or entry.get('title'))
             if entry in config.CHAR_ALL_DBS:
                 remote_folder = "characters"
@@ -204,7 +186,6 @@ def _precache_all_images(bot):
             if _download_image(github_url):
                 skipped += 1
                 continue
-            # If not on GitHub, download from URL and upload
             data = _download_image(url)
             if data:
                 from github_uploader import upload_image_to_github
@@ -224,7 +205,7 @@ def precache_assets(bot):
 
 active_games = {}
 versus_games = {}
-lightning_sessions = {}  # Track active lightning rounds per user
+lightning_sessions = {}
 last_game_type = {}
 last_game_category = {}
 pending_admin_actions = {}
@@ -268,33 +249,30 @@ def _check_one_game_lock(bot, chat_id, user_id, game_type=None, category=None):
     return True
 
 # ---------------------------------------------------------------------------
-# SCHEDULER HELPER – Update last_game timestamp on game START
+# SCHEDULER HELPER – Update last_game timestamp on game START (PERSISTENT)
 # ---------------------------------------------------------------------------
 
 def _update_scheduler_last_game():
-    """Update the scheduler's last_game timestamp to NOW (called when a game starts)."""
     try:
         sched = database.load_remote_json(config.SCHEDULER_FILE, {})
         if not sched:
             sched = {}
-        sched["last_game"] = time.time()
+        sched["last_game"] = int(time.time())
         database.save_remote_json(config.SCHEDULER_FILE, sched)
+        print(f"✅ Updated scheduler last_game to {sched['last_game']}")
     except Exception as e:
         print(f"⚠️ Failed to update scheduler last_game: {e}")
 
 # ---------------------------------------------------------------------------
-# SEND HELPERS (Hint button hidden for character games)
+# SEND HELPERS
 # ---------------------------------------------------------------------------
 
 def _game_markup(chat_id, game_type):
     import telebot
     markup = telebot.types.InlineKeyboardMarkup()
     buttons = []
-    
-    # Hints are disabled for character guessing (too easy with the picture)
     if game_type != "character":
         buttons.append(telebot.types.InlineKeyboardButton("💡 Hint", callback_data=f"hint_{chat_id}"))
-    
     buttons.append(telebot.types.InlineKeyboardButton("⏭️ Next", callback_data=f"nextgame_{chat_id}_{game_type}"))
     buttons.append(telebot.types.InlineKeyboardButton("🛑 Stop", callback_data=f"stopgame_{chat_id}"))
     markup.row(*buttons)
@@ -302,7 +280,7 @@ def _game_markup(chat_id, game_type):
 
 def _send_game_message(bot, chat_id, text, name, folder, url, markup=None, delay=config.GAME_AUTO_DELETE_DELAY):
     img_data = get_image_bytes(bot, name, folder, url)
-    kwargs   = {"parse_mode": "Markdown"}
+    kwargs = {"parse_mode": "Markdown"}
     if markup:
         kwargs["reply_markup"] = markup
     if img_data:
@@ -361,7 +339,7 @@ def send_trivia_category_picker(bot, chat_id):
                      reply_markup=markup, parse_mode="Markdown")
 
 # ---------------------------------------------------------------------------
-# HINT SYSTEM (Blocks hints for character games)
+# HINT SYSTEM
 # ---------------------------------------------------------------------------
 
 def _get_hint(session, hint_num):
@@ -405,14 +383,11 @@ def process_hint(bot, message=None, call=None):
         return
 
     session = active_games[chat_id]
-    
-    # Block hints for character games
     if session.get("type") == "character":
         reply("💡 Hints are not available for Character Guessing games. Just look at the picture and guess!")
         return
 
     hints_used = session.get("hints_used", 0)
-
     if hints_used >= config.POINTS_HINT_MAX:
         reply(f"❌ Maximum {config.POINTS_HINT_MAX} hints already used this round.")
         return
@@ -510,14 +485,11 @@ def start_character_game(bot, chat_id, category=None, user_id=None):
     _send_game_message(bot, chat_id, text, name, LOCAL_CHAR_DIR, img_url, markup)
 
     _start_timer(bot, chat_id, time_limit)
-    
-    # Update scheduler last_game timestamp (game started)
     _update_scheduler_last_game()
-    
     return q
 
 # ---------------------------------------------------------------------------
-# YEAR GAME (Multiple Choice)
+# YEAR GAME
 # ---------------------------------------------------------------------------
 
 def start_year_game(bot, chat_id, category=None, user_id=None):
@@ -584,10 +556,7 @@ def start_year_game(bot, chat_id, category=None, user_id=None):
 
     _send_game_message(bot, chat_id, text, title, LOCAL_MEDIA_DIR, img_url, markup)
     _start_timer(bot, chat_id, time_limit)
-    
-    # Update scheduler last_game timestamp (game started)
     _update_scheduler_last_game()
-    
     return q
 
 def handle_year_answer(bot, call):
@@ -628,14 +597,13 @@ def handle_year_answer(bot, call):
             f"+{final} pts{streak_txt}",
             reply_markup=markup, parse_mode="Markdown"
         )
-        # Game ended – DO NOT update scheduler last_game
         del active_games[chat_id]
     else:
         database.penalise_wrong(bot, chat_id, user_id, username)
         bot.answer_callback_query(call.id, "❌ Wrong! Streak broken.", show_alert=True)
 
 # ---------------------------------------------------------------------------
-# PICTURE GUESSING GAME
+# PICTURE GAME
 # ---------------------------------------------------------------------------
 
 def start_picture_game(bot, chat_id, category=None, user_id=None):
@@ -692,10 +660,7 @@ def start_picture_game(bot, chat_id, category=None, user_id=None):
     markup = _game_markup(chat_id, "picture")
     send_photo_and_delete(bot, chat_id, bio, caption=text, reply_markup=markup, parse_mode="Markdown")
     _start_timer(bot, chat_id, time_limit)
-    
-    # Update scheduler last_game timestamp (game started)
     _update_scheduler_last_game()
-    
     return q
 
 # ---------------------------------------------------------------------------
@@ -735,7 +700,6 @@ def _start_timer(bot, chat_id, seconds):
                     parse_mode="Markdown",
                     delay=config.GAME_AUTO_DELETE_DELAY
                 )
-            # Game ended by timeout – DO NOT update scheduler last_game
             del active_games[chat_id]
             send_and_delete(
                 bot,
@@ -748,7 +712,7 @@ def _start_timer(bot, chat_id, seconds):
     threading.Thread(target=timeout, daemon=True).start()
 
 # ---------------------------------------------------------------------------
-# TRIVIA GAME (UPDATED: fifty-fifty fix)
+# TRIVIA GAME
 # ---------------------------------------------------------------------------
 
 def start_trivia_game(bot, chat_id, category=None, user_id=None):
@@ -771,16 +735,13 @@ def start_trivia_game(bot, chat_id, category=None, user_id=None):
     options = q["options"]
     answer  = q["answer"]
 
-    # --- Fifty-Fifty power-up activation (FIXED) ---
     fifty_fifty_used = False
     if user_id:
-        # Fetch username from the database
         data = database.load_remote_json(config.GROUP_DATA_FILE, {})
         chat_str = str(chat_id)
         user_str = str(user_id)
         u = database.get_user(data, chat_str, user_str, "User")
         username = u.get("username", "User")
-        
         if database.use_powerup(bot, chat_id, user_id, username, "fifty_fifty"):
             fifty_fifty_used = True
             correct_option = options[ord(answer) - ord("A")]
@@ -791,7 +752,6 @@ def start_trivia_game(bot, chat_id, category=None, user_id=None):
             options = trimmed_options
             answer = chr(ord('A') + options.index(correct_option))
             send_and_delete(bot, chat_id, "✂️ *50/50 activated!* Two wrong answers removed.", parse_mode="Markdown")
-    # --- end of fix ---
 
     active_games[chat_id] = {
         "type":     "trivia",
@@ -843,14 +803,10 @@ def start_trivia_game(bot, chat_id, category=None, user_id=None):
                 parse_mode="Markdown",
                 delay=config.GAME_AUTO_DELETE_DELAY
             )
-            # Game ended by timeout – DO NOT update scheduler last_game
             if chat_id in active_games:
                 del active_games[chat_id]
     threading.Thread(target=auto_reveal, daemon=True).start()
-    
-    # Update scheduler last_game timestamp (game started)
     _update_scheduler_last_game()
-    
     return q
 
 def handle_trivia_answer(bot, call):
@@ -900,7 +856,6 @@ def handle_trivia_answer(bot, call):
             f"+{final} pts{streak_txt}",
             reply_markup=markup, parse_mode="Markdown"
         )
-        # Game ended – DO NOT update scheduler last_game
         del active_games[chat_id]
     else:
         database.penalise_wrong(bot, chat_id, user_id, username)
@@ -916,7 +871,6 @@ def handle_next_game(bot, call):
     game_type = parts[2]
 
     if chat_id in active_games:
-        # Game ended by user clicking Next – DO NOT update scheduler last_game
         del active_games[chat_id]
 
     bot.answer_callback_query(call.id)
@@ -935,7 +889,6 @@ def handle_next_game(bot, call):
     elif game_type == "guess":
         start_guess_game(bot, chat_id, user_id=None)
     elif game_type == "lightning":
-        # Lightning doesn't support "next" in the same way
         send_and_delete(bot, chat_id, "⚡ Use /lightning to start a new Lightning Round!", parse_mode="Markdown")
 
 # ---------------------------------------------------------------------------
@@ -1214,7 +1167,6 @@ def _evaluate_round(bot, chat_id):
     result_text = ""
 
     if c_correct and t_correct:
-        # First-answer tracking: compare timestamps
         if c_ans["timestamp"] <= t_ans["timestamp"]:
             winner_id   = c_id
             winner_name = vs["challenger_name"]
@@ -1524,7 +1476,7 @@ def handle_daily_answer(bot, call):
         bot.answer_callback_query(call.id, "❌ Wrong! Better luck tomorrow.", show_alert=True)
 
 # ---------------------------------------------------------------------------
-# ANSWER CHECKER (UPDATED with GUESS and LIGHTNING support)
+# ANSWER CHECKER
 # ---------------------------------------------------------------------------
 
 def check_user_answer(bot, message):
@@ -1544,7 +1496,6 @@ def check_user_answer(bot, message):
     if message.text and message.text.startswith('/'):
         cmd = message.text.split()[0].split('@')[0].lower()
         if cmd == '/stop':
-            # Game ended by stop – DO NOT update scheduler last_game
             del active_games[chat_id]
             send_and_delete(bot, chat_id, "🛑 Game canceled.")
             return True
@@ -1563,12 +1514,10 @@ def check_user_answer(bot, message):
         send_and_delete(bot, chat_id, "⚠️ Please use the buttons to select a year!")
         return True
 
-    # --- GUESS GAME handling ---
     if session.get("type") == "guess":
         aliases = session.get("aliases", [])
         if is_character_match(user_guess, session["answer"], aliases):
             hints_shown = session.get("hints_shown", 1)
-            # Points: 100 - (hints_shown - 1) * 20, min 10
             points = max(10, config.POINTS_GUESS_BASE - (hints_shown - 1) * config.POINTS_GUESS_STEP)
             pts, streak, mult, final = database.reward_user(bot, chat_id, user_id, username, points)
             streak_txt = f"\n🔥 Streak: *{streak}* (x{mult})!" if streak > 1 else ""
@@ -1585,11 +1534,9 @@ def check_user_answer(bot, message):
                 f"💡 Hints used: {hints_shown - 1}",
                 reply_markup=markup, parse_mode="Markdown"
             )
-            # Game ended – DO NOT update scheduler last_game
             del active_games[chat_id]
             return True
         else:
-            # Wrong answer – streak freeze logic is handled below
             pass
 
     double_down_active = False
@@ -1627,11 +1574,9 @@ def check_user_answer(bot, message):
             f"+{final} pts (Total: {pts}){streak_txt}",
             reply_markup=markup, parse_mode="Markdown"
         )
-        # Game ended – DO NOT update scheduler last_game
         del active_games[chat_id]
         return True
 
-    # Wrong answer – handle streak freeze
     data = database.load_remote_json(config.GROUP_DATA_FILE, {})
     chat_str = str(chat_id)
     user_str = str(user_id)
@@ -1646,7 +1591,7 @@ def check_user_answer(bot, message):
     return True
 
 # ---------------------------------------------------------------------------
-# CALLBACK ROUTER (UPDATED with GUESS and LIGHTNING)
+# CALLBACK ROUTER
 # ---------------------------------------------------------------------------
 
 def handle_game_callback(bot, call):
@@ -1678,7 +1623,6 @@ def handle_game_callback(bot, call):
     elif data.startswith("stopgame_"):
         chat_id = int(data.split("_")[1])
         if chat_id in active_games:
-            # Game ended by stop – DO NOT update scheduler last_game
             del active_games[chat_id]
         bot.answer_callback_query(call.id)
         send_and_delete(bot, chat_id, "🛑 Game stopped.")
@@ -1688,15 +1632,13 @@ def handle_game_callback(bot, call):
         handle_lightning_answer(bot, call)
 
 # ---------------------------------------------------------------------------
-# GUESS GAME (Character Quiz) – NEW
+# GUESS GAME
 # ---------------------------------------------------------------------------
 
 def start_guess_game(bot, chat_id, user_id):
-    """Text-based character quiz with progressive hints (max 5)."""
     if _check_one_game_lock(bot, chat_id, user_id, game_type="guess"):
         return None
 
-    # Pick a random character from all char DBs
     characters = _load_all(config.CHAR_ALL_DBS)
     if not characters:
         send_and_delete(bot, chat_id, "⚠️ No character data found.")
@@ -1709,13 +1651,12 @@ def start_guess_game(bot, chat_id, user_id):
     img_url = q.get('image') or q.get('image_url') or q.get('img')
     aliases = q.get('aliases', [])
 
-    # Store session
     active_games[chat_id] = {
         "type": "guess",
         "answer": name.lower(),
         "display": name,
         "hints_list": hints_list,
-        "hints_shown": 1,          # we already show hint 1
+        "hints_shown": 1,
         "max_hints": config.MAX_GUESS_HINTS,
         "img_url": img_url,
         "aliases": [a.lower() for a in aliases],
@@ -1725,7 +1666,6 @@ def start_guess_game(bot, chat_id, user_id):
     last_game_type[chat_id] = "guess"
     last_game_category[chat_id] = "random"
 
-    # Build initial message with hint 1
     hint_text = hints_list[0] if hints_list else "No extra hints available."
     text = f"🔍 *GUESS THE CHARACTER – QUIZ*\n\n"
     text += f"💡 *Hint 1:* {hint_text}\n\n"
@@ -1743,10 +1683,7 @@ def start_guess_game(bot, chat_id, user_id):
     )
 
     send_and_delete(bot, chat_id, text, reply_markup=markup, parse_mode="Markdown")
-    
-    # Update scheduler last_game timestamp (game started)
     _update_scheduler_last_game()
-    
     return q
 
 def handle_guess_hint(bot, call):
@@ -1763,42 +1700,35 @@ def handle_guess_hint(bot, call):
         bot.answer_callback_query(call.id, f"Max {max_hints} hints already shown.", show_alert=True)
         return
 
-    # Increment and show next hint
     hints_shown += 1
     session["hints_shown"] = hints_shown
     hints_list = session.get("hints_list", [])
     hint_text = hints_list[hints_shown - 1] if hints_shown - 1 < len(hints_list) else "No more hints."
 
-    # If this is the 5th hint, send the image
     if hints_shown == max_hints:
         img_url = session.get("img_url")
         name = session.get("display", "Character")
         if img_url:
             img_data = get_image_bytes(bot, name, LOCAL_CHAR_DIR, img_url)
             if img_data:
-                # Send the image as a new message
                 bot.send_photo(chat_id, img_data, caption=f"🖼️ *Hint {hints_shown}:* Image of the character")
                 bot.answer_callback_query(call.id, f"Hint {hints_shown} shown (image sent).")
                 return
 
-    # Send a new message with the hint
     bot.send_message(chat_id, f"💡 *Hint {hints_shown}:* {hint_text}", parse_mode="Markdown")
     bot.answer_callback_query(call.id, f"Hint {hints_shown} shown.")
 
 # ---------------------------------------------------------------------------
-# LIGHTNING ROUND – NEW
+# LIGHTNING ROUND
 # ---------------------------------------------------------------------------
 
 def start_lightning_round(bot, chat_id, user_id):
-    """High-risk rapid-fire trivia. 5 questions, 15s each."""
     username = database.get_user_data_field(bot, chat_id, user_id, "username") or "Player"
 
-    # Check if already in a lightning session
     if user_id in lightning_sessions:
         send_and_delete(bot, chat_id, "⚠️ You already have an active Lightning Round. Finish it first.")
         return
 
-    # Check cooldown
     data = database.load_remote_json(config.GROUP_DATA_FILE, {})
     chat_str = str(chat_id)
     user_str = str(user_id)
@@ -1809,18 +1739,14 @@ def start_lightning_round(bot, chat_id, user_id):
         send_and_delete(bot, chat_id, f"⏳ Lightning Round on cooldown. Try again in {remaining} minutes.")
         return
 
-    # Check entry fee
     if u.get("points", 0) < config.LIGHTNING_ENTRY_FEE:
         send_and_delete(bot, chat_id, f"❌ You need *{config.LIGHTNING_ENTRY_FEE}* points to enter the Lightning Round. You have {u.get('points',0)}.")
         return
 
-    # Deduct fee
     database.deduct_points(bot, chat_id, user_id, username, config.LIGHTNING_ENTRY_FEE)
 
-    # Load trivia and pick 5 questions (1 easy, 3 medium, 1 hard)
     all_q = database.load_trivia_from_github()
     if not all_q:
-        # Refund
         database.reward_user(bot, chat_id, user_id, username, config.LIGHTNING_ENTRY_FEE)
         send_and_delete(bot, chat_id, "⚠️ Trivia database unavailable. Entry fee refunded.")
         return
@@ -1838,27 +1764,23 @@ def start_lightning_round(bot, chat_id, user_id):
     if hard: selected.append(random.choice(hard))
     else: selected.append(random.choice(all_q))
 
-    # Shuffle the selected questions to avoid difficulty order being predictable
     random.shuffle(selected)
 
-    # Build session
     lightning_sessions[user_id] = {
         "chat_id": chat_id,
         "username": username,
         "questions": selected,
         "current_q": 0,
         "correct": 0,
-        "answers": [],         # store user's choices (for display)
+        "answers": [],
         "finished": False,
         "start_time": time.time(),
         "timer_running": False,
     }
 
-    # Update last_lightning
     u["last_lightning"] = time.time()
     database.save_remote_json(config.GROUP_DATA_FILE, data)
 
-    # Start first question (no scheduler update needed for lightning)
     _send_lightning_question(bot, user_id)
 
 def _send_lightning_question(bot, user_id):
@@ -1893,16 +1815,13 @@ def _send_lightning_question(bot, user_id):
 
     bot.send_message(chat_id, text, reply_markup=markup, parse_mode="Markdown")
 
-    # Start a timer for this question
     session["timer_running"] = True
     def timeout():
         time.sleep(config.LIGHTNING_QUESTION_TIME)
         if session.get("timer_running") and not session.get("finished"):
-            # Mark as wrong and advance
-            session["answers"].append(None)  # no answer
+            session["answers"].append(None)
             session["current_q"] += 1
             session["timer_running"] = False
-            # If we have more questions, send next; else finish
             if session["current_q"] < len(session["questions"]):
                 _send_lightning_question(bot, user_id)
             else:
@@ -1924,20 +1843,16 @@ def handle_lightning_answer(bot, call):
         bot.answer_callback_query(call.id, "This round is already finished.", show_alert=True)
         return
 
-    # Check if they already answered this question
     if len(session["answers"]) > q_index:
         bot.answer_callback_query(call.id, "You already answered this question!", show_alert=True)
         return
 
-    # Validate q_index matches current
     if q_index != session["current_q"]:
         bot.answer_callback_query(call.id, "This question is outdated.", show_alert=True)
         return
 
-    # Cancel the timer (by marking timer_running False)
     session["timer_running"] = False
 
-    # Check correctness
     q = session["questions"][q_index]
     correct = (choice == ord(q["answer"]) - ord("A"))
     session["answers"].append(choice)
@@ -1949,7 +1864,6 @@ def handle_lightning_answer(bot, call):
 
     bot.answer_callback_query(call.id, feedback, show_alert=False)
 
-    # Advance to next question
     session["current_q"] += 1
     if session["current_q"] < len(session["questions"]):
         _send_lightning_question(bot, user_id)
@@ -1967,7 +1881,6 @@ def _finish_lightning_round(bot, user_id):
     total = len(session["questions"])
     reward = config.LIGHTNING_REWARDS.get(correct, 0)
 
-    # Apply points
     username = session["username"]
     if reward > 0:
         database.reward_user(bot, chat_id, user_id, username, reward)
@@ -1992,6 +1905,4 @@ def _finish_lightning_round(bot, user_id):
             summary += f"⏰ Q{i+1}: Timeout (Correct: {correct_letter}. {correct_text})\n"
 
     bot.send_message(chat_id, summary, parse_mode="Markdown")
-
-    # Clean up
     del lightning_sessions[user_id]
