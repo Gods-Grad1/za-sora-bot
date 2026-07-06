@@ -327,7 +327,7 @@ def show_quotes_page(chat_id, page=1):
     return text, markup
 
 # ---------------------------------------------------------------------------
-# CAPTAIN'S CABIN
+# CAPTAIN'S CABIN (UPDATED – /cabin)
 # ---------------------------------------------------------------------------
 
 def show_admin_panel(message):
@@ -1068,11 +1068,11 @@ def handle_all_messages(message):
             return
         clean_bot_messages(chat_id, message)
 
-    elif cmd == '/admin':
+    elif cmd == '/cabin':
         if is_admin(user_id):
             show_admin_panel(message)
         else:
-            bot.reply_to(message, "❌ Captain only.")
+            bot.reply_to(message, "❌ This is the Captain's private cabin. Only the Captain can enter. 🏴‍☠️")
 
     elif cmd == '/testmorning':
         if is_admin(user_id):
@@ -1898,13 +1898,13 @@ def handle_all_callbacks(call):
                 bot.answer_callback_query(call.id, "No fixtures available.", show_alert=True)
                 return
 
-            home_idx, away_idx, _, _, _ = graphics.detect_fixtures_columns(rows)
+            home_idx, away_idx, matchday_idx = graphics.detect_fixtures_columns(rows)
             header_offset = 1 if ("home" in str(rows[0][home_idx]).lower() or rows[0][0].lower() in ["md", "matchday"]) else 0
 
             seen = set()
             matchdays = []
             for row in rows[header_offset:]:
-                md = row[0].strip() if row else ""
+                md = row[matchday_idx].strip() if matchday_idx is not None and len(row) > matchday_idx else ""
                 if md and md not in seen:
                     seen.add(md)
                     matchdays.append(md)
@@ -2026,24 +2026,57 @@ def handle_all_callbacks(call):
 
 def _serve_fixtures_page(chat_id, message_id, player, context, status, page):
     rows = database.fetch_csv_cached(bot, config.FIXTURES_CSV_URL)
-    img  = graphics.generate_fixtures_image(bot, rows, status, player, context, page)
+    
+    # Get total pages
+    home_idx, away_idx, matchday_idx = graphics.detect_fixtures_columns(rows)
+    header_offset = 1
+    if rows and len(rows) > 0:
+        first_row = rows[0]
+        if len(first_row) > max(home_idx, away_idx):
+            if first_row[0].lower() in ["md", "matchday", "round"]:
+                header_offset = 1
+
+    # Count total fixtures for this player/context/status
+    total_fixtures = 0
+    for row in rows[header_offset:]:
+        if len(row) <= max(home_idx, away_idx):
+            continue
+        home = row[home_idx].strip()
+        away = row[away_idx].strip()
+        if not home or not away or home.isdigit() or away.isdigit():
+            continue
+        if context == "home" and player.lower() != home.lower():
+            continue
+        if context == "away" and player.lower() != away.lower():
+            continue
+        if context == "all" and player.lower() not in [home.lower(), away.lower()]:
+            continue
+        total_fixtures += 1
+
+    per_page = 10
+    total_pages = (total_fixtures + per_page - 1) // per_page
+    if total_pages == 0:
+        total_pages = 1
+
+    # Generate the image for the current page
+    img = graphics.generate_fixtures_image(bot, rows, status, player, context, page)
     if not img:
         bot.send_message(chat_id, f"❌ No {status} matches found for {player.upper()} ({context.upper()}).")
         return
+
     try:
-        markup   = telebot.types.InlineKeyboardMarkup()
+        markup = telebot.types.InlineKeyboardMarkup()
         nav_btns = []
-        prev_img = graphics.generate_fixtures_image(bot, rows, status, player, context, page - 1)
-        next_img = graphics.generate_fixtures_image(bot, rows, status, player, context, page + 1)
-        if prev_img:
+
+        if page > 1:
             nav_btns.append(telebot.types.InlineKeyboardButton("⬅️ Prev", callback_data=f"fix_pg_{player}_{context}_{status}_{page-1}"))
-            prev_img.close()
-        if next_img:
+        if page < total_pages:
             nav_btns.append(telebot.types.InlineKeyboardButton("Next ➡️", callback_data=f"fix_pg_{player}_{context}_{status}_{page+1}"))
-            next_img.close()
+
         if nav_btns:
             markup.row(*nav_btns)
-        caption = f"📋 *{status.upper()} MATCHES*\n👤 {player.upper()} | 🏟️ {context.upper()} | 📄 Page {page}"
+
+        caption = f"📋 *{status.upper()} MATCHES*\n👤 {player.upper()} | 🏟️ {context.upper()} | 📄 Page {page}/{total_pages}"
         try:
             bot.delete_message(chat_id, message_id)
         except Exception:
@@ -2452,7 +2485,7 @@ def register_commands():
     ]
 
     admin_commands = public_commands + [
-        telebot.types.BotCommand("admin",        "⚙️ Captain's Cabin"),
+        telebot.types.BotCommand("cabin",        "🏴‍☠️ Captain's Cabin"),
         telebot.types.BotCommand("tagall",       "📢 Tag all members (Group admins)"),
         telebot.types.BotCommand("setschedule",  "🕐 Configure auto-game scheduler (Group admins)"),
         telebot.types.BotCommand("setwindow",    "⏰ Set game window (Group admins)"),
