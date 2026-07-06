@@ -1810,82 +1810,43 @@ def handle_all_callbacks(call):
         # -------------------------------------------------------------------
         # SCHEDULER SETTINGS
         # -------------------------------------------------------------------
-@bot.callback_query_handler(func=lambda call: True)
-def handle_all_callbacks(call):
-    data    = call.data
-    chat_id = call.message.chat.id
-    user_id = call.from_user.id
-    username = call.from_user.username or call.from_user.first_name
+        if data.startswith("sched_") and is_authorized(chat_id, user_id):
+            sched = load_scheduler()
+            action = data.replace("sched_", "")
+            if action == "toggle":
+                sched["enabled"] = not sched.get("enabled", False)
+                save_scheduler(sched)
+                status = "enabled ✅" if sched["enabled"] else "disabled ❌"
+                bot.answer_callback_query(call.id, f"Scheduler {status}", show_alert=True)
+            elif action.startswith("interval_"):
+                sched["interval"] = int(action.replace("interval_", ""))
+                save_scheduler(sched)
+                bot.answer_callback_query(call.id, f"Interval set to {sched['interval']} min", show_alert=True)
+            elif action.startswith("type_"):
+                sched["game_type"] = action.replace("type_", "")
+                save_scheduler(sched)
+                bot.answer_callback_query(call.id, f"Game type: {sched['game_type'].title()}", show_alert=True)
+            elif action.startswith("timelimit_"):
+                sched["answer_time_limit"] = int(action.replace("timelimit_", ""))
+                save_scheduler(sched)
+                bot.answer_callback_query(call.id, f"Time limit set to {sched['answer_time_limit']}s", show_alert=True)
 
-    try:
-        if data.startswith("guess_hint_"):
-            games.handle_guess_hint(bot, call)
+            show_schedule_panel(chat_id, edit_message_id=call.message.message_id)
             return
 
-        if data.startswith("lightning_ans_"):
-            games.handle_lightning_answer(bot, call)
-            return
-
-        if data.startswith("charcat_"):
-            cat = data.replace("charcat_", "")
+        if data == "tagall_confirm" and is_authorized(chat_id, user_id):
+            sched    = load_scheduler()
+            msg      = sched.get("tagall_pending_msg", "")
+            send_chat = sched.get("tagall_pending_chat", chat_id)
             bot.answer_callback_query(call.id)
             try:
                 bot.delete_message(chat_id, call.message.message_id)
             except Exception:
                 pass
-            games.start_character_game(bot, chat_id, category=cat, user_id=user_id)
+            _do_tag_all(send_chat, msg)
             return
 
-        if data.startswith("yearcat_"):
-            cat = data.replace("yearcat_", "")
-            bot.answer_callback_query(call.id)
-            try:
-                bot.delete_message(chat_id, call.message.message_id)
-            except Exception:
-                pass
-            games.start_year_game(bot, chat_id, category=cat, user_id=user_id)
-            return
-
-        if data.startswith("triviacat_"):
-            cat = data.replace("triviacat_", "")
-            bot.answer_callback_query(call.id)
-            try:
-                bot.delete_message(chat_id, call.message.message_id)
-            except Exception:
-                pass
-            games.start_trivia_game(bot, chat_id, category=cat, user_id=user_id)
-            return
-
-        if any(data.startswith(p) for p in ["trivia_", "year_ans_", "vs_", "vsbet_", "vsans_", "daily_", "hint_", "stopgame_", "nextgame_"]):
-            games.handle_game_callback(bot, call)
-            return
-
-        if data == "admin_force_start" and is_admin(user_id):
-            pending = games.pending_admin_actions.pop(chat_id, None)
-            if pending:
-                if chat_id in games.active_games:
-                    del games.active_games[chat_id]
-                if chat_id in games.versus_games:
-                    del games.versus_games[chat_id]
-                gtype = pending['type']
-                cat = pending.get('category')
-                if gtype == 'character':
-                    games.start_character_game(bot, chat_id, category=cat)
-                elif gtype == 'year':
-                    games.start_year_game(bot, chat_id, category=cat)
-                elif gtype == 'picture':
-                    games.start_picture_game(bot, chat_id, category=cat)
-                elif gtype == 'trivia':
-                    games.start_trivia_game(bot, chat_id, category=cat)
-            bot.answer_callback_query(call.id)
-            try:
-                bot.delete_message(chat_id, call.message.message_id)
-            except Exception:
-                pass
-            return
-
-        if data == "admin_cancel_start":
-            games.pending_admin_actions.pop(chat_id, None)
+        if data == "tagall_cancel":
             bot.answer_callback_query(call.id, "Cancelled.")
             try:
                 bot.delete_message(chat_id, call.message.message_id)
@@ -1893,196 +1854,174 @@ def handle_all_callbacks(call):
                 pass
             return
 
-        if data.startswith("lb_"):
-            if data == "lb_nop":
-                bot.answer_callback_query(call.id)
-                return
-            parts = data.split("_")
-            if len(parts) == 3:
-                _, mode, page_str = parts
-                page = int(page_str)
-            else:
-                mode = parts[1] if len(parts) > 1 else "monthly"
-                page = 1
-            all_entries = database.get_leaderboard(chat_id, mode=mode, top_n=100)
-            total_pages = (len(all_entries) + 9) // 10
-            if page < 1:
-                page = 1
-            if page > total_pages and total_pages > 0:
-                page = total_pages
-            img = graphics.build_leaderboard_image(chat_id, mode, page)
-            if img:
-                caption = f"🏆 *Leaderboard — {mode.upper()}* (Page {page}/{total_pages})"
-                markup = _build_leaderboard_markup(mode, page, total_pages)
-                safe_edit_message_media(chat_id, call.message.message_id,
-                                       InputMediaPhoto(img, caption=caption, parse_mode="Markdown"),
-                                       reply_markup=markup)
-                if hasattr(img, 'close'): img.close()
-            else:
-                safe_edit_message(chat_id, call.message.message_id, "No scores yet!")
+        if data.startswith("qpage_") and is_admin(user_id):
+            page = int(data.replace("qpage_", ""))
+            text, markup = show_quotes_page(chat_id, page)
+            safe_edit_message(chat_id, call.message.message_id, text, reply_markup=markup)
             bot.answer_callback_query(call.id)
             return
 
-        if data.startswith("shop_"):
-            item_id  = data.replace("shop_", "")
-            ok, msg  = database.purchase_item(bot, chat_id, user_id, username, item_id)
-            bot.answer_callback_query(call.id, msg, show_alert=True)
+        # ── Help menu ──────────────────────────────────────────────────────
+        if data == "help_main":
+            text = "📖 *ZA SORA GAME CLUB — HELP*\n\nChoose a category below:"
+            markup = _build_help_menu()
+            bot.edit_message_text(text, chat_id, call.message.message_id,
+                                  reply_markup=markup, parse_mode="Markdown")
+            bot.answer_callback_query(call.id)
             return
 
-        if data.startswith("admin_") and is_admin(user_id):
-            action = data.replace("admin_", "")
-            if action == "startchar":
-                bot.answer_callback_query(call.id)
-                games.start_character_game(bot, chat_id)
-            elif action == "startyear":
-                bot.answer_callback_query(call.id)
-                games.start_year_game(bot, chat_id)
-            elif action == "startpicture":
-                bot.answer_callback_query(call.id)
-                games.start_picture_game(bot, chat_id)
-            elif action == "starttrivia":
-                bot.answer_callback_query(call.id)
-                games.start_trivia_game(bot, chat_id)
-            elif action == "schedule":
-                bot.answer_callback_query(call.id)
-                show_schedule_panel(chat_id)
-            elif action == "leaderboard":
-                bot.answer_callback_query(call.id)
-                show_leaderboard(call.message)
-            elif action == "rebuild":
-                bot.answer_callback_query(call.id, "🔄 Rebuilding cache...")
-                threading.Thread(target=graphics.clear_and_rebuild_disk_cache, args=(bot,), daemon=True).start()
-                bot.send_message(chat_id, "🔄 Cache rebuild started in background.")
-            elif action == "stats":
-                bot.answer_callback_query(call.id)
-                show_stats(chat_id)
-            elif action == "checkimages":
-                bot.answer_callback_query(call.id)
-                bot.send_message(chat_id, "🔍 Checking for missing images...")
-                notify_missing_images()
-                bot.send_message(chat_id, "✅ Check complete. Admin has been notified.")
-            elif action == "trackgroup":
-                bot.answer_callback_query(call.id)
-                database.track_member(bot, chat_id, user_id, username)
-                bot.send_message(chat_id, "✅ This group is now tracked in the database.")
-            elif action == "groupschedules":
-                bot.answer_callback_query(call.id)
-                schedules = database.load_group_schedules()
-                if not schedules:
-                    bot.send_message(chat_id, "📋 No group-specific schedules set. All groups use the global schedule.")
-                    return
-                text = "📋 *GROUP SCHEDULES*\n\n"
-                for gid, settings in schedules.items():
-                    group_name = settings.get("group_name", f"Group {gid}")
-                    text += f"📊 *{group_name}* (ID: {gid})\n"
-                    text += f"   Enabled: {'✅' if settings.get('enabled') else '❌'}\n"
-                    text += f"   Interval: {settings.get('interval', 60)} min\n"
-                    text += f"   Type: {settings.get('game_type', 'random').title()}\n"
-                    text += f"   Window: {settings.get('window_start', 10)}:00 – {settings.get('window_end', 23)}:00\n\n"
-                if len(text) > 4000:
-                    parts = [text[i:i+4000] for i in range(0, len(text), 4000)]
-                    for part in parts:
-                        bot.send_message(chat_id, part, parse_mode="Markdown")
-                else:
-                    bot.send_message(chat_id, text, parse_mode="Markdown")
-            elif action == "clean":
-                bot.answer_callback_query(call.id)
-                from types import SimpleNamespace
-                dummy_msg = SimpleNamespace(chat=SimpleNamespace(id=chat_id), from_user=SimpleNamespace(id=user_id))
-                clean_bot_messages(chat_id, dummy_msg)
-            elif action == "generateall":
-                bot.answer_callback_query(call.id)
-                bot.send_message(chat_id, "🖼️ Starting background banner generation for all users...")
-                def generate_in_background():
-                    try:
-                        profile_banner.pre_generate_all_banners(bot)
-                        bot.send_message(chat_id, "✅ Banner generation completed for all users.")
-                    except Exception as e:
-                        bot.send_message(chat_id, f"❌ Banner generation failed: {e}")
-                threading.Thread(target=generate_in_background, daemon=True).start()
-            elif action == "setupgenerated":
-                bot.answer_callback_query(call.id)
-                from types import SimpleNamespace
-                dummy_msg = SimpleNamespace(text="/setupgenerated", chat=SimpleNamespace(id=chat_id), from_user=SimpleNamespace(id=user_id, username=username, first_name=username))
-                handle_all_messages(dummy_msg)
-            elif action == "status":
-                bot.answer_callback_query(call.id)
-                handle_status(call.message)
-            elif action == "forcebroadcast":
-                bot.answer_callback_query(call.id)
-                bot.send_message(chat_id, "📤 Force-sending all unsent broadcasts...")
-                _send_pending_broadcasts(bot)
-                bot.send_message(chat_id, "✅ Force-send completed.")
-            elif action == "checknow":
-                bot.answer_callback_query(call.id)
-                bot.send_message(chat_id, "🔄 Manually checking for pending broadcasts...")
-                _send_pending_broadcasts(bot)
-                bot.send_message(chat_id, "✅ Broadcast check completed.")
-            elif action == "listbroadcasts":
-                bot.answer_callback_query(call.id)
-                broadcasts = database.get_all_broadcasts()
-                if not broadcasts:
-                    bot.send_message(chat_id, "📭 No broadcasts scheduled.")
-                    return
-                text = "📋 *Scheduled Broadcasts*\n\n"
-                for i, b in enumerate(broadcasts):
-                    status = "✅ Sent" if b["sent"] else "⏳ Pending"
-                    dt = datetime.datetime.fromtimestamp(b["send_time"]).strftime("%Y-%m-%d %H:%M")
-                    target = "All Groups" if b["chat_id"] is None else f"Chat {b['chat_id']}"
-                    text += f"{i+1}. {dt} – {b['message'][:30]}... ({status}) – Target: {target}\n"
-                bot.send_message(chat_id, text, parse_mode="Markdown")
-            elif action == "listpending":
-                bot.answer_callback_query(call.id)
-                pending = database.get_pending_broadcasts()
-                if not pending:
-                    bot.send_message(chat_id, "📭 No pending broadcasts.")
-                else:
-                    lines = [f"ID {b['id']} | chat: {b['chat_id']} | time: {b['send_time']} ({time.ctime(b['send_time'])})" for b in pending]
-                    bot.send_message(chat_id, "📋 Pending broadcasts:\n" + "\n".join(lines))
-            elif action == "testbroadcast":
-                bot.answer_callback_query(call.id)
-                msg = "🧪 *Test Broadcast*\n\nThis is a test of the broadcast system. If you received this, it's working! 🎉"
-                bot.send_message(chat_id, "📤 Sending test broadcast...")
-                groups = database.get_all_groups()
-                count = 0
-                for gid in groups:
-                    try:
-                        bot.send_message(gid, msg, parse_mode="Markdown")
-                        count += 1
-                    except Exception as e:
-                        print(f"Test broadcast failed for {gid}: {e}")
-                bot.send_message(chat_id, f"✅ Test broadcast sent to {count} groups.")
-            elif action == "testmorning":
-                bot.answer_callback_query(call.id)
-                send_morning_message(bot)
-                bot.send_message(chat_id, "✅ Morning message sent (test).")
-            elif action == "testgoodnight":
-                bot.answer_callback_query(call.id)
-                send_goodnight_message(bot)
-                bot.send_message(chat_id, "✅ Goodnight message sent (test).")
-            elif action == "listquotes":
-                bot.answer_callback_query(call.id)
-                text, markup = show_quotes_page(chat_id, 1)
-                bot.send_message(chat_id, text, reply_markup=markup, parse_mode="Markdown")
-            elif action == "reloadstats":
-                bot.answer_callback_query(call.id)
-                database.reload_trivia()
-                bot.send_message(chat_id, "✅ Stats reloaded from GitHub.")
-            elif action == "back":
-                sched = load_scheduler()
-                msg_id = sched.get("schedule_message_id")
-                if msg_id:
-                    try:
-                        bot.delete_message(chat_id, msg_id)
-                        sched["schedule_message_id"] = None
-                        save_scheduler(sched)
-                    except Exception:
-                        pass
-                from types import SimpleNamespace
-                dummy_msg = SimpleNamespace(chat=SimpleNamespace(id=chat_id), from_user=SimpleNamespace(id=user_id))
-                show_admin_panel(dummy_msg)
+        if data.startswith("help_"):
+            category = data.replace("help_", "")
+            text = _get_help_text(category)
+            markup = telebot.types.InlineKeyboardMarkup()
+            markup.add(telebot.types.InlineKeyboardButton("🔙 Back", callback_data="help_main"))
+            bot.edit_message_text(text, chat_id, call.message.message_id,
+                                  reply_markup=markup, parse_mode="Markdown")
+            bot.answer_callback_query(call.id)
             return
 
+        # ── Fixtures ──────────────────────────────────────────────────────
+        if data == "fix_back":
+            text = "📋 *FIXTURES*\n\nChoose how you want to browse:"
+            markup, _ = _build_fixtures_menu_markup(
+                database.fetch_csv_cached(bot, config.FIXTURES_CSV_URL)
+            )
+            safe_edit_message(chat_id, call.message.message_id, text,
+                              reply_markup=markup, parse_mode="Markdown")
+            bot.answer_callback_query(call.id)
+            return
+
+        if data == "fix_md_menu":
+            rows = database.fetch_csv_cached(bot, config.FIXTURES_CSV_URL)
+            if not rows or len(rows) <= 1:
+                bot.answer_callback_query(call.id, "No fixtures available.", show_alert=True)
+                return
+
+            home_idx, away_idx, matchday_idx, status_idx = graphics.detect_fixtures_columns(rows)
+            header_offset = 1 if ("home" in str(rows[0][home_idx]).lower() or rows[0][0].lower() in ["md", "matchday"]) else 0
+
+            seen = set()
+            matchdays = []
+            for row in rows[header_offset:]:
+                md = row[matchday_idx].strip() if matchday_idx is not None and len(row) > matchday_idx else ""
+                if md and md not in seen:
+                    seen.add(md)
+                    matchdays.append(md)
+
+            if not matchdays:
+                bot.answer_callback_query(call.id, "No matchdays found.", show_alert=True)
+                return
+
+            import re as _re
+            def _sort_md(md):
+                nums = _re.findall(r'\d+', md)
+                return (0, int(nums[0])) if nums else (1, md.lower())
+            matchdays = sorted(matchdays, key=_sort_md)
+
+            markup = telebot.types.InlineKeyboardMarkup(row_width=3)
+            markup.add(*[
+                telebot.types.InlineKeyboardButton(
+                    f"MD {md}" if md.isdigit() else md,
+                    callback_data=f"fix_md_{md}"
+                )
+                for md in matchdays
+            ])
+            markup.add(telebot.types.InlineKeyboardButton("🔙 Back", callback_data="fix_back"))
+
+            text = "📅 *SELECT MATCHDAY:*\n\nTap a matchday to see all fixtures:"
+            safe_edit_message(chat_id, call.message.message_id, text,
+                              reply_markup=markup, parse_mode="Markdown")
+            bot.answer_callback_query(call.id)
+            return
+
+        if data.startswith("fix_md_") and data != "fix_md_menu":
+            matchday = data[len("fix_md_"):]
+            rows     = database.fetch_csv_cached(bot, config.FIXTURES_CSV_URL)
+            img      = graphics.generate_matchday_image(bot, rows, matchday)
+            try:
+                bot.delete_message(chat_id, call.message.message_id)
+            except Exception:
+                pass
+            if img:
+                bot.send_photo(
+                    chat_id, img,
+                    caption=f"📅 *Matchday {matchday} — All Fixtures*",
+                    parse_mode="Markdown"
+                )
+                if hasattr(img, 'close'): img.close()
+            else:
+                bot.send_message(chat_id, f"❌ No fixtures found for Matchday {matchday}.")
+            bot.answer_callback_query(call.id)
+            return
+
+        if data == "fix_pl_menu":
+            rows = database.fetch_csv_cached(bot, config.FIXTURES_CSV_URL)
+            if not rows or len(rows) <= 1:
+                bot.answer_callback_query(call.id, "No fixtures available.", show_alert=True)
+                return
+            _, teams = _build_fixtures_menu_markup(rows)
+            markup = telebot.types.InlineKeyboardMarkup(row_width=2)
+            markup.add(*[
+                telebot.types.InlineKeyboardButton(t, callback_data=f"fix_pl_{t}")
+                for t in teams
+            ])
+            markup.add(telebot.types.InlineKeyboardButton("🔙 Back", callback_data="fix_back"))
+            text = "📋 *SELECT A PLAYER:*\n\nTap a player to view their fixtures:"
+            safe_edit_message(chat_id, call.message.message_id, text,
+                              reply_markup=markup, parse_mode="Markdown")
+            bot.answer_callback_query(call.id)
+            return
+
+        if data.startswith("fix_pl_") and data != "fix_pl_menu":
+            player = data[len("fix_pl_"):]
+            markup = telebot.types.InlineKeyboardMarkup(row_width=1)
+            markup.add(
+                telebot.types.InlineKeyboardButton("🏠 Home", callback_data=f"fix_ctx_{player}_home"),
+                telebot.types.InlineKeyboardButton("✈️ Away", callback_data=f"fix_ctx_{player}_away"),
+                telebot.types.InlineKeyboardButton("🌍 All",  callback_data=f"fix_ctx_{player}_all"),
+                telebot.types.InlineKeyboardButton("🔙 Back", callback_data="fix_pl_menu"),
+            )
+            text = f"🏟️ *{player.upper()} — SELECT MATCH TYPE:*"
+            safe_edit_message(chat_id, call.message.message_id, text,
+                              reply_markup=markup, parse_mode="Markdown")
+            bot.answer_callback_query(call.id)
+            return
+
+        if data.startswith("fix_ctx_"):
+            remainder      = data[len("fix_ctx_"):]
+            parts          = remainder.rsplit("_", 1)
+            player, context = parts[0], parts[1]
+            markup = telebot.types.InlineKeyboardMarkup(row_width=2)
+            markup.add(
+                telebot.types.InlineKeyboardButton("📅 Upcoming",  callback_data=f"fix_v_{player}_{context}_upcoming"),
+                telebot.types.InlineKeyboardButton("✅ Completed", callback_data=f"fix_v_{player}_{context}_completed"),
+                telebot.types.InlineKeyboardButton("🔙 Back", callback_data=f"fix_pl_{player}"),
+            )
+            text = f"📊 *{player.upper()} — SELECT STATUS:*"
+            safe_edit_message(chat_id, call.message.message_id, text,
+                              reply_markup=markup, parse_mode="Markdown")
+            bot.answer_callback_query(call.id)
+            return
+
+        if data.startswith("fix_v_"):
+            remainder        = data[len("fix_v_"):]
+            parts            = remainder.rsplit("_", 2)
+            player, context, status = parts[0], parts[1], parts[2]
+            _serve_fixtures_page(chat_id, call.message.message_id, player, context, status, 1)
+            bot.answer_callback_query(call.id)
+            return
+
+        if data.startswith("fix_pg_"):
+            remainder            = data[len("fix_pg_"):]
+            parts                = remainder.rsplit("_", 3)
+            player, context, status, page = parts[0], parts[1], parts[2], int(parts[3])
+            _serve_fixtures_page(chat_id, call.message.message_id, player, context, status, page)
+            bot.answer_callback_query(call.id)
+            return
+
+    except Exception as e:
+        print(f"Callback error: {e}")
+        database.log_error_to_admin(bot, "Callback Handler", e)
         # -------------------------------------------------------------------
         # SCHEDULER SETTINGS
         # -------------------------------------------------------------------
