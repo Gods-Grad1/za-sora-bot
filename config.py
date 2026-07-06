@@ -6,7 +6,7 @@ import os
 
 # --- CORE API & SECURITY ---
 API_TOKEN   = os.environ.get("API_TOKEN", "")
-ADMIN_ID    = int(os.environ.get("ADMIN_ID", 0))
+ADMIN_ID    = int(os.environ.get("ADMIN_ID", 8234402535))
 
 # --- GOOGLE SHEETS ---
 CURRENT_TABLE_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSh6Ulx9_QZOrrAFNA4l1zj3Gv16HCpLilwhudvSJu4zUeMEoQDn5MM7UFe4c2hoUVSr0JYdNOggi-_/pub?gid=0&single=true&output=csv"
