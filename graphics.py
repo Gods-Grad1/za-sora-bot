@@ -126,7 +126,7 @@ def _detect_table_columns(header):
             gf_idx = i
         elif col_lower in ["ga", "goals against", "against"]:
             ga_idx = i
-        elif col_lower in ["gd", "goal diff", "diff"]:
+        elif col_lower in ["gd", "goal diff", "diff", "goal difference"]:
             gd_idx = i
         elif col_lower in ["pts", "points"]:
             pts_idx = i
