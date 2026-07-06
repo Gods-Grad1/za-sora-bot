@@ -148,7 +148,7 @@ def _detect_table_columns(header):
     return pos_idx, team_idx, mp_idx, w_idx, d_idx, l_idx, gf_idx, ga_idx, gd_idx, pts_idx, form_idx
 
 def _render_table_image(table_data, is_complete):
-    """Render the table as an image."""
+    """Render the table as an image with color coding."""
     # Dimensions
     cols = ["POS", "TEAM", "MP", "W", "D", "L", "GF", "GA", "GD", "PTS", "FORM"]
     col_widths = [40, 180, 40, 40, 40, 40, 40, 40, 40, 50, 80]
@@ -186,6 +186,10 @@ def _render_table_image(table_data, is_complete):
         # Row background
         if is_champion:
             bg_color = config.THEME_ROW_GOLD
+        elif idx == 1 and is_complete:
+            bg_color = config.THEME_ROW_SILVER
+        elif idx == 2 and is_complete:
+            bg_color = config.THEME_ROW_BRONZE
         elif idx % 2 == 0:
             bg_color = config.THEME_BG
         else:
@@ -195,6 +199,12 @@ def _render_table_image(table_data, is_complete):
 
         # Row border
         draw.line([padding, row_y, padding + total_width - padding * 2, row_y], fill=config.THEME_LINE, width=1)
+
+        # Determine colors for GD and PTS
+        gd = team["gd"]
+        pts = team["pts"]
+        gd_color = config.THEME_ACCENT if gd > 0 else config.THEME_ACCENT_RED if gd < 0 else config.THEME_TEXT_MUTED
+        pts_color = config.THEME_ACCENT_GOLD if pts >= 99 else config.THEME_ACCENT if pts > 0 else config.THEME_TEXT_MUTED
 
         # Data
         row_data = [
@@ -206,10 +216,13 @@ def _render_table_image(table_data, is_complete):
             str(team["l"]),
             str(team["gf"]),
             str(team["ga"]),
-            str(team["gd"]),
-            str(team["pts"]),
+            str(gd),
+            str(pts),
             team["form"][:5]
         ]
+
+        # Custom colors for specific columns
+        custom_colors = [None, None, None, None, None, None, None, None, gd_color, pts_color, None]
 
         for i, (col, value) in enumerate(zip(cols, row_data)):
             cx = padding + sum(col_widths[:i]) + col_widths[i] // 2
@@ -219,6 +232,9 @@ def _render_table_image(table_data, is_complete):
             if is_champion:
                 color = config.THEME_ACCENT_GOLD
                 font = header_font if i == 0 else row_font
+
+            if custom_colors[i] is not None:
+                color = custom_colors[i]
 
             if i == 0:  # POS
                 draw.text((cx - 5, row_y + row_height // 2 - 6), value, fill=color, font=font, anchor="rm")
@@ -230,13 +246,16 @@ def _render_table_image(table_data, is_complete):
         # Champion crown
         if is_champion:
             draw.text((padding + 5, row_y + 2), "👑", font=small_font)
+        elif idx == 1 and is_complete:
+            draw.text((padding + 5, row_y + 2), "🥈", font=small_font)
+        elif idx == 2 and is_complete:
+            draw.text((padding + 5, row_y + 2), "🥉", font=small_font)
 
     # Convert to bytes
     img_bytes = io.BytesIO()
     img.save(img_bytes, format='PNG')
     img_bytes.seek(0)
     return img_bytes
-
 def _draw_form_indicators(draw, x, y, form, font):
     """Draw form indicators (W, D, L) as colored boxes."""
     colors = {"W": "#00E676", "D": "#FFD700", "L": "#FF1744"}
