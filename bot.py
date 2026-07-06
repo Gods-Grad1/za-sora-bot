@@ -34,10 +34,8 @@ BOT_START_TIME = time.time()
 # ---------------------------------------------------------------------------
 
 def load_scheduler():
-    """Load scheduler state from GitHub (persists across redeploys)."""
     try:
         data = database.load_remote_json(config.SCHEDULER_FILE, None)
-
         if data is None or not isinstance(data, dict):
             print("🔧 Creating new scheduler.json with defaults...")
             data = {
@@ -86,7 +84,6 @@ def load_scheduler():
         }
 
 def save_scheduler(data):
-    """Save scheduler state to GitHub (persists across redeploys)."""
     database.save_remote_json(config.SCHEDULER_FILE, data)
 
 # ---------------------------------------------------------------------------
@@ -97,7 +94,6 @@ def is_admin(user_id):
     return user_id == config.ADMIN_ID
 
 def is_group_admin(chat_id, user_id):
-    """Check if a user is an admin of the group."""
     try:
         chat_member = bot.get_chat_member(chat_id, user_id)
         return chat_member.status in ["administrator", "creator"]
@@ -105,7 +101,6 @@ def is_group_admin(chat_id, user_id):
         return False
 
 def is_authorized(chat_id, user_id):
-    """Check if user is either THE Admin or a group admin."""
     if is_admin(user_id):
         return True
     if is_group_admin(chat_id, user_id):
@@ -437,7 +432,6 @@ def show_stats(chat_id):
 def send_weekly_recap(bot):
     groups = database.get_all_groups()
     for group_id in groups:
-        # Check opt-in
         if not database.get_weekly_table_opt_in(group_id):
             continue
         lb = database.get_leaderboard(group_id, mode="monthly", top_n=3)
@@ -455,7 +449,6 @@ def send_weekly_recap(bot):
             print(f"Weekly recap failed for {group_id}: {e}")
 
 def send_morning_message(bot):
-    """Send themed morning message with character greeting, integrated quote, and daily content."""
     try:
         print("🌅 send_morning_message() called")
         now = local_now()
@@ -467,12 +460,10 @@ def send_morning_message(bot):
             character = "Luffy"
             category = "Anime"
 
-        # Get character greeting (includes their quote naturally)
         morning_greeting = database.get_character_greeting(character, "morning")
         if not morning_greeting:
             morning_greeting = f"Good morning, family! Rise and shine! 🌅"
 
-        # Get random saying from quote system
         saying = database.get_random_quote(bot)
 
         groups = database.get_all_groups()
@@ -489,18 +480,11 @@ def send_morning_message(bot):
                 else:
                     top3 = "No scores yet this month!\n"
 
-                # Build the message – no generic "Good Morning" header, character greeting opens
                 msg = f"{morning_greeting}\n\n"
-                
-                # Add category mention
                 if category:
                     msg += f"Today's category is *{category}* – let's see what you've got!\n\n"
-                
-                # Add the random saying
                 if saying:
                     msg += f"📖 *A thought for the day:*\n_{saying['text']}_\n_— {saying['author']}_\n\n"
-                
-                # Top 3
                 msg += f"🏆 *Monthly Top 3:*\n{top3}\n"
                 msg += f"🎮 *Start your adventure:*\n/start — Welcome to the crew!\n\n"
                 msg += f"Let's have a great day! 🙏🔥"
@@ -520,7 +504,6 @@ def send_morning_message(bot):
                             tag_line_trunc += f"\n_and {len(members)-50} more..._"
                         full_msg = msg + "\n\n" + tag_line_trunc
 
-                    # Try to send GIF
                     try:
                         character_lower = character.lower().replace(" ", "_")
                         gif_url = f"https://raw.githubusercontent.com/{config.GITHUB_REPO}/{config.TRIVIA_BRANCH}/images/morning/{character_lower}.gif"
@@ -544,7 +527,6 @@ def send_morning_message(bot):
         database.log_error_to_admin(bot, "Morning Message Overall", e)
 
 def send_goodnight_message(bot):
-    """Send themed goodnight message with character closing the day."""
     try:
         print("🌙 send_goodnight_message() called")
         now = local_now()
@@ -567,7 +549,6 @@ def send_goodnight_message(bot):
                 msg = f"{goodnight_msg}\n\n"
                 msg += f"🛌 Sleep well, crew! See you tomorrow! 🙏🌟"
 
-                # Try to send GIF
                 try:
                     character_lower = character.lower().replace(" ", "_")
                     gif_url = f"https://raw.githubusercontent.com/{config.GITHUB_REPO}/{config.TRIVIA_BRANCH}/images/goodnight/{character_lower}.gif"
@@ -655,7 +636,6 @@ def _send_pending_broadcasts(bot):
 # ---------------------------------------------------------------------------
 
 def clean_bot_messages(chat_id, trigger_message):
-    """Delete all bot messages across entire chat history (paginated), keeping only important ones."""
     try:
         bot_member = bot.get_chat_member(chat_id, bot.get_me().id)
         can_delete = bot_member.can_delete_messages or bot_member.status == "creator"
@@ -689,7 +669,6 @@ def clean_bot_messages(chat_id, trigger_message):
                 total_processed += 1
                 text = msg.text or msg.caption or ""
 
-                # Check if message should be kept
                 should_keep = False
                 for pattern in keep_patterns:
                     if pattern in text or pattern.lower() in text.lower():
@@ -703,18 +682,17 @@ def clean_bot_messages(chat_id, trigger_message):
                 try:
                     bot.delete_message(chat_id, msg.message_id)
                     deleted_count += 1
-                    time.sleep(0.05)  # Rate limit
+                    time.sleep(0.05)
                 except Exception as e:
                     print(f"Failed to delete message {msg.message_id}: {e}")
 
             offset += limit
-            # Send progress update every 500 messages
             if total_processed % 500 == 0:
                 try:
                     bot.send_message(chat_id, f"🧹 Cleaned {total_processed} messages... Deleted: {deleted_count}, Kept: {kept_count}")
                 except:
                     pass
-            time.sleep(0.5)  # Pause between batches
+            time.sleep(0.5)
 
         except Exception as e:
             print(f"Error during cleanup: {e}")
@@ -954,7 +932,6 @@ def handle_all_messages(message):
             bot.reply_to(message, "📝 Usage: /feedback <your message>")
             return
         feedback_msg = " ".join(args)
-        # Get group name for admin notification
         group_name = None
         try:
             chat = bot.get_chat(chat_id)
@@ -1068,7 +1045,11 @@ def handle_all_messages(message):
             return
         clean_bot_messages(chat_id, message)
 
-    elif cmd == '/cabin':
+    elif cmd == '/cabin' or cmd == '/admin':
+        # Debug logging
+        print(f"🔍 Cabin command from user {user_id}")
+        print(f"🔍 ADMIN_ID = {config.ADMIN_ID}")
+        print(f"🔍 is_admin = {is_admin(user_id)}")
         if is_admin(user_id):
             show_admin_panel(message)
         else:
@@ -1271,7 +1252,7 @@ def handle_all_messages(message):
             themes_data = {
                 "weeks": [
                     {"week": 1, "monday": {"character": "Kratos", "category": "Gaming"}, "tuesday": {"character": "Luffy", "category": "Anime"}, "wednesday": {"character": "Terminator", "category": "Movies"}, "thursday": {"character": "Gojo", "category": "General"}, "friday": {"character": "Iron Man", "category": "Technology"}, "saturday": {"character": "Flash", "category": "Sports"}, "sunday": {"character": "David", "category": "Bible"}},
-                    {"week": 2, "monday": {"character": "Master Chief", "category": "Gaming"}, "tuesday": {"character": "Goku", "category": "Anime"}, "wednesday": {"character": "Thanos", "category": "Movies"}, "thursday": {"character": "Professor X", "category": "General"}, "friday": {"character": "Cyborg", "category": "Technology"}, "saturday": {"character": "Isagi", "category": "Sports"}, "sunday": {"character": "Samson", "category": "Bible"}},
+                    {"week": 2, "monday": {"character": "Master Chief", "category": "Gaming"}, "tuesday": {"character": "Goku", "category": "Anime"}, "wednesday": {"character": "Thanos", "category": "Movies"}, "thursday": {"character": "Beerus", "category": "General"}, "friday": {"character": "Genos", "category": "Technology"}, "saturday": {"character": "Isagi", "category": "Sports"}, "sunday": {"character": "Samson", "category": "Bible"}},
                     {"week": 3, "monday": {"character": "Mario", "category": "Gaming"}, "tuesday": {"character": "Naruto", "category": "Anime"}, "wednesday": {"character": "Gandalf", "category": "Movies"}, "thursday": {"character": "Kakashi", "category": "General"}, "friday": {"character": "Mr. Terrific", "category": "Technology"}, "saturday": {"character": "Hinata", "category": "Sports"}, "sunday": {"character": "Isaiah", "category": "Bible"}},
                     {"week": 4, "monday": {"character": "Dante", "category": "Gaming"}, "tuesday": {"character": "Ash Ketchum", "category": "Anime"}, "wednesday": {"character": "Timon & Pumbaa", "category": "Movies"}, "thursday": {"character": "Koro-sensei", "category": "General"}, "friday": {"character": "Optimus Prime", "category": "Technology"}, "saturday": {"character": "Tetsuya", "category": "Sports"}, "sunday": {"character": "Moses", "category": "Bible"}}
                 ],
@@ -1408,7 +1389,6 @@ def handle_all_messages(message):
     elif cmd == '/reloadstats' and is_admin(user_id):
         database.reload_trivia()
         bot.reply_to(message, "✅ Stats reloaded from GitHub.")
-
 # ---------------------------------------------------------------------------
 # STATUS COMMAND
 # ---------------------------------------------------------------------------
@@ -1702,7 +1682,6 @@ def handle_all_callbacks(call):
                     bot.send_message(chat_id, text, parse_mode="Markdown")
             elif action == "clean":
                 bot.answer_callback_query(call.id)
-                # Trigger /clean command
                 from types import SimpleNamespace
                 dummy_msg = SimpleNamespace(chat=SimpleNamespace(id=chat_id), from_user=SimpleNamespace(id=user_id))
                 clean_bot_messages(chat_id, dummy_msg)
@@ -1718,7 +1697,6 @@ def handle_all_callbacks(call):
                 threading.Thread(target=generate_in_background, daemon=True).start()
             elif action == "setupgenerated":
                 bot.answer_callback_query(call.id)
-                # Trigger /setupgenerated
                 from types import SimpleNamespace
                 dummy_msg = SimpleNamespace(text="/setupgenerated", chat=SimpleNamespace(id=chat_id), from_user=SimpleNamespace(id=user_id, username=username, first_name=username))
                 handle_all_messages(dummy_msg)
@@ -1898,7 +1876,7 @@ def handle_all_callbacks(call):
                 bot.answer_callback_query(call.id, "No fixtures available.", show_alert=True)
                 return
 
-            home_idx, away_idx, matchday_idx = graphics.detect_fixtures_columns(rows)
+            home_idx, away_idx, matchday_idx, status_idx = graphics.detect_fixtures_columns(rows)
             header_offset = 1 if ("home" in str(rows[0][home_idx]).lower() or rows[0][0].lower() in ["md", "matchday"]) else 0
 
             seen = set()
@@ -2026,9 +2004,8 @@ def handle_all_callbacks(call):
 
 def _serve_fixtures_page(chat_id, message_id, player, context, status, page):
     rows = database.fetch_csv_cached(bot, config.FIXTURES_CSV_URL)
-    
-    # Get total pages
-    home_idx, away_idx, matchday_idx = graphics.detect_fixtures_columns(rows)
+
+    home_idx, away_idx, matchday_idx, status_idx = graphics.detect_fixtures_columns(rows)
     header_offset = 1
     if rows and len(rows) > 0:
         first_row = rows[0]
@@ -2036,7 +2013,6 @@ def _serve_fixtures_page(chat_id, message_id, player, context, status, page):
             if first_row[0].lower() in ["md", "matchday", "round"]:
                 header_offset = 1
 
-    # Count total fixtures for this player/context/status
     total_fixtures = 0
     for row in rows[header_offset:]:
         if len(row) <= max(home_idx, away_idx):
@@ -2058,7 +2034,6 @@ def _serve_fixtures_page(chat_id, message_id, player, context, status, page):
     if total_pages == 0:
         total_pages = 1
 
-    # Generate the image for the current page
     img = graphics.generate_fixtures_image(bot, rows, status, player, context, page)
     if not img:
         bot.send_message(chat_id, f"❌ No {status} matches found for {player.upper()} ({context.upper()}).")
@@ -2647,7 +2622,7 @@ def show_league_table(message):
         database.log_error_to_admin(bot, "Table Command", e)
 
 def _build_fixtures_menu_markup(rows):
-    home_idx, away_idx, _ = graphics.detect_fixtures_columns(rows)
+    home_idx, away_idx, matchday_idx, status_idx = graphics.detect_fixtures_columns(rows)
     header_offset = 1 if ("home" in str(rows[0][home_idx]).lower() or rows[0][0].lower() in ["md", "matchday"]) else 0
     teams = set()
     for row in rows[header_offset:]:
