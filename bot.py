@@ -358,14 +358,16 @@ def show_admin_panel(message):
     )
     sched = load_scheduler()
     status_icon = "✅" if sched.get("enabled") else "❌"
-    # Use HTML instead of Markdown to avoid parsing errors
+    # Read window values from scheduler state
+    window_start = sched.get("window_start", config.SCHEDULER_WINDOW_START)
+    window_end = sched.get("window_end", config.SCHEDULER_WINDOW_END)
     text = (
-        f"🏴‍☠️ <b>CAPTAIN'S CABIN</b>\n\n"
+        f"🏴‍☠️ *CAPTAIN'S CABIN*\n\n"
         f"Auto-scheduler: {status_icon} {'ON' if sched.get('enabled') else 'OFF'}\n"
         f"Interval: every {sched.get('interval', 60)} min\n"
         f"Game type: {sched.get('game_type', 'random').title()}\n"
-        f"Active window: {sched.get('window_start', 10)}:00 — {sched.get('window_end', 23)}:00\n\n"
-        f"📢 <b>Commands (type them in chat – require extra input):</b>\n"
+        f"Active window: {window_start}:00 — {window_end}:00\n\n"
+        f"📢 *Commands (type them in chat – require extra input):*\n"
         f"/tagall — Tag all members\n"
         f"/broadcast — Schedule a broadcast\n"
         f"/mute — Mute a user\n"
@@ -382,7 +384,7 @@ def show_admin_panel(message):
         f"/setschedule_group — Set per-group schedule\n"
         f"/remove_schedule_group — Remove per-group schedule"
     )
-    bot.send_message(message.chat.id, text, reply_markup=markup, parse_mode="HTML")
+    bot.send_message(message.chat.id, text, reply_markup=markup, parse_mode="Markdown")
 
 # ---------------------------------------------------------------------------
 # SCHEDULE PANEL
@@ -405,12 +407,15 @@ def _build_schedule_panel(chat_id):
     )
     markup.add(telebot.types.InlineKeyboardButton("🔙 Back", callback_data="admin_back"))
     status_icon = "✅" if sched.get("enabled") else "❌"
+    # Read window values from scheduler state (not hardcoded)
+    window_start = sched.get("window_start", config.SCHEDULER_WINDOW_START)
+    window_end = sched.get("window_end", config.SCHEDULER_WINDOW_END)
     text = (
         f"📅 *SCHEDULE SETTINGS*\n\n"
         f"Status: {status_icon} {'ON' if sched.get('enabled') else 'OFF'}\n"
         f"Interval: every *{sched.get('interval', 60)} min*\n"
         f"Type: *{sched.get('game_type', 'random').title()}*\n"
-        f"Window: *{sched.get('window_start',10)}:00 – {sched.get('window_end',23)}:00* (use /setwindow to change)\n"
+        f"Window: *{window_start}:00 – {window_end}:00* (use /setwindow to change)\n"
         f"⏰ Answer time limit: *{sched.get('answer_time_limit', 60)}s*"
     )
     return text, markup
@@ -419,13 +424,19 @@ def show_schedule_panel(chat_id, edit_message_id=None):
     sched = load_scheduler()
     text, markup = _build_schedule_panel(chat_id)
 
+    # If we have an edit_message_id, try to edit it
     if edit_message_id:
         try:
             bot.edit_message_text(text, chat_id, edit_message_id, reply_markup=markup, parse_mode="Markdown")
+            # Store the message ID in scheduler state for this chat
+            sched["schedule_message_id"] = edit_message_id
+            save_scheduler(sched)
             return
         except Exception as e:
             print(f"Failed to edit schedule panel: {e}")
+            # If edit fails, fall through to send new message
 
+    # Send new message and store its ID
     msg = bot.send_message(chat_id, text, reply_markup=markup, parse_mode="Markdown")
     sched["schedule_message_id"] = msg.message_id
     save_scheduler(sched)
