@@ -386,7 +386,6 @@ def reward_user(bot, chat_id, user_id, username, amount=50):
     u["yearly_points"][year_key] = u["yearly_points"].get(year_key, 0) + final
     u["games_played"] += 1
 
-    # Save the data with debug logging
     print(f"💰 [POINTS] Reward: {username} gained {final} pts (base {amount}, multiplier {multiplier})")
     save_remote_json(config.GROUP_DATA_FILE, data)
     check_achievements(bot, chat_id, user_id, username)
@@ -751,7 +750,6 @@ def add_feedback(user_id, username, message, chat_id=None, group_name=None, time
 def get_feedback_for_admin():
     """Get all feedback entries, with group names resolved if available."""
     feedback = load_feedback()
-    # The group_name is already stored, so just return the list
     return feedback
 
 # ---------------------------------------------------------------------------
@@ -867,12 +865,11 @@ def get_todays_character():
     return get_character_for_day(week, day)
 
 # ---------------------------------------------------------------------------
-# CHARACTER GREETINGS AND GOODNIGHT MESSAGES (UPDATED)
+# CHARACTER GREETINGS AND GOODNIGHT MESSAGES (UPDATED WITH BEERUS & GENOS)
 # ---------------------------------------------------------------------------
 
 def get_character_greeting(character, message_type="morning"):
     """Get the greeting or goodnight message for a character."""
-    # Full database of character greetings and goodnight messages
     greetings = {
         # WEEK 1
         "kratos": {
@@ -891,7 +888,7 @@ def get_character_greeting(character, message_type="morning"):
             "morning": "🔥 Rise and shine! The world needs the honored one today, and that includes you! Don't keep reality waiting.\n\n*I don't care about the rules. I care about protecting my students. So go out there and be great!*",
             "goodnight": "The sun's down, and even the honored one needs to rest! Don't think you have to carry the world all day. Tomorrow, we'll continue protecting what matters. But tonight, protect yourself.\n\nSleep well. Being the strongest means knowing when to recharge. Goodnight!"
         },
-        "iron man": {
+        "iron_man": {
             "morning": "💎 Good morning, genius! The world doesn't save itself – that's our job! Put on your armor and get ready!\n\n*The suit makes me a hero, but the man inside is what matters. Now get out there and be brilliant!*",
             "goodnight": "Alright, crew – the arc reactor is powering down for the night. Even geniuses need sleep. Tomorrow, we'll save the world again. But tonight? We rest.\n\nThe suit doesn't make the hero – the heart does. And yours needs rest to keep beating strong. I am Iron Man... and I am going to sleep. Goodnight!"
         },
@@ -917,7 +914,7 @@ def get_character_greeting(character, message_type="morning"):
             "goodnight": "The Lord who spoke to Moses from the burning bush is with you tonight. He has not forgotten His promises. Rest in the assurance that He who calls you is faithful.\n\nSleep well, family. Tomorrow, you will walk in purpose."
         },
         # WEEK 2
-        "master chief": {
+        "master_chief": {
             "morning": "💪 Wake up, soldier! The mission is already on the clock, and I need you at your best. No excuses – just victory.\n\n*Finish the fight. That's what heroes do. Now get out there and make it happen.*",
             "goodnight": "The mission is complete for today, soldier. Rest now. You've earned it. The battle doesn't end, but tonight, you are safe.\n\nI'll keep watch. Sleep well. Goodnight, soldier."
         },
@@ -929,13 +926,13 @@ def get_character_greeting(character, message_type="morning"):
             "morning": "💜 Awaken. The day has come to prove your worth. I have watched civilizations rise and fall – let us see if you can rise.\n\n*Perfectly balanced, as all things should be. Go forth and find your balance today... or be erased.*",
             "goodnight": "The day has found its balance. You have done what you could, and that is enough. Rest now. The night brings peace, and tomorrow brings new challenges.\n\nIn the stillness, find your center. In the silence, find your strength. Goodnight."
         },
-        "professor x": {
-            "morning": "🧠 Good morning, my X-Men! The mind is the most powerful weapon we possess, so sharpen yours today.\n\n*Mutants and humans must learn to coexist. Just as you must learn to balance your day with purpose.*",
-            "goodnight": "The day's lessons are over, my X-Men. Rest your minds and bodies. Tomorrow, new questions will arise, new challenges will present themselves.\n\nSleep well, my students. I'll be here in the morning. Goodnight."
+        "beerus": {
+            "morning": "🐱 Wake up, mortal! The God of Destruction is not known for his patience! The universe doesn't wait for you to finish dreaming.\n\n*Destruction comes to those who waste time. Now get moving!*",
+            "goodnight": "Finally, some peace and quiet. I've been destroying planets all day – I need my rest. You should sleep too, while I'm in a good mood.\n\n*Perfectly balanced, as all things should be.*"
         },
-        "cyborg": {
-            "morning": "🤖 Good morning, heroes! The systems are online and I'm ready to go. Victor Stone here – let's make today count!\n\n*Being half-machine doesn't make me less human – it just gives me more tools to protect the people I care about. Go out there and be a hero!*",
-            "goodnight": "Shutting down for the night, heroes. System diagnostics show you gave it your all today. The future needs you ready, and that means you need to reboot.\n\nBeing half-machine doesn't make me less human – it just means I understand the importance of a good restart. See you at sunrise. Goodnight!"
+        "genos": {
+            "morning": "🔥 Good morning. I've already completed my morning training regimen. You should start yours – every second counts.\n\n*Efficiency is the path to strength. Don't waste time.*",
+            "goodnight": "My systems are powering down for the night. Stay vigilant – the world doesn't sleep just because you do.\n\n*I will be stronger tomorrow. That is my promise.*"
         },
         "isagi": {
             "morning": "⚽ Rise and grind, team! The field is calling, and the goal is just ahead! Let's show them what we're made of!\n\n*The field is where I prove my worth. Today, you prove yours. Let's do this!*",
@@ -958,7 +955,7 @@ def get_character_greeting(character, message_type="morning"):
             "morning": "📖 Morning, everyone. The hidden leaf is awake, and the day is full of possibilities. Let's not waste a moment.\n\n*The most important thing is to protect those you care about. Let that guide you today.*",
             "goodnight": "The sun is gone, and the hidden leaf is silent. Tonight is for rest and reflection. Tomorrow brings new challenges, new missions.\n\nClose your eyes and let go of the day's weight. You've carried enough. Goodnight, everyone."
         },
-        "mr terrific": {
+        "mr_terrific": {
             "morning": "🧠 Wake up! It's time to use that brilliant brain of yours! Today's a puzzle, and you're the one who's going to solve it!\n\n*Intelligence is the greatest superpower. And you've got it – now go out there and prove it!*",
             "goodnight": "Alright, team! Brain power down! You used a lot of it today, and I'm impressed. Tomorrow, we'll solve more problems.\n\nBut tonight, let your mind wander. Let it rest. Let it dream. Goodnight, thinkers!"
         },
@@ -971,19 +968,19 @@ def get_character_greeting(character, message_type="morning"):
             "morning": "⚔️ WAKE UP! Let's rock this day like a Devil May Cry boss fight! No holding back – go full throttle!\n\n*I fight for the ones who can't fight for themselves. So go out there and be someone's hero today.*",
             "goodnight": "Alright, party's over for tonight! We had a good run, but even the devil needs sleep. Tomorrow, we'll fight again – harder, faster, better.\n\nPut down your weapons, close your eyes, and let the quiet heal. Sleep well, my fellow fighters. Goodnight!"
         },
-        "ash ketchum": {
+        "ash_ketchum": {
             "morning": "⚡ Pikachu! The sun is shining, and a new adventure is waiting! Let's get out there and explore the world!\n\n*Being a Pokémon Master isn't about winning – it's about friendship. So go out there and make some memories.*",
             "goodnight": "Pikachu's tired, I'm tired, and you should be too! Today was an amazing adventure! Tomorrow, there are more Pokémon to meet, more friends to make, and more battles to win.\n\nGotta rest 'em all! Goodnight!"
         },
-        "timon pumbaa": {
+        "timon_pumbaa": {
             "morning": "🦁🐗 Hakuna Matata! No worries, just wake up and enjoy the day! The sun is up, and so should you be!\n\n*When the world turns its back on you, you turn your back on the world. That's the spirit for today!*",
             "goodnight": "Hakuna Matata! No worries tonight, friends! The day was great, but now it's time to chill. Tomorrow, no worries – we'll face it together.\n\nJust peace. Sleep well! Hakuna Matata!"
         },
-        "koro sensei": {
+        "koro_sensei": {
             "morning": "🐙 TIME FOR CLASS! Wake up, students! A new day means new lessons to learn, and I'm not taking any excuses!\n\n*The greatest lesson is to find your own path. So go out there and forge your own destiny today.*",
             "goodnight": "CLASS DISMISSED, students! You did well today – I'm proud of you. Tomorrow, we'll learn more. We'll grow more.\n\nBut tonight, you are free. No homework. No lessons. Just rest. Goodnight, students! See you in class!"
         },
-        "optimus prime": {
+        "optimus_prime": {
             "morning": "🚛 Rise, Autobots! The day is upon us, and freedom is the right of all sentient beings! Let us protect it!\n\n*Freedom is the right of all sentient beings. Remember that as you go out and make a difference today.*",
             "goodnight": "The Autobots shall rest tonight, my friends. Today, we protected what mattered. Today, we were free. Tomorrow, the fight continues.\n\nBut tonight, let your spark dim and your mind find peace. Until we meet again, Autobots. Goodnight."
         },
@@ -997,20 +994,16 @@ def get_character_greeting(character, message_type="morning"):
     char_key = character.lower().strip()
     
     # Handle special cases
-    if char_key == "timon & pumbaa":
-        char_key = "timon pumbaa"
-    elif char_key == "koro-sensei":
-        char_key = "koro sensei"
-    elif char_key == "mr. terrific":
-        char_key = "mr terrific"
-    elif char_key == "master chief":
-        char_key = "master chief"
-    elif char_key == "professor x":
-        char_key = "professor x"
-    elif char_key == "bible verse":
-        # If Bible Verse is used, we need to map it to the correct week
-        # We'll handle this in the morning message function itself
-        pass
+    special_cases = {
+        "timon & pumbaa": "timon_pumbaa",
+        "koro-sensei": "koro_sensei",
+        "mr. terrific": "mr_terrific",
+        "master chief": "master_chief",
+        "professor x": "beerus",  # Redirect to Beerus
+        "cyborg": "genos",        # Redirect to Genos
+        "bible verse": "bible_verse"
+    }
+    char_key = special_cases.get(char_key, char_key)
     
     char_data = greetings.get(char_key, {})
     
