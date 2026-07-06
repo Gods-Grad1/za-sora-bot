@@ -358,8 +358,31 @@ def show_admin_panel(message):
     )
     sched = load_scheduler()
     status_icon = "✅" if sched.get("enabled") else "❌"
-    text = f"🏴‍☠️ *CAPTAIN'S CABIN*\n\nAuto-scheduler: {status_icon} {'ON' if sched.get('enabled') else 'OFF'}\nInterval: every {sched.get('interval', 60)} min\nGame type: {sched.get('game_type', 'random').title()}\nActive window: {sched.get('window_start', 10)}:00 — {sched.get('window_end', 23)}:00\n\n📢 *Commands (type them in chat – require extra input):*\n/tagall — Tag all members\n/broadcast — Schedule a broadcast\n/mute — Mute a user\n/unmute — Unmute a user\n/block — Block a user\n/unblock — Unblock a user\n/setwindow — Set game window\n/addquote — Add a quote (DM)\n/editquote — Edit a quote (DM)\n/deletequote — Delete a quote (DM)\n/previewquote — Preview a quote (DM)\n/uploadtrivia — Upload trivia questions\n/saveimage — Save image to GitHub\n/setschedule_group — Set per-group schedule\n/remove_schedule_group — Remove per-group schedule"
-    bot.send_message(message.chat.id, text, reply_markup=markup, parse_mode="Markdown")
+    # Use HTML instead of Markdown to avoid parsing errors
+    text = (
+        f"🏴‍☠️ <b>CAPTAIN'S CABIN</b>\n\n"
+        f"Auto-scheduler: {status_icon} {'ON' if sched.get('enabled') else 'OFF'}\n"
+        f"Interval: every {sched.get('interval', 60)} min\n"
+        f"Game type: {sched.get('game_type', 'random').title()}\n"
+        f"Active window: {sched.get('window_start', 10)}:00 — {sched.get('window_end', 23)}:00\n\n"
+        f"📢 <b>Commands (type them in chat – require extra input):</b>\n"
+        f"/tagall — Tag all members\n"
+        f"/broadcast — Schedule a broadcast\n"
+        f"/mute — Mute a user\n"
+        f"/unmute — Unmute a user\n"
+        f"/block — Block a user\n"
+        f"/unblock — Unblock a user\n"
+        f"/setwindow — Set game window\n"
+        f"/addquote — Add a quote (DM)\n"
+        f"/editquote — Edit a quote (DM)\n"
+        f"/deletequote — Delete a quote (DM)\n"
+        f"/previewquote — Preview a quote (DM)\n"
+        f"/uploadtrivia — Upload trivia questions\n"
+        f"/saveimage — Save image to GitHub\n"
+        f"/setschedule_group — Set per-group schedule\n"
+        f"/remove_schedule_group — Remove per-group schedule"
+    )
+    bot.send_message(message.chat.id, text, reply_markup=markup, parse_mode="HTML")
 
 # ---------------------------------------------------------------------------
 # SCHEDULE PANEL
