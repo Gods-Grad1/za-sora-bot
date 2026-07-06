@@ -21,7 +21,7 @@ os.environ['HTTP_PROXY'] = ''
 os.environ['HTTPS_PROXY'] = ''
 os.environ['http_proxy'] = ''
 os.environ['https_proxy'] = ''
-os.environ['NO_PROXY'] = '*'
+os.environ['no_proxy'] = '*'
 apihelper.proxy = None
 
 bot = telebot.TeleBot(config.API_TOKEN)
@@ -1247,7 +1247,8 @@ def handle_all_messages(message):
         if msg_id:
             try:
                 show_schedule_panel(chat_id, edit_message_id=msg_id)
-            except:
+            except Exception:
+                # If editing fails, send a new panel and update the stored ID
                 show_schedule_panel(chat_id)
         else:
             show_schedule_panel(chat_id)
@@ -2438,6 +2439,8 @@ def background_scheduler():
 
                             if started:
                                 print(f"✅ Started {game_type} game in group {g_id}")
+                                # Update local last_game to prevent duplicate triggers in this iteration
+                                last_game = now_ts
                             else:
                                 print(f"ℹ️ No game started in group {g_id} (active game present)")
 
