@@ -1,16 +1,14 @@
 {
-    "date": "2026-07-05",
-    "question": "How many letters (epistles) did Paul write in the New Testament?",
+    "date": "2026-07-06",
+    "question": "Which country is sushi originally from?",
     "options": [
-        "11",
-        "13",
-        "15",
-        "9"
+        "China",
+        "Korea",
+        "Thailand",
+        "Japan"
     ],
-    "answer": "B",
-    "display": "13",
-    "category": "Bible",
-    "answered": [
-        8234402535
-    ]
+    "answer": "D",
+    "display": "Japan",
+    "category": "Food",
+    "answered": []
 }
