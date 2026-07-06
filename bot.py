@@ -388,7 +388,7 @@ def show_admin_panel(message):
     bot.send_message(message.chat.id, text, reply_markup=markup, parse_mode="HTML")
 
 # ---------------------------------------------------------------------------
-# SCHEDULE PANEL
+# SCHEDULE PANEL (FIXED: no duplicates, proper editing)
 # ---------------------------------------------------------------------------
 
 def _build_schedule_panel(chat_id):
@@ -420,19 +420,37 @@ def _build_schedule_panel(chat_id):
         f"⏰ Answer time limit: *{sched.get('answer_time_limit', 60)}s*"
     )
     return text, markup
-    
+
 def show_schedule_panel(chat_id, edit_message_id=None):
     sched = load_scheduler()
     text, markup = _build_schedule_panel(chat_id)
 
     if edit_message_id:
         try:
+            # Try to edit the existing message
             bot.edit_message_text(text, chat_id, edit_message_id, reply_markup=markup, parse_mode="Markdown")
+            # If successful, keep the stored ID (it's already correct)
             return
+        except ApiTelegramException as e:
+            if "message is not modified" in str(e):
+                # No change – just keep the existing message
+                return
+            # Otherwise, fall through to send a new one
+            print(f"Failed to edit schedule panel (API error): {e}")
         except Exception as e:
-            print(f"Failed to edit schedule panel: {e}")
+            print(f"Failed to edit schedule panel (other error): {e}")
+            # fall through
 
-    # Send new message and store ID
+    # If we reach here, we need to send a new panel
+    # First, try to delete the old message if we have a stored ID
+    old_id = sched.get("schedule_message_id")
+    if old_id:
+        try:
+            bot.delete_message(chat_id, old_id)
+        except Exception:
+            pass
+
+    # Send new message and store its ID
     msg = bot.send_message(chat_id, text, reply_markup=markup, parse_mode="Markdown")
     sched["schedule_message_id"] = msg.message_id
     save_scheduler(sched)
@@ -1248,7 +1266,7 @@ def handle_all_messages(message):
             try:
                 show_schedule_panel(chat_id, edit_message_id=msg_id)
             except Exception:
-                # If editing fails, send a new panel and update the stored ID
+                # If editing fails, send a new panel (which will update the stored ID)
                 show_schedule_panel(chat_id)
         else:
             show_schedule_panel(chat_id)
@@ -2320,7 +2338,7 @@ def broadcast_checker():
         database.log_error_to_admin(bot, "Broadcast Checker FATAL", fatal)
 
 # ---------------------------------------------------------------------------
-# BACKGROUND SCHEDULER
+# BACKGROUND SCHEDULER (FIXED: local last_game update)
 # ---------------------------------------------------------------------------
 
 scheduler_thread = None
