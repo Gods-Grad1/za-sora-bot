@@ -1,5 +1,5 @@
 {
-    "enabled": false,
+    "enabled": true,
     "interval": 60,
     "game_type": "year",
     "window_start": 18,
