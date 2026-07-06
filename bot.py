@@ -361,13 +361,14 @@ def show_admin_panel(message):
     # Read window values from scheduler state
     window_start = sched.get("window_start", config.SCHEDULER_WINDOW_START)
     window_end = sched.get("window_end", config.SCHEDULER_WINDOW_END)
+    # ⚠️ Use HTML parsing – NO MARKDOWN
     text = (
-        f"🏴‍☠️ *CAPTAIN'S CABIN*\n\n"
+        f"🏴‍☠️ <b>CAPTAIN'S CABIN</b>\n\n"
         f"Auto-scheduler: {status_icon} {'ON' if sched.get('enabled') else 'OFF'}\n"
         f"Interval: every {sched.get('interval', 60)} min\n"
         f"Game type: {sched.get('game_type', 'random').title()}\n"
         f"Active window: {window_start}:00 — {window_end}:00\n\n"
-        f"📢 *Commands (type them in chat – require extra input):*\n"
+        f"📢 <b>Commands (type them in chat – require extra input):</b>\n"
         f"/tagall — Tag all members\n"
         f"/broadcast — Schedule a broadcast\n"
         f"/mute — Mute a user\n"
@@ -384,7 +385,7 @@ def show_admin_panel(message):
         f"/setschedule_group — Set per-group schedule\n"
         f"/remove_schedule_group — Remove per-group schedule"
     )
-    bot.send_message(message.chat.id, text, reply_markup=markup, parse_mode="Markdown")
+    bot.send_message(message.chat.id, text, reply_markup=markup, parse_mode="HTML")
 
 # ---------------------------------------------------------------------------
 # SCHEDULE PANEL
