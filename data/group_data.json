@@ -2,18 +2,19 @@
     "-1003926769016": {
         "8234402535": {
             "username": "Jishikateki",
-            "points": 5551,
+            "points": 6001,
             "monthly_points": {
-                "2026-06": 5966
+                "2026-06": 5966,
+                "2026-07": 450
             },
             "yearly_points": {
-                "2026": 5966
+                "2026": 6416
             },
-            "alltime_points": 5966,
-            "streak": 5,
+            "alltime_points": 6416,
+            "streak": 6,
             "best_streak": 17,
-            "games_played": 40,
-            "correct": 34,
+            "games_played": 41,
+            "correct": 35,
             "title": "✨ The Chosen One",
             "title_expires": 1784501512.7299716,
             "hint_tokens": 0,
