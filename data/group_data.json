@@ -84,14 +84,18 @@
         },
         "8161105657": {
             "username": "Kennedy",
-            "points": 0,
-            "monthly_points": {},
-            "yearly_points": {},
-            "alltime_points": 0,
-            "streak": 0,
-            "best_streak": 0,
-            "games_played": 0,
-            "correct": 0,
+            "points": 150,
+            "monthly_points": {
+                "2026-07": 150
+            },
+            "yearly_points": {
+                "2026": 150
+            },
+            "alltime_points": 150,
+            "streak": 1,
+            "best_streak": 1,
+            "games_played": 1,
+            "correct": 1,
             "title": null,
             "title_expires": null,
             "hint_tokens": 0,
