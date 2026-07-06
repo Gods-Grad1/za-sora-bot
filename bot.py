@@ -2647,7 +2647,7 @@ def show_league_table(message):
         database.log_error_to_admin(bot, "Table Command", e)
 
 def _build_fixtures_menu_markup(rows):
-    home_idx, away_idx, _, _, _ = graphics.detect_fixtures_columns(rows)
+    home_idx, away_idx, _ = graphics.detect_fixtures_columns(rows)
     header_offset = 1 if ("home" in str(rows[0][home_idx]).lower() or rows[0][0].lower() in ["md", "matchday"]) else 0
     teams = set()
     for row in rows[header_offset:]:
