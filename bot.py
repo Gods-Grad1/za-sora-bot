@@ -1810,7 +1810,7 @@ def handle_all_callbacks(call):
         # -------------------------------------------------------------------
         # SCHEDULER SETTINGS
         # -------------------------------------------------------------------
-        if data.startswith("sched_") and is_authorized(chat_id, user_id):
+if data.startswith("sched_") and is_authorized(chat_id, user_id):
     sched = load_scheduler()
     action = data.replace("sched_", "")
     if action == "toggle":
@@ -1831,7 +1831,6 @@ def handle_all_callbacks(call):
         save_scheduler(sched)
         bot.answer_callback_query(call.id, f"Time limit set to {sched['answer_time_limit']}s", show_alert=True)
 
-    # Update the panel using the current message ID
     show_schedule_panel(chat_id, edit_message_id=call.message.message_id)
     return
     
