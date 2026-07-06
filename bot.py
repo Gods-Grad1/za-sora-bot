@@ -410,45 +410,30 @@ def _build_schedule_panel(chat_id):
     status_icon = "✅" if sched.get("enabled") else "❌"
     window_start = sched.get("window_start", config.SCHEDULER_WINDOW_START)
     window_end = sched.get("window_end", config.SCHEDULER_WINDOW_END)
-    # Use HTML to avoid Markdown parsing issues
+    # Use Markdown – this works for the schedule panel
     text = (
-        f"📅 <b>SCHEDULE SETTINGS</b>\n\n"
+        f"📅 *SCHEDULE SETTINGS*\n\n"
         f"Status: {status_icon} {'ON' if sched.get('enabled') else 'OFF'}\n"
-        f"Interval: every <b>{sched.get('interval', 60)}</b> min\n"
-        f"Type: <b>{sched.get('game_type', 'random').title()}</b>\n"
-        f"Window: <b>{window_start}:00 – {window_end}:00</b> (use /setwindow to change)\n"
-        f"⏰ Answer time limit: <b>{sched.get('answer_time_limit', 60)}s</b>"
+        f"Interval: every *{sched.get('interval', 60)} min*\n"
+        f"Type: *{sched.get('game_type', 'random').title()}*\n"
+        f"Window: *{window_start}:00 – {window_end}:00* (use /setwindow to change)\n"
+        f"⏰ Answer time limit: *{sched.get('answer_time_limit', 60)}s*"
     )
     return text, markup
-
+    
 def show_schedule_panel(chat_id, edit_message_id=None):
     sched = load_scheduler()
     text, markup = _build_schedule_panel(chat_id)
 
-    # If we have an edit_message_id from the callback, try to edit it
     if edit_message_id:
         try:
-            bot.edit_message_text(text, chat_id, edit_message_id, reply_markup=markup, parse_mode="HTML")
-            # Store the message ID so we can edit it later
-            sched["schedule_message_id"] = edit_message_id
-            save_scheduler(sched)
+            bot.edit_message_text(text, chat_id, edit_message_id, reply_markup=markup, parse_mode="Markdown")
             return
         except Exception as e:
             print(f"Failed to edit schedule panel: {e}")
-            # If edit fails, fall through to send new message
 
-    # Try to use stored message ID
-    stored_msg_id = sched.get("schedule_message_id")
-    if stored_msg_id:
-        try:
-            bot.edit_message_text(text, chat_id, stored_msg_id, reply_markup=markup, parse_mode="HTML")
-            return
-        except Exception as e:
-            print(f"Failed to edit stored message {stored_msg_id}: {e}")
-            # If stored message doesn't exist, send a new one
-
-    # Send new message and store its ID
-    msg = bot.send_message(chat_id, text, reply_markup=markup, parse_mode="HTML")
+    # Send new message and store ID
+    msg = bot.send_message(chat_id, text, reply_markup=markup, parse_mode="Markdown")
     sched["schedule_message_id"] = msg.message_id
     save_scheduler(sched)
 # ---------------------------------------------------------------------------
