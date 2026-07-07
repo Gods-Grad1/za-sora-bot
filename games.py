@@ -15,12 +15,19 @@ import database
 # TRACKED MESSAGES – For /clean command
 # ---------------------------------------------------------------------------
 
-tracked_messages = {}  # chat_id -> list of {"id": msg_id, "text": text}
+tracked_messages = {}  # chat_id -> list of {"id": msg_id, "text": text, "timestamp": ts}
 
 def track_message(chat_id, message_id, text):
     if chat_id not in tracked_messages:
         tracked_messages[chat_id] = []
-    tracked_messages[chat_id].append({"id": message_id, "text": text})
+    tracked_messages[chat_id].append({
+        "id": message_id,
+        "text": text,
+        "timestamp": time.time()
+    })
+    # Limit to 500 messages per chat (FIFO)
+    if len(tracked_messages[chat_id]) > 500:
+        tracked_messages[chat_id] = tracked_messages[chat_id][-500:]
 
 def get_tracked_messages(chat_id):
     return tracked_messages.get(chat_id, [])
@@ -28,6 +35,29 @@ def get_tracked_messages(chat_id):
 def clear_tracked_messages(chat_id):
     if chat_id in tracked_messages:
         tracked_messages[chat_id] = []
+
+# ---------------------------------------------------------------------------
+# AUTO CLEANUP – removes messages older than 72 hours
+# ---------------------------------------------------------------------------
+
+def auto_clean_old_messages(bot, max_age_hours=72):
+    """Delete tracked messages older than max_age_hours from Telegram."""
+    now = time.time()
+    cutoff = now - (max_age_hours * 3600)
+    total_deleted = 0
+    for chat_id, msgs in list(tracked_messages.items()):
+        to_delete = [msg for msg in msgs if msg.get("timestamp", 0) < cutoff]
+        for msg in to_delete:
+            try:
+                bot.delete_message(chat_id, msg["id"])
+                total_deleted += 1
+            except Exception:
+                pass
+        # Remove deleted from list
+        tracked_messages[chat_id] = [msg for msg in msgs if msg not in to_delete]
+    if total_deleted:
+        print(f"🧹 Auto-cleanup deleted {total_deleted} old messages.")
+    return total_deleted
 
 # ---------------------------------------------------------------------------
 # AUTO-DELETE HELPERS
@@ -164,6 +194,33 @@ def _load_all(db_list):
         if data:
             result.extend(data)
     return result
+
+# ---------------------------------------------------------------------------
+# CHARACTER CACHE (load once)
+# ---------------------------------------------------------------------------
+
+_character_cache = None
+_character_cache_lock = threading.Lock()
+
+def get_all_characters():
+    """Get cached list of all characters, loading from disk once."""
+    global _character_cache
+    with _character_cache_lock:
+        if _character_cache is None:
+            print("🔄 Loading characters into cache...")
+            _character_cache = _load_all(config.CHAR_ALL_DBS)
+        return _character_cache
+
+def reload_characters():
+    """Force reload character cache (e.g., after data update)."""
+    global _character_cache
+    with _character_cache_lock:
+        _character_cache = None
+    return get_all_characters()
+
+# ---------------------------------------------------------------------------
+# PRECACHE IMAGES (background thread)
+# ---------------------------------------------------------------------------
 
 def _precache_all_images(bot):
     _ensure_dirs()
@@ -394,7 +451,7 @@ def process_hint(bot, message=None, call=None):
 
     has_token = database.use_hint_token(bot, chat_id, user_id, username)
     if not has_token:
-        data = database.load_remote_json(config.GROUP_DATA_FILE, {})
+        data = database.get_group_data()
         chat_str = str(chat_id)
         user_str = str(user_id)
         u = database.get_user(data, chat_str, user_str, username)
@@ -443,8 +500,12 @@ def start_character_game(bot, chat_id, category=None, user_id=None):
     if user_id and _check_one_game_lock(bot, chat_id, user_id, game_type="character", category=category):
         return None
 
+    # Use cached characters
     db_path    = config.CHAR_CATEGORIES.get((category or "random").lower())
-    characters = load_json_file(db_path) if db_path and category != "random" else _load_all(config.CHAR_ALL_DBS)
+    if db_path and category != "random":
+        characters = load_json_file(db_path)
+    else:
+        characters = get_all_characters()
 
     if not characters:
         send_and_delete(bot, chat_id, "⚠️ No characters found.")
@@ -613,7 +674,12 @@ def start_picture_game(bot, chat_id, category=None, user_id=None):
     db_path = config.CHAR_CATEGORIES.get((category or "random").lower())
     if not db_path:
         db_path = config.CHAR_ANIME_DB
-    items = load_json_file(db_path) if db_path and category != "random" else _load_all(config.CHAR_ALL_DBS)
+    # Use cached characters if category is random
+    if category == "random" or not db_path:
+        items = get_all_characters()
+    else:
+        items = load_json_file(db_path) or []
+
     if not items:
         send_and_delete(bot, chat_id, "⚠️ No items found.")
         return None
@@ -737,7 +803,7 @@ def start_trivia_game(bot, chat_id, category=None, user_id=None):
 
     fifty_fifty_used = False
     if user_id:
-        data = database.load_remote_json(config.GROUP_DATA_FILE, {})
+        data = database.get_group_data()
         chat_str = str(chat_id)
         user_str = str(user_id)
         u = database.get_user(data, chat_str, user_str, "User")
@@ -833,12 +899,12 @@ def handle_trivia_answer(bot, call):
             bot, chat_id, user_id, username, config.POINTS_TRIVIA)
         streak_txt = f" 🔥 Streak x{int(mult)}!" if streak > 1 else ""
 
-        data = database.load_remote_json(config.GROUP_DATA_FILE, {})
+        data = database.get_group_data()
         chat_str = str(chat_id)
         user_str = str(user_id)
         u = database.get_user(data, chat_str, user_str, username)
         u["trivia_correct"] = u.get("trivia_correct", 0) + 1
-        database.save_remote_json(config.GROUP_DATA_FILE, data)
+        database.mark_group_data_dirty()
         database.check_achievements(bot, chat_id, user_id, username)
 
         bot.answer_callback_query(call.id, f"✅ CORRECT! +{final} pts{streak_txt}", show_alert=True)
@@ -1025,7 +1091,7 @@ def handle_versus_bet(bot, call):
             f"⚠️ Already bet {existing['amount']} pts on {pname}!", show_alert=True)
         return
 
-    data = database.load_remote_json(config.GROUP_DATA_FILE, {})
+    data = database.get_group_data()
     chat_str = str(chat_id)
     user_str = str(user_id)
     u = database.get_user(data, chat_str, user_str, username)
@@ -1215,12 +1281,12 @@ def _evaluate_round(bot, chat_id):
                              amount=config.POINTS_VERSUS_WIN // 3)
 
         if winner_id:
-            data = database.load_remote_json(config.GROUP_DATA_FILE, {})
+            data = database.get_group_data()
             chat_str = str(chat_id)
             user_str = str(winner_id)
             u = database.get_user(data, chat_str, user_str, username)
             u["versus_wins"] = u.get("versus_wins", 0) + 1
-            database.save_remote_json(config.GROUP_DATA_FILE, data)
+            database.mark_group_data_dirty()
             database.check_achievements(bot, chat_id, winner_id, username)
 
     correct_reveal = ""
@@ -1345,12 +1411,12 @@ def _payout_bets(bot, chat_id, winner_pick):
     if winner_pick is None:
         total = 0
         for uid, bet in bets.items():
-            data = database.load_remote_json(config.GROUP_DATA_FILE, {})
+            data = database.get_group_data()
             chat_str = str(chat_id)
             user_str = str(uid)
             u = database.get_user(data, chat_str, user_str, bet["username"])
             u["points"] += bet["amount"]
-            database.save_remote_json(config.GROUP_DATA_FILE, data)
+            database.mark_group_data_dirty()
             total += bet["amount"]
         send_and_delete(bot, chat_id,
             f"🔁 *All bets refunded.* ({total} pts total)",
@@ -1368,15 +1434,21 @@ def _payout_bets(bot, chat_id, winner_pick):
         return
 
     total_stake = sum(b["amount"] for b in winners.values())
+    if total_stake == 0:
+        send_and_delete(bot, chat_id,
+            f"⚠️ No stake in winners – pot of *{pot} pts* is gone.",
+            parse_mode="Markdown")
+        return
+
     msg = "💰 *BET RESULTS*\n\n"
     for uid, bet in winners.items():
         winnings = bet["amount"] + int(pot * (bet["amount"] / total_stake))
-        data = database.load_remote_json(config.GROUP_DATA_FILE, {})
+        data = database.get_group_data()
         chat_str = str(chat_id)
         user_str = str(uid)
         u = database.get_user(data, chat_str, user_str, bet["username"])
         u["points"] += winnings
-        database.save_remote_json(config.GROUP_DATA_FILE, data)
+        database.mark_group_data_dirty()
         msg += f"✅ *{bet['username']}* — bet {bet['amount']} pts, won *{winnings} pts*!\n"
     for uid, bet in losers.items():
         msg += f"❌ *{bet['username']}* — lost {bet['amount']} pts\n"
@@ -1458,12 +1530,12 @@ def handle_daily_answer(bot, call):
         pts, streak, mult, final = database.reward_user(
             bot, chat_id, user_id, username, config.POINTS_DAILY_CHALLENGE)
 
-        data = database.load_remote_json(config.GROUP_DATA_FILE, {})
+        data = database.get_group_data()
         chat_str = str(chat_id)
         user_str = str(user_id)
         u = database.get_user(data, chat_str, user_str, username)
         u["daily_wins"] = u.get("daily_wins", 0) + 1
-        database.save_remote_json(config.GROUP_DATA_FILE, data)
+        database.mark_group_data_dirty()
         database.check_achievements(bot, chat_id, user_id, username)
 
         bot.answer_callback_query(call.id, f"✅ CORRECT! +{final} pts!", show_alert=True)
@@ -1541,7 +1613,7 @@ def check_user_answer(bot, message):
 
     double_down_active = False
     if session.get("type") in ("character", "picture"):
-        data = database.load_remote_json(config.GROUP_DATA_FILE, {})
+        data = database.get_group_data()
         chat_str = str(chat_id)
         user_str = str(user_id)
         u = database.get_user(data, chat_str, user_str, username)
@@ -1577,7 +1649,7 @@ def check_user_answer(bot, message):
         del active_games[chat_id]
         return True
 
-    data = database.load_remote_json(config.GROUP_DATA_FILE, {})
+    data = database.get_group_data()
     chat_str = str(chat_id)
     user_str = str(user_id)
     u = database.get_user(data, chat_str, user_str, username)
@@ -1639,7 +1711,7 @@ def start_guess_game(bot, chat_id, user_id):
     if _check_one_game_lock(bot, chat_id, user_id, game_type="guess"):
         return None
 
-    characters = _load_all(config.CHAR_ALL_DBS)
+    characters = get_all_characters()
     if not characters:
         send_and_delete(bot, chat_id, "⚠️ No character data found.")
         return None
@@ -1729,7 +1801,7 @@ def start_lightning_round(bot, chat_id, user_id):
         send_and_delete(bot, chat_id, "⚠️ You already have an active Lightning Round. Finish it first.")
         return
 
-    data = database.load_remote_json(config.GROUP_DATA_FILE, {})
+    data = database.get_group_data()
     chat_str = str(chat_id)
     user_str = str(user_id)
     u = database.get_user(data, chat_str, user_str, username)
@@ -1779,7 +1851,7 @@ def start_lightning_round(bot, chat_id, user_id):
     }
 
     u["last_lightning"] = time.time()
-    database.save_remote_json(config.GROUP_DATA_FILE, data)
+    database.mark_group_data_dirty()
 
     _send_lightning_question(bot, user_id)
 
