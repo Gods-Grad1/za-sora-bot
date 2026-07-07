@@ -1137,43 +1137,37 @@ def set_weekly_table_opt_in(group_id, opt_in):
 
 def get_keep_patterns():
     return [
+        # Morning & Goodnight
         "☀️ *Good Morning",
         "🌅 *Good Morning",
         "🌙 *Goodnight",
+        
+        # Announcements & Broadcasts
         "📢 *ANNOUNCEMENT",
         "📢 *Tagging everyone",
         "BROADCAST",
-        "🎉 *CORRECT!*",
-        "got it!",
-        "🏆 *MATCH OVER*",
-        "🤝 *MATCH DRAWN*",
-        "📊 *",
-        "/mystats",
-        "/viewstats",
-        "🏆 *ZA SORA ZENITH LEAGUE STANDINGS*",
-        "📋 *FIXTURES*",
-        "📅 *SUNDAY STANDINGS*",
-        "🛒 *POINT SHOP*",
-        "🏆 *Leaderboard",
-        "📖 *ZA SORA GAME CLUB — HELP*",
-        "🏴‍☠️ *CAPTAIN'S CABIN*",
-        "📅 *SCHEDULE SETTINGS*",
-        "📋 *GROUP SCHEDULES*",
-        "✅ Your feedback has been sent to the Captain",
-        "📝 *Quotes",
-        "📋 *Scheduled Broadcasts*",
-        "🤖 *Bot Status*",
-        "📊 *GROUP STATS*",
-        "📊 *WEEKLY RECAP*",
-        "🏆 *Monthly Results*",
-        "🎊 *Yearly Champion*",
-        "🎰 *WHEEL OF FORTUNE*",
-        "✅ Purchased",
-        "⚔️ *VERSUS CHALLENGE*",
-        "✅ *Challenge Accepted*",
-        "💰 *BET RESULTS*",
-        "📢 *Tag All Preview*",
-        "🏅 *ACHIEVEMENT UNLOCKED*",
-        "☠️ *KONO BOT WA!*",
+        
+        # Sunday Standings
+        "📅 *SUNDAY STANDINGS",
+        
+        # Monthly & Yearly Results
+        "🏆 *Monthly Results",
+        "🎊 *Yearly Champion",
+        
+        # Welcome Messages
         "👋 *Welcome",
+        "☠️ *KONO BOT WA!*",
+        
+        # Group Stats (admin)
+        "📊 *GROUP STATS*",
+        
+        # Weekly Recap
+        "📊 *WEEKLY RECAP*",
+        
+        # Feedback Confirmations
+        "✅ Your feedback has been sent to the Captain",
+        
+        # Versus – keep challenge announcements and match over
+        "⚔️ *VERSUS CHALLENGE*",
+        "⚔️ *MATCH OVER*",
     ]
