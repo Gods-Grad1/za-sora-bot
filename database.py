@@ -6,12 +6,113 @@ import datetime
 import threading
 import requests
 import base64
+import atexit
 import config
 
 CSV_DATA_CACHE = {}
 _file_locks = {}
 GLOBAL_CHAT_ID = None
 _trivia_cache = None
+
+# ---------------------------------------------------------------------------
+# MEMORY CACHE (to reduce GitHub I/O)
+# ---------------------------------------------------------------------------
+
+_group_data_cache = None
+_group_data_dirty = False
+_group_data_last_save = 0
+_group_data_lock = threading.Lock()
+
+_muted_cache = None
+_muted_dirty = False
+_muted_lock = threading.Lock()
+
+CACHE_SAVE_INTERVAL = 5  # seconds
+
+def _load_group_data():
+    """Load group data from GitHub or local fallback."""
+    return load_remote_json(config.GROUP_DATA_FILE, {})
+
+def _save_group_data():
+    """Save group data to GitHub (if dirty) or local fallback."""
+    global _group_data_cache, _group_data_dirty, _group_data_last_save
+    with _group_data_lock:
+        if not _group_data_dirty:
+            return
+        if _group_data_cache is None:
+            return
+        print("💾 Saving group_data to GitHub...")
+        save_remote_json(config.GROUP_DATA_FILE, _group_data_cache)
+        _group_data_dirty = False
+        _group_data_last_save = time.time()
+
+def get_group_data():
+    """Get the cached group data, loading from GitHub if needed."""
+    global _group_data_cache
+    with _group_data_lock:
+        if _group_data_cache is None:
+            _group_data_cache = _load_group_data()
+            # Ensure we have at least an empty dict
+            if not isinstance(_group_data_cache, dict):
+                _group_data_cache = {}
+        return _group_data_cache
+
+def mark_group_data_dirty():
+    """Mark the group data as dirty so it will be saved on the next interval."""
+    global _group_data_dirty
+    with _group_data_lock:
+        _group_data_dirty = True
+
+def force_save_group_data():
+    """Force an immediate save (e.g., before shutdown)."""
+    _save_group_data()
+
+def _load_muted_data():
+    return load_remote_json(config.MUTE_FILE, {})
+
+def _save_muted_data():
+    global _muted_cache, _muted_dirty
+    with _muted_lock:
+        if not _muted_dirty or _muted_cache is None:
+            return
+        print("💾 Saving muted users to GitHub...")
+        save_remote_json(config.MUTE_FILE, _muted_cache)
+        _muted_dirty = False
+
+def get_muted_data():
+    global _muted_cache
+    with _muted_lock:
+        if _muted_cache is None:
+            _muted_cache = _load_muted_data()
+        return _muted_cache
+
+def mark_muted_dirty():
+    global _muted_dirty
+    with _muted_lock:
+        _muted_dirty = True
+
+def force_save_muted_data():
+    _save_muted_data()
+
+def _cache_saver_loop():
+    while True:
+        time.sleep(CACHE_SAVE_INTERVAL)
+        _save_group_data()
+        _save_muted_data()
+
+def init_cache():
+    """Load cache and register shutdown handler."""
+    get_group_data()
+    get_muted_data()
+    atexit.register(shutdown_cache)
+    print("✅ Cache system initialized.")
+
+def shutdown_cache():
+    """Save all cached data before bot shuts down."""
+    print("🔄 Flushing cache to GitHub before shutdown...")
+    force_save_group_data()
+    force_save_muted_data()
+    print("✅ Cache flushed.")
 
 # ---------------------------------------------------------------------------
 # GLOBAL BOT INSTANCE
@@ -97,7 +198,15 @@ def save_remote_json(filename, data):
     
     if not config.GITHUB_TOKEN:
         print(f"⚠️ No GITHUB_TOKEN set, cannot save {filename}")
-        return False
+        # Fallback local save
+        try:
+            with open(filename, 'w') as f:
+                json.dump(data, f, indent=4)
+            print(f"✅ Saved {filename} locally as fallback")
+            return True
+        except Exception as e:
+            print(f"❌ Failed to save {filename} locally: {e}")
+            return False
     
     url = f"https://api.github.com/repos/{config.GITHUB_REPO}/contents/{config.GENERATED_DATA_PATH}/{filename}"
     headers = {
@@ -276,7 +385,7 @@ def fetch_csv_cached(bot, url, duration=300):
         return []
 
 # ---------------------------------------------------------------------------
-# USER DATA (Remote)
+# USER DATA (cached)
 # ---------------------------------------------------------------------------
 
 def _now_month_key():
@@ -327,21 +436,21 @@ def get_user(data, chat_str, user_str, username):
     return u
 
 def get_user_data_field(bot, chat_id, user_id, field, default=None):
-    data = load_remote_json(config.GROUP_DATA_FILE, {})
+    data = get_group_data()
     chat_str = str(chat_id)
     user_str = str(user_id)
     u = get_user(data, chat_str, user_str, "User")
     return u.get(field, default)
 
 def track_member(bot, chat_id, user_id, username):
-    data = load_remote_json(config.GROUP_DATA_FILE, {})
+    data = get_group_data()
     chat_str = str(chat_id)
     user_str = str(user_id)
     get_user(data, chat_str, user_str, username)
-    save_remote_json(config.GROUP_DATA_FILE, data)
+    mark_group_data_dirty()
 
 def get_all_members(chat_id):
-    data = load_remote_json(config.GROUP_DATA_FILE, {})
+    data = get_group_data()
     chat_str = str(chat_id)
     if chat_str not in data:
         return []
@@ -349,7 +458,7 @@ def get_all_members(chat_id):
 
 def get_all_groups():
     try:
-        data = load_remote_json(config.GROUP_DATA_FILE, {})
+        data = get_group_data()
         return [int(cid) for cid in data.keys()]
     except Exception:
         return []
@@ -363,7 +472,7 @@ def get_streak_multiplier(streak):
     return multiplier
 
 def reward_user(bot, chat_id, user_id, username, amount=50):
-    data = load_remote_json(config.GROUP_DATA_FILE, {})
+    data = get_group_data()
     chat_str = str(chat_id)
     user_str = str(user_id)
     u = get_user(data, chat_str, user_str, username)
@@ -387,62 +496,62 @@ def reward_user(bot, chat_id, user_id, username, amount=50):
     u["games_played"] += 1
 
     print(f"💰 [POINTS] Reward: {username} gained {final} pts (base {amount}, multiplier {multiplier})")
-    save_remote_json(config.GROUP_DATA_FILE, data)
+    mark_group_data_dirty()
     check_achievements(bot, chat_id, user_id, username)
     return u["points"], u["streak"], multiplier, final
 
 def penalise_wrong(bot, chat_id, user_id, username):
-    data = load_remote_json(config.GROUP_DATA_FILE, {})
+    data = get_group_data()
     chat_str = str(chat_id)
     user_str = str(user_id)
     u = get_user(data, chat_str, user_str, username)
     u["streak"] = 0
     u["games_played"] += 1
-    save_remote_json(config.GROUP_DATA_FILE, data)
+    mark_group_data_dirty()
 
 def deduct_points(bot, chat_id, user_id, username, amount):
-    data = load_remote_json(config.GROUP_DATA_FILE, {})
+    data = get_group_data()
     chat_str = str(chat_id)
     user_str = str(user_id)
     u = get_user(data, chat_str, user_str, username)
     u["points"] = max(0, u["points"] - amount)
-    save_remote_json(config.GROUP_DATA_FILE, data)
+    mark_group_data_dirty()
     return u["points"]
 
 def use_powerup(bot, chat_id, user_id, username, powerup_id):
-    data = load_remote_json(config.GROUP_DATA_FILE, {})
+    data = get_group_data()
     chat_str = str(chat_id)
     user_str = str(user_id)
     u = get_user(data, chat_str, user_str, username)
     if u.get("powerups", {}).get(powerup_id, 0) > 0:
         u["powerups"][powerup_id] -= 1
-        save_remote_json(config.GROUP_DATA_FILE, data)
+        mark_group_data_dirty()
         return True
     return False
 
 def add_powerup(bot, chat_id, user_id, username, powerup_id, count=1):
-    data = load_remote_json(config.GROUP_DATA_FILE, {})
+    data = get_group_data()
     chat_str = str(chat_id)
     user_str = str(user_id)
     u = get_user(data, chat_str, user_str, username)
     u.setdefault("powerups", {})
     u["powerups"][powerup_id] = u["powerups"].get(powerup_id, 0) + count
-    save_remote_json(config.GROUP_DATA_FILE, data)
+    mark_group_data_dirty()
 
 def unlock_badge(bot, chat_id, user_id, username, badge_id):
-    data = load_remote_json(config.GROUP_DATA_FILE, {})
+    data = get_group_data()
     chat_str = str(chat_id)
     user_str = str(user_id)
     u = get_user(data, chat_str, user_str, username)
     if badge_id not in u.get("badges", []):
         u.setdefault("badges", [])
         u["badges"].append(badge_id)
-        save_remote_json(config.GROUP_DATA_FILE, data)
+        mark_group_data_dirty()
         return True
     return False
 
 def check_achievements(bot, chat_id, user_id, username):
-    data = load_remote_json(config.GROUP_DATA_FILE, {})
+    data = get_group_data()
     chat_str = str(chat_id)
     user_str = str(user_id)
     u = get_user(data, chat_str, user_str, username)
@@ -461,45 +570,51 @@ def check_achievements(bot, chat_id, user_id, username):
             u["badges"].append(badge_id)
             unlocked.append(badge_id)
     if unlocked:
-        save_remote_json(config.GROUP_DATA_FILE, data)
+        mark_group_data_dirty()
         if bot:
             badge_names = [config.ACHIEVEMENTS[b]["icon"] + " " + config.ACHIEVEMENTS[b]["name"] for b in unlocked]
             bot.send_message(chat_id, f"🏅 *ACHIEVEMENT UNLOCKED!*\n\n{username} unlocked: {', '.join(badge_names)}!", parse_mode="Markdown")
     return unlocked
 
 def load_mutes(bot=None):
-    return load_remote_json(config.MUTE_FILE, {})
+    return get_muted_data()
 
 def save_mutes(bot, data):
-    save_remote_json(config.MUTE_FILE, data)
+    # This should not be used directly – we use caching.
+    # But keep for compatibility if needed.
+    global _muted_cache
+    with _muted_lock:
+        _muted_cache = data
+        mark_muted_dirty()
 
 def mute_user(bot, chat_id, user_id, username, duration_seconds):
-    data = load_mutes()
+    data = get_muted_data()
     key = f"{chat_id}_{user_id}"
     data[key] = {"username": username, "expires": time.time() + duration_seconds, "chat_id": chat_id, "user_id": user_id}
-    save_mutes(bot, data)
+    mark_muted_dirty()
 
 def unmute_user(bot, chat_id, user_id):
-    data = load_mutes()
+    data = get_muted_data()
     key = f"{chat_id}_{user_id}"
     if key in data:
         del data[key]
-        save_mutes(bot, data)
+        mark_muted_dirty()
         return True
     return False
 
 def is_muted(bot, chat_id, user_id):
-    data = load_mutes()
+    data = get_muted_data()
     key = f"{chat_id}_{user_id}"
     if key not in data:
         return False
     if time.time() > data[key]["expires"]:
         del data[key]
+        mark_muted_dirty()
         return False
     return True
 
 def cleanup_expired_mutes(bot):
-    data = load_mutes()
+    data = get_muted_data()
     changed = False
     now = time.time()
     for key, value in list(data.items()):
@@ -507,10 +622,10 @@ def cleanup_expired_mutes(bot):
             del data[key]
             changed = True
     if changed:
-        save_mutes(bot, data)
+        mark_muted_dirty()
 
 def get_leaderboard(chat_id, mode="monthly", top_n=10):
-    data = load_remote_json(config.GROUP_DATA_FILE, {})
+    data = get_group_data()
     chat_str = str(chat_id)
     if chat_str not in data:
         return []
@@ -536,7 +651,7 @@ def _get_active_title(u):
     return None
 
 def purchase_item(bot, chat_id, user_id, username, item_id):
-    data = load_remote_json(config.GROUP_DATA_FILE, {})
+    data = get_group_data()
     chat_str = str(chat_id)
     user_str = str(user_id)
     u = get_user(data, chat_str, user_str, username)
@@ -548,7 +663,7 @@ def purchase_item(bot, chat_id, user_id, username, item_id):
         u["points"] -= powerup["cost"]
         u.setdefault("powerups", {})
         u["powerups"][item_id] = u["powerups"].get(item_id, 0) + 1
-        save_remote_json(config.GROUP_DATA_FILE, data)
+        mark_group_data_dirty()
         return True, f"✅ Purchased *{powerup['emoji']} {powerup['name']}*!"
 
     item = next((i for i in config.SHOP_TITLES if i["id"] == item_id), None)
@@ -566,23 +681,23 @@ def purchase_item(bot, chat_id, user_id, username, item_id):
         import random
         prize = random.randint(10, 200)
         u["points"] += prize
-        save_remote_json(config.GROUP_DATA_FILE, data)
+        mark_group_data_dirty()
         return True, f"🎁 Mystery Box opened! You won *{prize} points*!"
     else:
         u["title"] = item["name"]
         u["title_expires"] = time.time() + (config.SHOP_TITLE_DURATION_DAYS * 86400)
 
-    save_remote_json(config.GROUP_DATA_FILE, data)
+    mark_group_data_dirty()
     return True, f"✅ Purchased *{item['name']}*!"
 
 def use_hint_token(bot, chat_id, user_id, username):
-    data = load_remote_json(config.GROUP_DATA_FILE, {})
+    data = get_group_data()
     chat_str = str(chat_id)
     user_str = str(user_id)
     u = get_user(data, chat_str, user_str, username)
     if u.get("hint_tokens", 0) > 0:
         u["hint_tokens"] -= 1
-        save_remote_json(config.GROUP_DATA_FILE, data)
+        mark_group_data_dirty()
         return True
     return False
 
@@ -593,7 +708,7 @@ def check_and_run_monthly_reset(bot):
     curr = now.strftime("%Y-%m")
     if last == curr:
         return
-    data = load_remote_json(config.GROUP_DATA_FILE, {})
+    data = get_group_data()
     prev_month = (now.replace(day=1) - datetime.timedelta(days=1)).strftime("%Y-%m")
     for chat_str, users in data.items():
         scores = []
@@ -624,7 +739,7 @@ def check_and_run_yearly_reset(bot):
     last = state.get("last_yearly_reset", "")
     if last == curr or now.month != 1 or now.day != 1:
         return
-    data = load_remote_json(config.GROUP_DATA_FILE, {})
+    data = get_group_data()
     prev_year = str(now.year - 1)
     for chat_str, users in data.items():
         scores = []
@@ -748,7 +863,6 @@ def add_feedback(user_id, username, message, chat_id=None, group_name=None, time
     save_feedback(feedback)
 
 def get_feedback_for_admin():
-    """Get all feedback entries, with group names resolved if available."""
     feedback = load_feedback()
     return feedback
 
@@ -770,18 +884,15 @@ def get_group_schedule(group_id):
     return schedules.get(str(group_id))
 
 def set_group_schedule(group_id, settings):
-    """Set schedule settings for a specific group, storing the group name."""
     schedules = load_group_schedules()
     group_id_str = str(group_id)
     
-    # Try to get group name
-    group_name = f"Group {group_id}"
     try:
         if _bot:
             chat = _bot.get_chat(group_id)
-            group_name = chat.title or group_name
+            group_name = chat.title or f"Group {group_id}"
     except Exception:
-        pass
+        group_name = f"Group {group_id}"
     
     if group_id_str not in schedules:
         schedules[group_id_str] = {}
@@ -807,15 +918,12 @@ def remove_group_schedule(group_id):
 # ---------------------------------------------------------------------------
 
 def load_daily_themes():
-    """Load the daily themes from daily_themes.json."""
     return load_remote_json(config.DAILY_THEMES_FILE, {})
 
 def save_daily_themes(themes):
-    """Save the daily themes to daily_themes.json."""
     save_remote_json(config.DAILY_THEMES_FILE, themes)
 
 def get_current_week():
-    """Calculate the current week (1-4) based on theme start date."""
     themes = load_daily_themes()
     current_week = themes.get("current_week", 1)
     last_updated = themes.get("last_updated")
@@ -832,7 +940,6 @@ def get_current_week():
     return current_week
 
 def get_character_for_day(week, day):
-    """Get character and category for a specific week and day."""
     themes = load_daily_themes()
     weeks = themes.get("weeks", [])
     
@@ -858,18 +965,16 @@ def get_character_for_day(week, day):
     return None, None
 
 def get_todays_character():
-    """Get today's character and category based on current date."""
     now = datetime.datetime.now()
     day = now.strftime("%A").lower()
     week = get_current_week()
     return get_character_for_day(week, day)
 
 # ---------------------------------------------------------------------------
-# CHARACTER GREETINGS AND GOODNIGHT MESSAGES (UPDATED WITH BEERUS & GENOS)
+# CHARACTER GREETINGS AND GOODNIGHT MESSAGES
 # ---------------------------------------------------------------------------
 
 def get_character_greeting(character, message_type="morning"):
-    """Get the greeting or goodnight message for a character."""
     greetings = {
         # WEEK 1
         "kratos": {
@@ -896,7 +1001,6 @@ def get_character_greeting(character, message_type="morning"):
             "morning": "⚡ Rise and shine! The speed force is buzzing, and so should you! Every second is a gift – let's make today legendary!\n\n*The world needs hope. That's what I give them. Now go out there and be faster than yesterday!*",
             "goodnight": "The speed force never takes a break, but you should! It's time to slow down and recharge. You were fast today – faster than yesterday. But even the fastest need to rest.\n\nThe world will be here tomorrow. And it'll need you at your fastest. So rest up, and dream of the finish line. Goodnight!"
         },
-        # BIBLE CHARACTERS
         "david": {
             "morning": "🙏 Good morning, family! \"The Lord is my shepherd; I shall not want.\" – Psalm 23:1\n\nDavid, the shepherd king, reminds us today: even in the valley of shadow, we are not alone. Walk with courage, for the Lord is with you.\n\n*I will fear no evil, for you are with me.*",
             "goodnight": "The Lord is my shepherd – He has led you through this day. Rest in His peace tonight. \"In peace I will lie down and sleep, for you alone, Lord, make me dwell in safety.\" – Psalm 4:8\n\nMay His angels watch over you. Sleep well, family."
@@ -990,28 +1094,23 @@ def get_character_greeting(character, message_type="morning"):
         }
     }
     
-    # Normalize character name for lookup
     char_key = character.lower().strip()
-    
-    # Handle special cases
     special_cases = {
         "timon & pumbaa": "timon_pumbaa",
         "koro-sensei": "koro_sensei",
         "mr. terrific": "mr_terrific",
         "master chief": "master_chief",
-        "professor x": "beerus",  # Redirect to Beerus
-        "cyborg": "genos",        # Redirect to Genos
+        "professor x": "beerus",
+        "cyborg": "genos",
         "bible verse": "bible_verse"
     }
     char_key = special_cases.get(char_key, char_key)
-    
     char_data = greetings.get(char_key, {})
     
     if message_type == "morning":
         return char_data.get("morning", "Good morning, family! Rise and shine! 🌅")
     elif message_type == "goodnight":
         return char_data.get("goodnight", "The day is done, family. Rest well. 🌙")
-    
     return "Good morning, family! Rise and shine! 🌅"
 
 # ---------------------------------------------------------------------------
@@ -1019,14 +1118,12 @@ def get_character_greeting(character, message_type="morning"):
 # ---------------------------------------------------------------------------
 
 def get_weekly_table_opt_in(group_id):
-    """Check if a group has opted in for weekly table updates."""
     group_sched = get_group_schedule(group_id)
     if group_sched:
         return group_sched.get("weekly_table_opt_in", config.WEEKLY_TABLE_DEFAULT_OPT_IN)
     return config.WEEKLY_TABLE_DEFAULT_OPT_IN
 
 def set_weekly_table_opt_in(group_id, opt_in):
-    """Set a group's opt-in status for weekly table updates."""
     group_sched = get_group_schedule(group_id)
     if group_sched is None:
         group_sched = {}
@@ -1039,71 +1136,44 @@ def set_weekly_table_opt_in(group_id, opt_in):
 # ---------------------------------------------------------------------------
 
 def get_keep_patterns():
-    """Return patterns that should be kept during cleanup."""
     return [
-        # Morning messages
         "☀️ *Good Morning",
         "🌅 *Good Morning",
-        # Goodnight messages
         "🌙 *Goodnight",
-        # Broadcasts
         "📢 *ANNOUNCEMENT",
         "📢 *Tagging everyone",
         "BROADCAST",
-        # Results
         "🎉 *CORRECT!*",
         "got it!",
         "🏆 *MATCH OVER*",
         "🤝 *MATCH DRAWN*",
-        # Stats
         "📊 *",
         "/mystats",
         "/viewstats",
-        # League
         "🏆 *ZA SORA ZENITH LEAGUE STANDINGS*",
         "📋 *FIXTURES*",
         "📅 *SUNDAY STANDINGS*",
-        # Shop
         "🛒 *POINT SHOP*",
-        # Leaderboard
         "🏆 *Leaderboard",
-        # Help
         "📖 *ZA SORA GAME CLUB — HELP*",
-        # Captain's Cabin
         "🏴‍☠️ *CAPTAIN'S CABIN*",
-        # Schedule
         "📅 *SCHEDULE SETTINGS*",
-        # Group Schedules
         "📋 *GROUP SCHEDULES*",
-        # Feedback confirmation
         "✅ Your feedback has been sent to the Captain",
-        # Quote commands
         "📝 *Quotes",
-        # Broadcast list
         "📋 *Scheduled Broadcasts*",
-        # Status
         "🤖 *Bot Status*",
-        # Group stats
         "📊 *GROUP STATS*",
-        # Weekly recap
         "📊 *WEEKLY RECAP*",
-        # Monthly results
         "🏆 *Monthly Results*",
         "🎊 *Yearly Champion*",
-        # Wheel results
         "🎰 *WHEEL OF FORTUNE*",
-        # Shop purchase confirmations
         "✅ Purchased",
-        # Versus challenge
         "⚔️ *VERSUS CHALLENGE*",
         "✅ *Challenge Accepted*",
-        # Bet results
         "💰 *BET RESULTS*",
-        # Tagall confirmations
         "📢 *Tag All Preview*",
-        # Achievement unlocks
         "🏅 *ACHIEVEMENT UNLOCKED*",
-        # Welcome
         "☠️ *KONO BOT WA!*",
         "👋 *Welcome",
     ]
