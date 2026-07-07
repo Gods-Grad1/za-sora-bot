@@ -1,17 +1,14 @@
 {
-    "date": "2026-07-06",
-    "question": "Which country is sushi originally from?",
+    "date": "2026-07-07",
+    "question": "In boxing, how many rounds are in a standard world title fight?",
     "options": [
-        "China",
-        "Korea",
-        "Thailand",
-        "Japan"
+        "10",
+        "12",
+        "15",
+        "8"
     ],
-    "answer": "D",
-    "display": "Japan",
-    "category": "Food",
-    "answered": [
-        8161105657,
-        8234402535
-    ]
+    "answer": "B",
+    "display": "12",
+    "category": "Sports",
+    "answered": []
 }
