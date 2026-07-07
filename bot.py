@@ -45,6 +45,7 @@ def load_scheduler():
                 "window_start": config.SCHEDULER_WINDOW_START,
                 "window_end": config.SCHEDULER_WINDOW_END,
                 "last_game": 0,
+                "last_game_per_group": {},
                 "tagall_last": 0,
                 "last_morning_date": "",
                 "schedule_message_id": None,
@@ -59,6 +60,7 @@ def load_scheduler():
             "window_start": config.SCHEDULER_WINDOW_START,
             "window_end": config.SCHEDULER_WINDOW_END,
             "last_game": 0,
+            "last_game_per_group": {},
             "tagall_last": 0,
             "last_morning_date": "",
             "schedule_message_id": None,
@@ -78,6 +80,7 @@ def load_scheduler():
             "window_start": config.SCHEDULER_WINDOW_START,
             "window_end": config.SCHEDULER_WINDOW_END,
             "last_game": 0,
+            "last_game_per_group": {},
             "tagall_last": 0,
             "last_morning_date": "",
             "schedule_message_id": None,
@@ -358,10 +361,8 @@ def show_admin_panel(message):
     )
     sched = load_scheduler()
     status_icon = "✅" if sched.get("enabled") else "❌"
-    # Read window values from scheduler state
     window_start = sched.get("window_start", config.SCHEDULER_WINDOW_START)
     window_end = sched.get("window_end", config.SCHEDULER_WINDOW_END)
-    # ⚠️ Use HTML parsing – NO MARKDOWN
     text = (
         f"🏴‍☠️ <b>CAPTAIN'S CABIN</b>\n\n"
         f"Auto-scheduler: {status_icon} {'ON' if sched.get('enabled') else 'OFF'}\n"
@@ -388,7 +389,7 @@ def show_admin_panel(message):
     bot.send_message(message.chat.id, text, reply_markup=markup, parse_mode="HTML")
 
 # ---------------------------------------------------------------------------
-# SCHEDULE PANEL (FIXED: proper editing and no duplicates)
+# SCHEDULE PANEL (FIXED)
 # ---------------------------------------------------------------------------
 
 def _build_schedule_panel(chat_id):
@@ -435,7 +436,6 @@ def show_schedule_panel(chat_id, edit_message_id=None):
         except Exception as e:
             print(f"Failed to edit schedule panel: {e}")
 
-    # Delete old stored message if it exists
     old_id = sched.get("schedule_message_id")
     if old_id and old_id != edit_message_id:
         try:
@@ -672,11 +672,10 @@ def _send_pending_broadcasts(bot):
             print(f"   ⚠️ Broadcast ID {broadcast['id']} NOT marked – will retry later.")
 
 # ---------------------------------------------------------------------------
-# CLEAN BOT MESSAGES – using tracked messages (FIXED)
+# CLEAN BOT MESSAGES
 # ---------------------------------------------------------------------------
 
 def clean_bot_messages(chat_id, trigger_message):
-    # Check permissions
     try:
         bot_member = bot.get_chat_member(chat_id, bot.get_me().id)
         can_delete = bot_member.can_delete_messages or bot_member.status == "creator"
@@ -700,7 +699,6 @@ def clean_bot_messages(chat_id, trigger_message):
     keep_patterns = database.get_keep_patterns()
 
     for msg in tracked[:]:
-        # Validate entry
         if not isinstance(msg, dict) or "id" not in msg:
             print(f"⚠️ Skipping invalid tracked message: {msg}")
             error_count += 1
@@ -717,7 +715,6 @@ def clean_bot_messages(chat_id, trigger_message):
             bot.delete_message(chat_id, msg["id"])
             deleted_count += 1
         except ApiTelegramException as e:
-            # Catch "message can't be deleted" (too old, already deleted, etc.)
             if "message can't be deleted" in str(e).lower() or "message to delete not found" in str(e).lower():
                 print(f"⏳ Cannot delete message {msg['id']}: {e}")
                 error_count += 1
@@ -728,7 +725,6 @@ def clean_bot_messages(chat_id, trigger_message):
             print(f"Failed to delete message {msg['id']}: {e}")
             error_count += 1
 
-    # Clear the tracked list for this chat
     games.tracked_messages[chat_id] = []
 
     bot.reply_to(trigger_message,
@@ -738,6 +734,7 @@ def clean_bot_messages(chat_id, trigger_message):
                  f"⚠️ Errors/Skipped: {error_count}\n"
                  f"📊 Total tracked: {len(tracked)}",
                  parse_mode="Markdown")
+
 # ---------------------------------------------------------------------------
 # COMMAND ROUTER
 # ---------------------------------------------------------------------------
@@ -865,7 +862,7 @@ def handle_all_messages(message):
     cmd = message.text.split()[0].split('@')[0].lower()
     args = message.text.split()[1:] if len(message.text.split()) > 1 else []
 
-    # --- Admin state handling (DM only) ---
+    # Admin state handling (DM only)
     if chat_id == config.ADMIN_ID:
         admin_state = database.load_json("admin_state.json", {})
         if admin_state.get("user_id") == user_id:
@@ -1084,7 +1081,6 @@ def handle_all_messages(message):
         clean_bot_messages(chat_id, message)
 
     elif cmd == '/cabin' or cmd == '/admin':
-        # Debug logging
         print(f"🔍 Cabin command from user {user_id}")
         print(f"🔍 ADMIN_ID = {config.ADMIN_ID}")
         print(f"🔍 is_admin = {is_admin(user_id)}")
@@ -1257,7 +1253,6 @@ def handle_all_messages(message):
             try:
                 show_schedule_panel(chat_id, edit_message_id=msg_id)
             except Exception:
-                # If editing fails, send a new panel (which will update the stored ID)
                 show_schedule_panel(chat_id)
         else:
             show_schedule_panel(chat_id)
@@ -1428,6 +1423,7 @@ def handle_all_messages(message):
     elif cmd == '/reloadstats' and is_admin(user_id):
         database.reload_trivia()
         bot.reply_to(message, "✅ Stats reloaded from GitHub.")
+
 # ---------------------------------------------------------------------------
 # STATUS COMMAND
 # ---------------------------------------------------------------------------
@@ -1817,9 +1813,7 @@ def handle_all_callbacks(call):
                 show_admin_panel(dummy_msg)
             return
 
-        # -------------------------------------------------------------------
         # SCHEDULER SETTINGS
-        # -------------------------------------------------------------------
         if data.startswith("sched_") and is_authorized(chat_id, user_id):
             sched = load_scheduler()
             action = data.replace("sched_", "")
@@ -1871,7 +1865,7 @@ def handle_all_callbacks(call):
             bot.answer_callback_query(call.id)
             return
 
-        # ── Help menu ──────────────────────────────────────────────────────
+        # Help menu
         if data == "help_main":
             text = "📖 *ZA SORA GAME CLUB — HELP*\n\nChoose a category below:"
             markup = _build_help_menu()
@@ -1890,7 +1884,7 @@ def handle_all_callbacks(call):
             bot.answer_callback_query(call.id)
             return
 
-        # ── Fixtures ──────────────────────────────────────────────────────
+        # Fixtures
         if data == "fix_back":
             text = "📋 *FIXTURES*\n\nChoose how you want to browse:"
             markup, _ = _build_fixtures_menu_markup(
@@ -1907,7 +1901,7 @@ def handle_all_callbacks(call):
                 bot.answer_callback_query(call.id, "No fixtures available.", show_alert=True)
                 return
 
-            home_idx, away_idx, matchday_idx, status_idx = graphics.detect_fixtures_columns(rows)
+            home_idx, away_idx, matchday_idx, status_idx, home_score_idx, away_score_idx = graphics.detect_fixtures_columns(rows)
             header_offset = 1 if ("home" in str(rows[0][home_idx]).lower() or rows[0][0].lower() in ["md", "matchday"]) else 0
 
             seen = set()
@@ -2032,9 +2026,7 @@ def handle_all_callbacks(call):
     except Exception as e:
         print(f"Callback error: {e}")
         database.log_error_to_admin(bot, "Callback Handler", e)
-        # -------------------------------------------------------------------
-        # SCHEDULER SETTINGS
-        # -------------------------------------------------------------------
+        # Fallback scheduler settings in case of error
         if data.startswith("sched_") and is_authorized(chat_id, user_id):
             sched = load_scheduler()
             action = data.replace("sched_", "")
@@ -2086,7 +2078,7 @@ def handle_all_callbacks(call):
             bot.answer_callback_query(call.id)
             return
 
-        # ── Help menu ──────────────────────────────────────────────────────
+        # Help menu fallback
         if data == "help_main":
             text = "📖 *ZA SORA GAME CLUB — HELP*\n\nChoose a category below:"
             markup = _build_help_menu()
@@ -2105,7 +2097,7 @@ def handle_all_callbacks(call):
             bot.answer_callback_query(call.id)
             return
 
-        # ── Fixtures ──────────────────────────────────────────────────────
+        # Fixtures fallback
         if data == "fix_back":
             text = "📋 *FIXTURES*\n\nChoose how you want to browse:"
             markup, _ = _build_fixtures_menu_markup(
@@ -2122,7 +2114,7 @@ def handle_all_callbacks(call):
                 bot.answer_callback_query(call.id, "No fixtures available.", show_alert=True)
                 return
 
-            home_idx, away_idx, matchday_idx, status_idx = graphics.detect_fixtures_columns(rows)
+            home_idx, away_idx, matchday_idx, status_idx, home_score_idx, away_score_idx = graphics.detect_fixtures_columns(rows)
             header_offset = 1 if ("home" in str(rows[0][home_idx]).lower() or rows[0][0].lower() in ["md", "matchday"]) else 0
 
             seen = set()
@@ -2243,10 +2235,6 @@ def handle_all_callbacks(call):
             _serve_fixtures_page(chat_id, call.message.message_id, player, context, status, page)
             bot.answer_callback_query(call.id)
             return
-
-    except Exception as e:
-        print(f"Callback error: {e}")
-        database.log_error_to_admin(bot, "Callback Handler", e)
 
 def _serve_fixtures_page(chat_id, message_id, player, context, status, page):
     rows = database.fetch_csv_cached(bot, config.FIXTURES_CSV_URL)
@@ -2329,7 +2317,7 @@ def broadcast_checker():
         database.log_error_to_admin(bot, "Broadcast Checker FATAL", fatal)
 
 # ---------------------------------------------------------------------------
-# BACKGROUND SCHEDULER (FIXED: local last_game update)
+# BACKGROUND SCHEDULER (with per-group tracking)
 # ---------------------------------------------------------------------------
 
 scheduler_thread = None
@@ -2389,82 +2377,82 @@ def background_scheduler():
                     time.sleep(61)
 
                 if sched.get("enabled"):
-    groups = database.get_all_groups()
+                    groups = database.get_all_groups()
 
-    for g_id in groups:
-        group_sched = database.get_group_schedule(g_id)
+                    for g_id in groups:
+                        group_sched = database.get_group_schedule(g_id)
 
-        if group_sched:
-            window_start = group_sched.get("window_start", config.SCHEDULER_WINDOW_START)
-            window_end   = group_sched.get("window_end", config.SCHEDULER_WINDOW_END)
-            in_window    = window_start <= hour < window_end
-            interval_sec = group_sched.get("interval", 60) * 60
-            game_type    = group_sched.get("game_type", "random")
-            enabled      = group_sched.get("enabled", True)
-            if not enabled:
-                continue
-            # Use per-group last_game
-            per_group = sched.get("last_game_per_group", {})
-            group_last_game = per_group.get(str(g_id), 0)
-        else:
-            window_start = sched.get("window_start", config.SCHEDULER_WINDOW_START)
-            window_end   = sched.get("window_end", config.SCHEDULER_WINDOW_END)
-            in_window    = window_start <= hour < window_end
-            interval_sec = sched.get("interval", 60) * 60
-            game_type    = sched.get("game_type", "random")
-            group_last_game = sched.get("last_game", 0)   # global fallback
+                        if group_sched:
+                            window_start = group_sched.get("window_start", config.SCHEDULER_WINDOW_START)
+                            window_end   = group_sched.get("window_end", config.SCHEDULER_WINDOW_END)
+                            in_window    = window_start <= hour < window_end
+                            interval_sec = group_sched.get("interval", 60) * 60
+                            game_type    = group_sched.get("game_type", "random")
+                            enabled      = group_sched.get("enabled", True)
+                            if not enabled:
+                                continue
+                            # Use per-group last_game
+                            per_group = sched.get("last_game_per_group", {})
+                            group_last_game = per_group.get(str(g_id), 0)
+                        else:
+                            window_start = sched.get("window_start", config.SCHEDULER_WINDOW_START)
+                            window_end   = sched.get("window_end", config.SCHEDULER_WINDOW_END)
+                            in_window    = window_start <= hour < window_end
+                            interval_sec = sched.get("interval", 60) * 60
+                            game_type    = sched.get("game_type", "random")
+                            group_last_game = sched.get("last_game", 0)   # global fallback
 
-        now_ts = time.time()
+                        now_ts = time.time()
 
-        if group_last_game == 0:
-            # First time – set it now so we don't start immediately
-            if group_sched:
-                per_group = sched.get("last_game_per_group", {})
-                per_group[str(g_id)] = now_ts
-                sched["last_game_per_group"] = per_group
-                save_scheduler(sched)
-            else:
-                sched["last_game"] = now_ts
-                save_scheduler(sched)
-            continue
+                        if group_last_game == 0:
+                            # First time – set it now so we don't start immediately
+                            if group_sched:
+                                per_group = sched.get("last_game_per_group", {})
+                                per_group[str(g_id)] = now_ts
+                                sched["last_game_per_group"] = per_group
+                                save_scheduler(sched)
+                            else:
+                                sched["last_game"] = now_ts
+                                save_scheduler(sched)
+                            continue
 
-        if in_window and (now_ts - group_last_game) >= interval_sec:
-            print(f"⏳ Scheduler: group={g_id}, in_window={in_window}, diff={now_ts - group_last_game}, interval={interval_sec}")
+                        if in_window and (now_ts - group_last_game) >= interval_sec:
+                            print(f"⏳ Scheduler: group={g_id}, in_window={in_window}, diff={now_ts - group_last_game}, interval={interval_sec}")
 
-            if game_type == "random":
-                game_type = random.choice(["character", "year", "picture", "trivia"])
+                            if game_type == "random":
+                                game_type = random.choice(["character", "year", "picture", "trivia"])
 
-            if games._is_game_active(g_id) or g_id in games.versus_games:
-                continue
+                            if games._is_game_active(g_id) or g_id in games.versus_games:
+                                continue
 
-            started = False
-            if game_type == "character":
-                games.start_character_game(bot, g_id)
-                started = True
-            elif game_type == "year":
-                games.start_year_game(bot, g_id)
-                started = True
-            elif game_type == "picture":
-                games.start_picture_game(bot, g_id)
-                started = True
-            elif game_type == "trivia":
-                games.start_trivia_game(bot, g_id)
-                started = True
+                            started = False
+                            if game_type == "character":
+                                games.start_character_game(bot, g_id)
+                                started = True
+                            elif game_type == "year":
+                                games.start_year_game(bot, g_id)
+                                started = True
+                            elif game_type == "picture":
+                                games.start_picture_game(bot, g_id)
+                                started = True
+                            elif game_type == "trivia":
+                                games.start_trivia_game(bot, g_id)
+                                started = True
 
-            if started:
-                print(f"✅ Started {game_type} game in group {g_id}")
-                # Update the correct last_game
-                if group_sched:
-                    per_group = sched.get("last_game_per_group", {})
-                    per_group[str(g_id)] = now_ts
-                    sched["last_game_per_group"] = per_group
-                else:
-                    sched["last_game"] = now_ts
-                save_scheduler(sched)
-                # Update local variable for this loop to avoid duplicates within the same tick
-                group_last_game = now_ts
-            else:
-                print(f"ℹ️ No game started in group {g_id} (active game present)")
+                            if started:
+                                print(f"✅ Started {game_type} game in group {g_id}")
+                                # Update the correct last_game
+                                if group_sched:
+                                    per_group = sched.get("last_game_per_group", {})
+                                    per_group[str(g_id)] = now_ts
+                                    sched["last_game_per_group"] = per_group
+                                else:
+                                    sched["last_game"] = now_ts
+                                save_scheduler(sched)
+                                # Update local variable for this loop to avoid duplicates within the same tick
+                                group_last_game = now_ts
+                            else:
+                                print(f"ℹ️ No game started in group {g_id} (active game present)")
 
             except Exception as e:
                 print(f"Scheduler error: {e}")
@@ -2530,11 +2518,11 @@ def thread_supervisor():
 # ---------------------------------------------------------------------------
 
 def auto_cleanup_loop():
-    """Periodically delete tracked messages older than 47 hours (Telegram limit)."""
+    """Periodically delete tracked messages older than 47 hours."""
     while True:
         time.sleep(21600)  # 6 hours
         try:
-            deleted = games.auto_clean_old_messages(bot, max_age_hours=47)  # Changed
+            deleted = games.auto_clean_old_messages(bot, max_age_hours=47)
             if deleted:
                 print(f"🧹 Auto-cleanup deleted {deleted} old messages.")
         except Exception as e:
@@ -2702,15 +2690,15 @@ def handle_image_upload(message):
         image_data = response.content
 
         from github_uploader import upload_image_to_github
-        result = upload_image_to_github(bot, image_data, filename, folder)
-        if result:
+        success, result = upload_image_to_github(bot, image_data, filename, folder)
+        if success:
             bot.reply_to(message,
                 f"✅ *Saved to GitHub!*\n"
                 f"📁 `images/{folder}/{filename}`\n"
                 f"🔗 {result}",
                 parse_mode="Markdown")
         else:
-            bot.reply_to(message, "❌ Failed to upload to GitHub. Check logs.")
+            bot.reply_to(message, f"❌ {result}")
     except Exception as e:
         bot.reply_to(message, f"❌ Failed to save image: {e}")
         print(f"[IMG UPLOAD] Error: {e}")
@@ -2888,7 +2876,7 @@ def check_startup_fallbacks():
     _send_pending_broadcasts(bot)
 
 # ---------------------------------------------------------------------------
-# LEAGUE TABLE & FIXTURES (Forwarding to graphics)
+# LEAGUE TABLE & FIXTURES
 # ---------------------------------------------------------------------------
 
 def show_league_table(message):
