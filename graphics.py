@@ -28,7 +28,7 @@ def _cache_image(key, image):
     return cache_path
 
 # ---------------------------------------------------------------------------
-# FONTS – using larger sizes for better resolution
+# FONTS – Larger sizes for high resolution
 # ---------------------------------------------------------------------------
 
 def _get_font(size, bold=False):
@@ -45,7 +45,7 @@ def _get_font(size, bold=False):
     return ImageFont.load_default()
 
 # ---------------------------------------------------------------------------
-# LEAGUE TABLE IMAGE – improved readability
+# LEAGUE TABLE IMAGE – improved readability (FORM column kept but can be removed)
 # ---------------------------------------------------------------------------
 
 def generate_table_image(bot):
@@ -136,11 +136,11 @@ def _detect_table_columns(header):
     return pos_idx, team_idx, mp_idx, w_idx, d_idx, l_idx, gf_idx, ga_idx, gd_idx, pts_idx, form_idx
 
 def _render_table_image(table_data, is_complete):
-    # Increased font sizes and row heights for better readability
+    # Keep FORM column for now – but if you want to remove it, adjust cols/widths
     cols = ["POS", "TEAM", "MP", "W", "D", "L", "GF", "GA", "GD", "PTS", "FORM"]
     col_widths = [50, 220, 50, 50, 50, 50, 50, 50, 50, 60, 100]
-    row_height = 38
-    header_height = 45
+    row_height = 40
+    header_height = 48
     padding = 12
     total_width = sum(col_widths) + padding * 2
     total_rows = len(table_data)
@@ -149,10 +149,9 @@ def _render_table_image(table_data, is_complete):
     img = Image.new('RGB', (total_width, total_height), color=config.THEME_BG)
     draw = ImageDraw.Draw(img)
 
-    # Larger fonts
-    header_font = _get_font(16, bold=True)
-    row_font = _get_font(14)
-    small_font = _get_font(11)
+    header_font = _get_font(18, bold=True)
+    row_font = _get_font(15)
+    small_font = _get_font(12)
 
     x = padding
     y = padding
@@ -249,7 +248,7 @@ def _draw_form_indicators(draw, x, y, form, font):
         draw.text((bx + box_size // 2, by + 2), letter, fill="#FFFFFF", font=font, anchor="mt")
 
 # ---------------------------------------------------------------------------
-# FIXTURES IMAGE – with scores and improved readability
+# FIXTURES IMAGE – WITHOUT "VS" column, with winner highlighting, high-res
 # ---------------------------------------------------------------------------
 
 def generate_fixtures_image(bot, rows, status, player, context, page):
@@ -284,7 +283,6 @@ def generate_fixtures_image(bot, rows, status, player, context, page):
         matchday = row[matchday_idx].strip() if matchday_idx is not None and len(row) > matchday_idx else ""
         row_status = row[status_idx].strip().lower() if status_idx is not None and len(row) > status_idx else ""
 
-        # Get scores
         home_score = row[home_score_idx].strip() if home_score_idx is not None and len(row) > home_score_idx else ""
         away_score = row[away_score_idx].strip() if away_score_idx is not None and len(row) > away_score_idx else ""
 
@@ -338,11 +336,11 @@ def detect_fixtures_columns(rows):
     return home_idx, away_idx, matchday_idx, status_idx, home_score_idx, away_score_idx
 
 def _render_fixtures_image(fixtures, player, context, status, page, total_pages):
-    # Added SCORE column and increased sizes
-    cols = ["MATCHDAY", "HOME", "VS", "SCORE", "AWAY"]
-    col_widths = [90, 170, 35, 90, 170]
-    row_height = 36
-    header_height = 44
+    # Remove "VS" column – now columns: MATCHDAY, HOME, SCORE, AWAY
+    cols = ["MATCHDAY", "HOME", "SCORE", "AWAY"]
+    col_widths = [100, 200, 100, 200]
+    row_height = 40
+    header_height = 48
     padding = 12
     total_width = sum(col_widths) + padding * 2
     total_height = header_height + len(fixtures) * row_height + padding * 2 + 50
@@ -350,18 +348,16 @@ def _render_fixtures_image(fixtures, player, context, status, page, total_pages)
     img = Image.new('RGB', (total_width, total_height), color=config.THEME_BG)
     draw = ImageDraw.Draw(img)
 
-    # Larger fonts
-    header_font = _get_font(16, bold=True)
-    row_font = _get_font(14)
-    small_font = _get_font(11)
+    header_font = _get_font(18, bold=True)
+    row_font = _get_font(15)
 
     title = f"📋 {status.upper()} FIXTURES"
     draw.text((total_width // 2, 8), title, fill=config.THEME_ACCENT, font=header_font, anchor="mt")
 
     subtitle = f"👤 {player.upper()} | 🏟️ {context.upper()} | 📄 Page {page}/{total_pages}"
-    draw.text((total_width // 2, 32), subtitle, fill=config.THEME_TEXT_MUTED, font=row_font, anchor="mt")
+    draw.text((total_width // 2, 34), subtitle, fill=config.THEME_TEXT_MUTED, font=row_font, anchor="mt")
 
-    y = 50
+    y = 52
 
     x = padding
     draw.rectangle([x, y, x + total_width - padding * 2, y + header_height], fill=config.THEME_HEADER_BG)
@@ -382,10 +378,21 @@ def _render_fixtures_image(fixtures, player, context, status, page, total_pages)
         if away_score is None: away_score = ""
         score_text = f"{home_score} - {away_score}" if (home_score or away_score) else "–"
 
+        # Determine winner color
+        score_color = config.THEME_TEXT_MUTED  # default
+        if home_score and away_score and home_score.isdigit() and away_score.isdigit():
+            h = int(home_score)
+            a = int(away_score)
+            if h > a:
+                score_color = config.THEME_ACCENT_GOLD  # home wins – gold
+            elif a > h:
+                score_color = config.THEME_ACCENT_RED    # away wins – red
+            else:
+                score_color = config.THEME_ACCENT_AMBER   # draw – amber
+
         row_data = [
             fixture.get("matchday", ""),
             fixture["home"][:20],
-            "VS",
             score_text,
             fixture["away"][:20]
         ]
@@ -395,12 +402,10 @@ def _render_fixtures_image(fixtures, player, context, status, page, total_pages)
             color = config.THEME_TEXT_PRIMARY
             if i == 1 and player.lower() in value.lower():
                 color = config.THEME_ACCENT
-            elif i == 4 and player.lower() in value.lower():
+            elif i == 3 and player.lower() in value.lower():
                 color = config.THEME_ACCENT
-            elif i == 3:  # SCORE column
-                # Highlight if it's a completed match (scores exist)
-                if home_score and away_score and home_score.isdigit() and away_score.isdigit():
-                    color = config.THEME_ACCENT_GOLD if int(home_score) > int(away_score) else config.THEME_ACCENT_RED if int(home_score) < int(away_score) else config.THEME_ACCENT
+            elif i == 2:  # SCORE column
+                color = score_color
             draw.text((cx, row_y + row_height // 2 - 8), value, fill=color, font=row_font, anchor="mt")
 
     venue_text = "📍 Venue: Education Hall A"
@@ -412,7 +417,7 @@ def _render_fixtures_image(fixtures, player, context, status, page, total_pages)
     return img_bytes
 
 # ---------------------------------------------------------------------------
-# MATCHDAY IMAGE – also updated for consistency
+# MATCHDAY IMAGE – same improvements (no VS, winner highlight, high-res)
 # ---------------------------------------------------------------------------
 
 def generate_matchday_image(bot, rows, matchday):
@@ -449,10 +454,10 @@ def generate_matchday_image(bot, rows, matchday):
     return _render_matchday_image(fixtures, matchday)
 
 def _render_matchday_image(fixtures, matchday):
-    cols = ["MATCHDAY", "HOME", "VS", "SCORE", "AWAY"]
-    col_widths = [90, 170, 35, 90, 170]
-    row_height = 36
-    header_height = 44
+    cols = ["MATCHDAY", "HOME", "SCORE", "AWAY"]
+    col_widths = [100, 200, 100, 200]
+    row_height = 40
+    header_height = 48
     padding = 12
     total_width = sum(col_widths) + padding * 2
     total_height = header_height + len(fixtures) * row_height + padding * 2 + 50
@@ -460,8 +465,8 @@ def _render_matchday_image(fixtures, matchday):
     img = Image.new('RGB', (total_width, total_height), color=config.THEME_BG)
     draw = ImageDraw.Draw(img)
 
-    header_font = _get_font(16, bold=True)
-    row_font = _get_font(14)
+    header_font = _get_font(18, bold=True)
+    row_font = _get_font(15)
 
     title = f"📅 MATCHDAY {matchday} — ALL FIXTURES"
     draw.text((total_width // 2, 8), title, fill=config.THEME_ACCENT, font=header_font, anchor="mt")
@@ -487,10 +492,21 @@ def _render_matchday_image(fixtures, matchday):
         if away_score is None: away_score = ""
         score_text = f"{home_score} - {away_score}" if (home_score or away_score) else "–"
 
+        # Winner color
+        score_color = config.THEME_TEXT_MUTED
+        if home_score and away_score and home_score.isdigit() and away_score.isdigit():
+            h = int(home_score)
+            a = int(away_score)
+            if h > a:
+                score_color = config.THEME_ACCENT_GOLD
+            elif a > h:
+                score_color = config.THEME_ACCENT_RED
+            else:
+                score_color = config.THEME_ACCENT_AMBER
+
         row_data = [
             fixture.get("matchday", ""),
             fixture["home"][:20],
-            "VS",
             score_text,
             fixture["away"][:20]
         ]
@@ -498,9 +514,8 @@ def _render_matchday_image(fixtures, matchday):
         for i, value in enumerate(row_data):
             cx = padding + sum(col_widths[:i]) + col_widths[i] // 2
             color = config.THEME_TEXT_PRIMARY
-            if i == 3:
-                if home_score and away_score and home_score.isdigit() and away_score.isdigit():
-                    color = config.THEME_ACCENT_GOLD if int(home_score) > int(away_score) else config.THEME_ACCENT_RED if int(home_score) < int(away_score) else config.THEME_ACCENT
+            if i == 2:
+                color = score_color
             draw.text((cx, row_y + row_height // 2 - 8), value, fill=color, font=row_font, anchor="mt")
 
     venue_text = "📍 Venue: Education Hall A"
@@ -529,9 +544,9 @@ def build_leaderboard_image(chat_id, mode, page):
         return None
 
     cols = ["#", "PLAYER", "PTS", "STREAK"]
-    col_widths = [40, 220, 80, 80]
-    row_height = 34
-    header_height = 42
+    col_widths = [50, 240, 90, 90]
+    row_height = 38
+    header_height = 46
     padding = 12
     total_width = sum(col_widths) + padding * 2
     total_height = header_height + len(page_entries) * row_height + padding * 2 + 30
@@ -539,8 +554,8 @@ def build_leaderboard_image(chat_id, mode, page):
     img = Image.new('RGB', (total_width, total_height), color=config.THEME_BG)
     draw = ImageDraw.Draw(img)
 
-    header_font = _get_font(14, bold=True)
-    row_font = _get_font(13)
+    header_font = _get_font(16, bold=True)
+    row_font = _get_font(14)
 
     title = f"🏆 LEADERBOARD — {mode.upper()}"
     draw.text((total_width // 2, 6), title, fill=config.THEME_ACCENT, font=header_font, anchor="mt")
