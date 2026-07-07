@@ -388,7 +388,7 @@ def show_admin_panel(message):
     bot.send_message(message.chat.id, text, reply_markup=markup, parse_mode="HTML")
 
 # ---------------------------------------------------------------------------
-# SCHEDULE PANEL (FIXED: no duplicates, proper editing)
+# SCHEDULE PANEL (FIXED: proper editing and no duplicates)
 # ---------------------------------------------------------------------------
 
 def _build_schedule_panel(chat_id):
@@ -410,7 +410,6 @@ def _build_schedule_panel(chat_id):
     status_icon = "✅" if sched.get("enabled") else "❌"
     window_start = sched.get("window_start", config.SCHEDULER_WINDOW_START)
     window_end = sched.get("window_end", config.SCHEDULER_WINDOW_END)
-    # Use Markdown – this works for the schedule panel
     text = (
         f"📅 *SCHEDULE SETTINGS*\n\n"
         f"Status: {status_icon} {'ON' if sched.get('enabled') else 'OFF'}\n"
@@ -425,35 +424,32 @@ def show_schedule_panel(chat_id, edit_message_id=None):
     sched = load_scheduler()
     text, markup = _build_schedule_panel(chat_id)
 
+    # If we're trying to edit an existing message
     if edit_message_id:
         try:
-            # Try to edit the existing message
             bot.edit_message_text(text, chat_id, edit_message_id, reply_markup=markup, parse_mode="Markdown")
-            # If successful, keep the stored ID (it's already correct)
-            return
+            return  # Success – keep the same message ID
         except ApiTelegramException as e:
             if "message is not modified" in str(e):
-                # No change – just keep the existing message
-                return
-            # Otherwise, fall through to send a new one
+                return  # No change needed – do nothing
             print(f"Failed to edit schedule panel (API error): {e}")
         except Exception as e:
             print(f"Failed to edit schedule panel (other error): {e}")
-            # fall through
+        # If we reach here, the edit failed – fall through to send a new one
 
-    # If we reach here, we need to send a new panel
-    # First, try to delete the old message if we have a stored ID
+    # Delete the old stored message (if it exists and is not the one we tried to edit)
     old_id = sched.get("schedule_message_id")
-    if old_id:
+    if old_id and old_id != edit_message_id:
         try:
             bot.delete_message(chat_id, old_id)
         except Exception:
             pass
 
-    # Send new message and store its ID
+    # Send a fresh panel and store its ID
     msg = bot.send_message(chat_id, text, reply_markup=markup, parse_mode="Markdown")
     sched["schedule_message_id"] = msg.message_id
     save_scheduler(sched)
+
 # ---------------------------------------------------------------------------
 # STATS
 # ---------------------------------------------------------------------------
@@ -679,10 +675,11 @@ def _send_pending_broadcasts(bot):
             print(f"   ⚠️ Broadcast ID {broadcast['id']} NOT marked – will retry later.")
 
 # ---------------------------------------------------------------------------
-# CLEAN BOT MESSAGES (PAGINATED, ENTIRE HISTORY)
+# CLEAN BOT MESSAGES – using tracked messages (FIXED)
 # ---------------------------------------------------------------------------
 
 def clean_bot_messages(chat_id, trigger_message):
+    # Check permissions
     try:
         bot_member = bot.get_chat_member(chat_id, bot.get_me().id)
         can_delete = bot_member.can_delete_messages or bot_member.status == "creator"
@@ -693,59 +690,41 @@ def clean_bot_messages(chat_id, trigger_message):
         bot.reply_to(trigger_message, "❌ I don't have permission to delete messages!\n\nPlease promote me to Admin with 'Delete Messages' permission.")
         return
 
-    bot.reply_to(trigger_message, "🧹 Cleaning up my messages across the entire chat history... This may take a while.")
+    bot.reply_to(trigger_message, "🧹 Cleaning up my tracked messages in this chat...")
 
-    bot_id = bot.get_me().id
+    tracked = games.tracked_messages.get(chat_id, [])
+    if not tracked:
+        bot.reply_to(trigger_message, "📭 No tracked messages to delete.")
+        return
+
     deleted_count = 0
     kept_count = 0
-    offset = 0
-    limit = 100
-    total_processed = 0
     keep_patterns = database.get_keep_patterns()
 
-    while True:
+    # Iterate over a copy, as we'll modify the original list later
+    for msg in tracked[:]:
+        text = msg.get("text", "")
+        should_keep = any(pattern in text or pattern.lower() in text.lower() for pattern in keep_patterns)
+
+        if should_keep:
+            kept_count += 1
+            continue
+
         try:
-            messages = bot.get_chat_history(chat_id, limit=limit, offset=offset)
-            if not messages:
-                break
-
-            for msg in messages:
-                if not msg.from_user or msg.from_user.id != bot_id:
-                    continue
-
-                total_processed += 1
-                text = msg.text or msg.caption or ""
-
-                should_keep = False
-                for pattern in keep_patterns:
-                    if pattern in text or pattern.lower() in text.lower():
-                        should_keep = True
-                        break
-
-                if should_keep:
-                    kept_count += 1
-                    continue
-
-                try:
-                    bot.delete_message(chat_id, msg.message_id)
-                    deleted_count += 1
-                    time.sleep(0.05)
-                except Exception as e:
-                    print(f"Failed to delete message {msg.message_id}: {e}")
-
-            offset += limit
-            if total_processed % 500 == 0:
-                try:
-                    bot.send_message(chat_id, f"🧹 Cleaned {total_processed} messages... Deleted: {deleted_count}, Kept: {kept_count}")
-                except:
-                    pass
-            time.sleep(0.5)
-
+            bot.delete_message(chat_id, msg["id"])
+            deleted_count += 1
         except Exception as e:
-            print(f"Error during cleanup: {e}")
-            break
+            print(f"Failed to delete message {msg['id']}: {e}")
 
-    bot.reply_to(trigger_message, f"🧹 *Cleanup Complete*\n\n🗑️ Deleted: {deleted_count} of my messages\n📌 Kept: {kept_count} important messages\n📊 Processed: {total_processed} total messages", parse_mode="Markdown")
+    # Clear the tracked list for this chat
+    games.tracked_messages[chat_id] = []
+
+    bot.reply_to(trigger_message,
+                 f"🧹 *Cleanup Complete*\n\n"
+                 f"🗑️ Deleted: {deleted_count} of my messages\n"
+                 f"📌 Kept: {kept_count} important messages\n"
+                 f"📊 Total tracked: {len(tracked)}",
+                 parse_mode="Markdown")
 
 # ---------------------------------------------------------------------------
 # COMMAND ROUTER
