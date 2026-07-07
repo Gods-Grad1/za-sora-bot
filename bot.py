@@ -2389,69 +2389,82 @@ def background_scheduler():
                     time.sleep(61)
 
                 if sched.get("enabled"):
-                    groups = database.get_all_groups()
+    groups = database.get_all_groups()
 
-                    for g_id in groups:
-                        group_sched = database.get_group_schedule(g_id)
+    for g_id in groups:
+        group_sched = database.get_group_schedule(g_id)
 
-                        if group_sched:
-                            window_start = group_sched.get("window_start", config.SCHEDULER_WINDOW_START)
-                            window_end   = group_sched.get("window_end", config.SCHEDULER_WINDOW_END)
-                            in_window    = window_start <= hour < window_end
-                            interval_sec = group_sched.get("interval", 60) * 60
-                            game_type    = group_sched.get("game_type", "random")
-                            enabled      = group_sched.get("enabled", True)
+        if group_sched:
+            window_start = group_sched.get("window_start", config.SCHEDULER_WINDOW_START)
+            window_end   = group_sched.get("window_end", config.SCHEDULER_WINDOW_END)
+            in_window    = window_start <= hour < window_end
+            interval_sec = group_sched.get("interval", 60) * 60
+            game_type    = group_sched.get("game_type", "random")
+            enabled      = group_sched.get("enabled", True)
+            if not enabled:
+                continue
+            # Use per-group last_game
+            per_group = sched.get("last_game_per_group", {})
+            group_last_game = per_group.get(str(g_id), 0)
+        else:
+            window_start = sched.get("window_start", config.SCHEDULER_WINDOW_START)
+            window_end   = sched.get("window_end", config.SCHEDULER_WINDOW_END)
+            in_window    = window_start <= hour < window_end
+            interval_sec = sched.get("interval", 60) * 60
+            game_type    = sched.get("game_type", "random")
+            group_last_game = sched.get("last_game", 0)   # global fallback
 
-                            if not enabled:
-                                continue
-                        else:
-                            window_start = sched.get("window_start", config.SCHEDULER_WINDOW_START)
-                            window_end   = sched.get("window_end", config.SCHEDULER_WINDOW_END)
-                            in_window    = window_start <= hour < window_end
-                            interval_sec = sched.get("interval", 60) * 60
-                            game_type    = sched.get("game_type", "random")
+        now_ts = time.time()
 
-                        last_game    = sched.get("last_game", 0)
-                        now_ts       = time.time()
+        if group_last_game == 0:
+            # First time – set it now so we don't start immediately
+            if group_sched:
+                per_group = sched.get("last_game_per_group", {})
+                per_group[str(g_id)] = now_ts
+                sched["last_game_per_group"] = per_group
+                save_scheduler(sched)
+            else:
+                sched["last_game"] = now_ts
+                save_scheduler(sched)
+            continue
 
-                        if last_game == 0:
-                            if now_ts < BOT_START_TIME + 60:
-                                continue
-                            else:
-                                print(f"⏰ Bot started, setting initial last_game to {now_ts}")
-                                sched["last_game"] = now_ts
-                                save_scheduler(sched)
-                                continue
+        if in_window and (now_ts - group_last_game) >= interval_sec:
+            print(f"⏳ Scheduler: group={g_id}, in_window={in_window}, diff={now_ts - group_last_game}, interval={interval_sec}")
 
-                        if in_window and (now_ts - last_game) >= interval_sec:
-                            print(f"⏳ Scheduler: group={g_id}, in_window={in_window}, diff={now_ts - last_game}, interval={interval_sec}")
+            if game_type == "random":
+                game_type = random.choice(["character", "year", "picture", "trivia"])
 
-                            if game_type == "random":
-                                game_type = random.choice(["character", "year", "picture", "trivia"])
+            if games._is_game_active(g_id) or g_id in games.versus_games:
+                continue
 
-                            if games._is_game_active(g_id) or g_id in games.versus_games:
-                                continue
+            started = False
+            if game_type == "character":
+                games.start_character_game(bot, g_id)
+                started = True
+            elif game_type == "year":
+                games.start_year_game(bot, g_id)
+                started = True
+            elif game_type == "picture":
+                games.start_picture_game(bot, g_id)
+                started = True
+            elif game_type == "trivia":
+                games.start_trivia_game(bot, g_id)
+                started = True
 
-                            started = False
-                            if game_type == "character":
-                                games.start_character_game(bot, g_id)
-                                started = True
-                            elif game_type == "year":
-                                games.start_year_game(bot, g_id)
-                                started = True
-                            elif game_type == "picture":
-                                games.start_picture_game(bot, g_id)
-                                started = True
-                            elif game_type == "trivia":
-                                games.start_trivia_game(bot, g_id)
-                                started = True
-
-                            if started:
-                                print(f"✅ Started {game_type} game in group {g_id}")
-                                # Update local last_game to prevent duplicate triggers in this iteration
-                                last_game = now_ts
-                            else:
-                                print(f"ℹ️ No game started in group {g_id} (active game present)")
+            if started:
+                print(f"✅ Started {game_type} game in group {g_id}")
+                # Update the correct last_game
+                if group_sched:
+                    per_group = sched.get("last_game_per_group", {})
+                    per_group[str(g_id)] = now_ts
+                    sched["last_game_per_group"] = per_group
+                else:
+                    sched["last_game"] = now_ts
+                save_scheduler(sched)
+                # Update local variable for this loop to avoid duplicates within the same tick
+                group_last_game = now_ts
+            else:
+                print(f"ℹ️ No game started in group {g_id} (active game present)")
 
             except Exception as e:
                 print(f"Scheduler error: {e}")
