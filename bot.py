@@ -2520,11 +2520,11 @@ def thread_supervisor():
 # ---------------------------------------------------------------------------
 
 def auto_cleanup_loop():
-    """Periodically delete tracked messages older than 72 hours."""
+    """Periodically delete tracked messages older than 47 hours (Telegram limit)."""
     while True:
         time.sleep(21600)  # 6 hours
         try:
-            deleted = games.auto_clean_old_messages(bot, max_age_hours=72)
+            deleted = games.auto_clean_old_messages(bot, max_age_hours=47)  # Changed
             if deleted:
                 print(f"🧹 Auto-cleanup deleted {deleted} old messages.")
         except Exception as e:
