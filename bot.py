@@ -325,7 +325,7 @@ def show_quotes_page(chat_id, page=1):
     return text, markup
 
 # ---------------------------------------------------------------------------
-# CAPTAIN'S CABIN (UPDATED – /cabin)
+# CAPTAIN'S CABIN
 # ---------------------------------------------------------------------------
 
 def show_admin_panel(message):
@@ -345,6 +345,7 @@ def show_admin_panel(message):
         telebot.types.InlineKeyboardButton("🔍 Check Images",          callback_data="admin_checkimages"),
         telebot.types.InlineKeyboardButton("📌 Track Group",           callback_data="admin_trackgroup"),
         telebot.types.InlineKeyboardButton("📋 Group Schedules",       callback_data="admin_groupschedules"),
+        telebot.types.InlineKeyboardButton("📋 List Chats",            callback_data="admin_listchats"),
         telebot.types.InlineKeyboardButton("🧹 Clean Messages",        callback_data="admin_clean"),
         telebot.types.InlineKeyboardButton("🖼️ Generate All Banners",  callback_data="admin_generateall"),
         telebot.types.InlineKeyboardButton("🔧 Setup Generated",       callback_data="admin_setupgenerated"),
@@ -384,7 +385,8 @@ def show_admin_panel(message):
         f"/uploadtrivia — Upload trivia questions\n"
         f"/saveimage — Save image to GitHub\n"
         f"/setschedule_group — Set per-group schedule\n"
-        f"/remove_schedule_group — Remove per-group schedule"
+        f"/remove_schedule_group — Remove per-group schedule\n"
+        f"/listchats — List all tracked groups"
     )
     bot.send_message(message.chat.id, text, reply_markup=markup, parse_mode="HTML")
 
@@ -1053,16 +1055,44 @@ def handle_all_messages(message):
         handle_spin(message)
 
     elif cmd == '/versus':
-        if not args:
-            bot.reply_to(message, "Usage: /versus @username")
-            return
-        target_mention = args[0].lstrip('@')
-        members = database.get_all_members(chat_id)
-        target  = next((m for m in members if m[1].lower() == target_mention.lower()), None)
-        if not target:
-            bot.reply_to(message, "❌ User not found in tracked members.")
-            return
-        games.start_versus(bot, chat_id, user_id, username, target[0], target[1])
+        # Check if it's a reply
+        if message.reply_to_message:
+            target_user = message.reply_to_message.from_user
+            target_id = target_user.id
+            target_name = target_user.username or target_user.first_name or "Player"
+            # Verify they are tracked
+            members = database.get_all_members(chat_id)
+            target = next((m for m in members if m[0] == target_id), None)
+            if not target:
+                bot.reply_to(message, "❌ That user hasn't interacted with me yet. They need to play a game or send a message first.")
+                return
+            target_id, target_name = target
+            games.start_versus(bot, chat_id, user_id, username, target_id, target_name)
+        else:
+            if not args:
+                bot.reply_to(message, "Usage: /versus @username\nOr reply to a user's message with /versus")
+                return
+            target_mention = args[0].lstrip('@')
+            members = database.get_all_members(chat_id)
+            if not members:
+                bot.reply_to(message, "❌ No members tracked yet.")
+                return
+            
+            # 1. Exact match on stored name (case-insensitive)
+            target = next((m for m in members if m[1].lower() == target_mention.lower()), None)
+            if not target:
+                # 2. Partial match (contains)
+                target = next((m for m in members if target_mention.lower() in m[1].lower()), None)
+            if not target:
+                bot.reply_to(message, f"❌ User '{target_mention}' not found. They must have played a game or sent a message first.")
+                return
+            
+            target_id, target_name = target
+            # Prevent challenging yourself
+            if target_id == user_id:
+                bot.reply_to(message, "❌ You can't challenge yourself!")
+                return
+            games.start_versus(bot, chat_id, user_id, username, target_id, target_name)
 
     elif cmd == '/forfeit':
         games.handle_versus_forfeit(bot, message)
@@ -1088,6 +1118,61 @@ def handle_all_messages(message):
             show_admin_panel(message)
         else:
             bot.reply_to(message, "❌ This is the Captain's private cabin. Only the Captain can enter. 🏴‍☠️")
+
+    elif cmd == '/listchats' and is_admin(user_id):
+        groups = database.get_all_groups()
+        if not groups:
+            bot.reply_to(message, "📭 No groups tracked yet.")
+            return
+
+        group_schedules = database.load_group_schedules()
+        lines = []
+
+        for gid in groups:
+            try:
+                chat = bot.get_chat(gid)
+                name = chat.title or f"Group {gid}"
+            except Exception:
+                name = f"Group {gid}"
+
+            # Get member count
+            members = database.get_all_members(gid)
+            member_count = len(members)
+
+            # Get schedule info
+            sched = group_schedules.get(str(gid))
+            if sched:
+                enabled = "✅" if sched.get("enabled", True) else "❌"
+                interval = sched.get("interval", 60)
+                game_type = sched.get("game_type", "random").title()
+                window_start = sched.get("window_start", config.SCHEDULER_WINDOW_START)
+                window_end = sched.get("window_end", config.SCHEDULER_WINDOW_END)
+                schedule_info = f"⏱️ {interval}min | 🎮 {game_type} | ⏰ {window_start}:00–{window_end}:00"
+                status = enabled
+            else:
+                # Using global schedule
+                sched_global = load_scheduler()
+                status = "🌍"  # Using global
+                interval = sched_global.get("interval", 60)
+                game_type = sched_global.get("game_type", "random").title()
+                window_start = sched_global.get("window_start", config.SCHEDULER_WINDOW_START)
+                window_end = sched_global.get("window_end", config.SCHEDULER_WINDOW_END)
+                schedule_info = f"⏱️ {interval}min | 🎮 {game_type} | ⏰ {window_start}:00–{window_end}:00"
+
+            lines.append(
+                f"👥 *{name}*\n"
+                f"   📍 ID: `{gid}`\n"
+                f"   👤 Members: {member_count}\n"
+                f"   {status} Schedule: {schedule_info}\n"
+            )
+
+        full_text = "📋 *TRACKED GROUPS*\n\n" + "\n".join(lines)
+        if len(full_text) > 4000:
+            chunks = [full_text[i:i+4000] for i in range(0, len(full_text), 4000)]
+            for chunk in chunks:
+                bot.send_message(chat_id, chunk, parse_mode="Markdown")
+        else:
+            bot.send_message(chat_id, full_text, parse_mode="Markdown")
 
     elif cmd == '/testmorning':
         if is_admin(user_id):
@@ -1715,6 +1800,52 @@ def handle_all_callbacks(call):
                         bot.send_message(chat_id, part, parse_mode="Markdown")
                 else:
                     bot.send_message(chat_id, text, parse_mode="Markdown")
+            elif action == "listchats":
+                bot.answer_callback_query(call.id)
+                groups = database.get_all_groups()
+                if not groups:
+                    bot.send_message(chat_id, "📭 No groups tracked yet.")
+                    return
+                group_schedules = database.load_group_schedules()
+                lines = []
+                for gid in groups:
+                    try:
+                        chat = bot.get_chat(gid)
+                        name = chat.title or f"Group {gid}"
+                    except Exception:
+                        name = f"Group {gid}"
+                    members = database.get_all_members(gid)
+                    member_count = len(members)
+                    sched = group_schedules.get(str(gid))
+                    if sched:
+                        enabled = "✅" if sched.get("enabled", True) else "❌"
+                        interval = sched.get("interval", 60)
+                        game_type = sched.get("game_type", "random").title()
+                        window_start = sched.get("window_start", config.SCHEDULER_WINDOW_START)
+                        window_end = sched.get("window_end", config.SCHEDULER_WINDOW_END)
+                        schedule_info = f"⏱️ {interval}min | 🎮 {game_type} | ⏰ {window_start}:00–{window_end}:00"
+                        status = enabled
+                    else:
+                        sched_global = load_scheduler()
+                        status = "🌍"
+                        interval = sched_global.get("interval", 60)
+                        game_type = sched_global.get("game_type", "random").title()
+                        window_start = sched_global.get("window_start", config.SCHEDULER_WINDOW_START)
+                        window_end = sched_global.get("window_end", config.SCHEDULER_WINDOW_END)
+                        schedule_info = f"⏱️ {interval}min | 🎮 {game_type} | ⏰ {window_start}:00–{window_end}:00"
+                    lines.append(
+                        f"👥 *{name}*\n"
+                        f"   📍 ID: `{gid}`\n"
+                        f"   👤 Members: {member_count}\n"
+                        f"   {status} Schedule: {schedule_info}\n"
+                    )
+                full_text = "📋 *TRACKED GROUPS*\n\n" + "\n".join(lines)
+                if len(full_text) > 4000:
+                    chunks = [full_text[i:i+4000] for i in range(0, len(full_text), 4000)]
+                    for chunk in chunks:
+                        bot.send_message(chat_id, chunk, parse_mode="Markdown")
+                else:
+                    bot.send_message(chat_id, full_text, parse_mode="Markdown")
             elif action == "clean":
                 bot.answer_callback_query(call.id)
                 from types import SimpleNamespace
@@ -2763,6 +2894,7 @@ def register_commands():
         telebot.types.BotCommand("setschedule_group","📋 Set group schedule (Captain only)"),
         telebot.types.BotCommand("remove_schedule_group","🗑️ Remove group schedule (Captain only)"),
         telebot.types.BotCommand("reloadstats",  "🔄 Reload stats (Captain only)"),
+        telebot.types.BotCommand("listchats",    "📋 List all tracked groups (Captain only)"),
     ]
 
     try:
