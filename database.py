@@ -27,6 +27,11 @@ _muted_cache = None
 _muted_dirty = False
 _muted_lock = threading.Lock()
 
+_broadcast_cache = None
+_broadcast_cache_time = 0
+_broadcast_cache_lock = threading.Lock()
+BROADCAST_CACHE_TTL = 30  # seconds
+
 CACHE_SAVE_INTERVAL = 5  # seconds
 
 def _load_group_data():
@@ -113,6 +118,29 @@ def shutdown_cache():
     force_save_group_data()
     force_save_muted_data()
     print("✅ Cache flushed.")
+
+# ---------------------------------------------------------------------------
+# BROADCAST CACHING
+# ---------------------------------------------------------------------------
+
+def get_cached_broadcasts():
+    """Get broadcasts from cache, refreshing if older than TTL."""
+    global _broadcast_cache, _broadcast_cache_time
+    now = time.time()
+    with _broadcast_cache_lock:
+        if _broadcast_cache is None or (now - _broadcast_cache_time) > BROADCAST_CACHE_TTL:
+            print("🔄 Refreshing broadcast cache from GitHub...")
+            _broadcast_cache = _load_broadcasts()
+            _broadcast_cache_time = now
+        return _broadcast_cache
+
+def force_refresh_broadcasts():
+    """Force an immediate refresh of the broadcast cache."""
+    global _broadcast_cache, _broadcast_cache_time
+    with _broadcast_cache_lock:
+        print("🔄 Force-refreshing broadcast cache...")
+        _broadcast_cache = _load_broadcasts()
+        _broadcast_cache_time = time.time()
 
 # ---------------------------------------------------------------------------
 # GLOBAL BOT INSTANCE
@@ -262,10 +290,11 @@ def _load_broadcasts():
 
 def _save_broadcasts(data):
     save_remote_json(config.BROADCAST_FILE, data)
+    force_refresh_broadcasts()  # <-- Refresh cache after save
 
 def add_broadcast(bot, chat_id, message, send_time):
     with _broadcast_lock:
-        broadcasts = _load_broadcasts()
+        broadcasts = get_cached_broadcasts()  # Use cache
         broadcast_id = max([b.get("id", 0) for b in broadcasts], default=0) + 1
         broadcasts.append({
             "id": broadcast_id,
@@ -277,15 +306,15 @@ def add_broadcast(bot, chat_id, message, send_time):
         _save_broadcasts(broadcasts)
 
 def get_pending_broadcasts():
-    with _broadcast_lock:
-        broadcasts = _load_broadcasts()
-        now = int(time.time()) + 5
-        pending = [b for b in broadcasts if b.get("sent", 0) == 0 and b.get("send_time", 0) <= now]
-        return pending
+    """Get pending broadcasts from cache."""
+    broadcasts = get_cached_broadcasts()
+    now = int(time.time()) + 5  # Add 5s buffer
+    pending = [b for b in broadcasts if b.get("sent", 0) == 0 and b.get("send_time", 0) <= now]
+    return pending
 
 def mark_broadcast_sent(broadcast_id):
     with _broadcast_lock:
-        broadcasts = _load_broadcasts()
+        broadcasts = get_cached_broadcasts()
         for b in broadcasts:
             if b.get("id") == broadcast_id:
                 b["sent"] = 1
@@ -293,8 +322,7 @@ def mark_broadcast_sent(broadcast_id):
         _save_broadcasts(broadcasts)
 
 def get_all_broadcasts():
-    with _broadcast_lock:
-        return _load_broadcasts()
+    return get_cached_broadcasts()
 
 # ---------------------------------------------------------------------------
 # TRIVIA LOADER
@@ -580,8 +608,6 @@ def load_mutes(bot=None):
     return get_muted_data()
 
 def save_mutes(bot, data):
-    # This should not be used directly – we use caching.
-    # But keep for compatibility if needed.
     global _muted_cache
     with _muted_lock:
         _muted_cache = data
@@ -1132,7 +1158,7 @@ def set_weekly_table_opt_in(group_id, opt_in):
     return True
 
 # ---------------------------------------------------------------------------
-# MESSAGE KEEP PATTERNS (for /clean command)
+# MESSAGE KEEP PATTERNS (for /clean command) – FINAL VERSION
 # ---------------------------------------------------------------------------
 
 def get_keep_patterns():
