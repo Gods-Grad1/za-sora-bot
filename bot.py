@@ -455,7 +455,7 @@ def show_schedule_panel(chat_id, edit_message_id=None):
 # ---------------------------------------------------------------------------
 
 def show_stats(chat_id):
-    data = database.load_json(config.GROUP_DATA_FILE, {})
+    data = database.get_group_data()
     chat_str = str(chat_id)
     if chat_str not in data:
         bot.send_message(chat_id, "📊 No stats yet.")
@@ -1022,7 +1022,7 @@ def handle_all_messages(message):
         show_shop(message)
 
     elif cmd == '/powerups':
-        data = database.load_json(config.GROUP_DATA_FILE, {})
+        data = database.get_group_data()
         chat_str = str(chat_id)
         user_str = str(user_id)
         if chat_str not in data or user_str not in data[chat_str]:
@@ -1428,7 +1428,7 @@ def handle_status(message):
     total_members = 0
     for gid in groups:
         total_members += len(database.get_all_members(gid))
-    data = database.load_json(config.GROUP_DATA_FILE, {})
+    data = database.get_group_data()
     total_entries = sum(len(u) for u in data.values())
 
     broadcast_alive = broadcast_checker_thread and broadcast_checker_thread.is_alive()
@@ -1465,7 +1465,7 @@ def handle_spin(message):
         bot.reply_to(message, "🔇 You are muted! Wait until your mute expires.")
         return
 
-    data = database.load_json(config.GROUP_DATA_FILE, {})
+    data = database.get_group_data()
     chat_str = str(chat_id)
     user_str = str(user_id)
     u = database.get_user(data, chat_str, user_str, username)
@@ -1501,27 +1501,27 @@ def handle_spin(message):
             year_key = database._now_year_key()
             u["monthly_points"][month_key] = u["monthly_points"].get(month_key, 0) + points
             u["yearly_points"][year_key] = u["yearly_points"].get(year_key, 0) + points
-            database.save_json(bot, config.GROUP_DATA_FILE, data)
+            database.mark_group_data_dirty()
             response += f"🎉 You won *{points} points*!"
         elif points < 0:
             u["points"] = max(0, u["points"] + points)
-            database.save_json(bot, config.GROUP_DATA_FILE, data)
+            database.mark_group_data_dirty()
             response += f"💸 You lost *{abs(points)} points*! 😱"
         else:
             response += f"😐 Nothing! Try again tomorrow."
     elif result.get("hint_token"):
         tokens = result["hint_token"]
         u["hint_tokens"] = u.get("hint_tokens", 0) + tokens
-        database.save_json(bot, config.GROUP_DATA_FILE, data)
+        database.mark_group_data_dirty()
         response += f"💡 You won *{tokens} hint token(s)*!"
     elif result.get("double_xp"):
         duration = result["double_xp"]
         u["double_xp_until"] = time.time() + duration
-        database.save_json(bot, config.GROUP_DATA_FILE, data)
+        database.mark_group_data_dirty()
         response += f"⚡ You won *Double XP for 1 hour*!"
     elif result.get("bankrupt"):
         u["points"] = max(0, u["points"] - 10)
-        database.save_json(bot, config.GROUP_DATA_FILE, data)
+        database.mark_group_data_dirty()
         response += f"💸 *BANKRUPT!* You lost 10 points. 😱"
     else:
         response += f"🎁 You won *{result['name']}*!"
@@ -2470,6 +2470,12 @@ def start_scheduler():
     scheduler_thread = threading.Thread(target=background_scheduler, daemon=True)
     scheduler_thread.start()
 
+def start_cache_saver():
+    """Start the background thread that flushes the database cache."""
+    saver_thread = threading.Thread(target=database._cache_saver_loop, daemon=True)
+    saver_thread.start()
+    return saver_thread
+
 def thread_supervisor():
     while True:
         try:
@@ -2493,6 +2499,21 @@ def thread_supervisor():
             print(f"Supervisor error: {e}")
 
         time.sleep(30)
+
+# ---------------------------------------------------------------------------
+# AUTO CLEANUP THREAD – removes old tracked messages
+# ---------------------------------------------------------------------------
+
+def auto_cleanup_loop():
+    """Periodically delete tracked messages older than 72 hours."""
+    while True:
+        time.sleep(21600)  # 6 hours
+        try:
+            deleted = games.auto_clean_old_messages(bot, max_age_hours=72)
+            if deleted:
+                print(f"🧹 Auto-cleanup deleted {deleted} old messages.")
+        except Exception as e:
+            print(f"❌ Auto-cleanup error: {e}")
 
 # ---------------------------------------------------------------------------
 # MISSING IMAGES NOTIFICATION
@@ -2751,7 +2772,7 @@ def show_my_stats(message, target_id=None, target_name=None):
         target_id = message.from_user.id
         target_name = message.from_user.username or message.from_user.first_name
 
-    data = database.load_json(config.GROUP_DATA_FILE, {})
+    data = database.get_group_data()
     chat_str = str(chat_id)
     user_str = str(target_id)
     if chat_str not in data or user_str not in data[chat_str]:
@@ -2892,6 +2913,10 @@ def show_fixtures(message):
 
 if __name__ == "__main__":
     print("🚀 Za Sora Bot starting...")
+    # Validate admin ID
+    if config.ADMIN_ID == 0 or config.ADMIN_ID is None:
+        print("❌ ADMIN_ID is not set! Bot will not work correctly.")
+        exit(1)
     register_commands()
     games.precache_assets(bot)
     threading.Thread(target=graphics.clear_and_rebuild_disk_cache, args=(bot,), daemon=True).start()
@@ -2899,11 +2924,22 @@ if __name__ == "__main__":
     database.cleanup_expired_mutes(bot)
     check_startup_fallbacks()
 
+    # Initialize database cache
+    database.init_cache()
+
+    # Start background threads
     start_broadcast_checker()
     start_scheduler()
+    start_cache_saver()
 
+    # Start auto-cleanup thread for old tracked messages
+    auto_cleanup_thread = threading.Thread(target=auto_cleanup_loop, daemon=True)
+    auto_cleanup_thread.start()
+
+    # Start supervisor thread
     threading.Thread(target=thread_supervisor, daemon=True).start()
 
+    # Notify about missing images (in background)
     threading.Thread(target=notify_missing_images, daemon=True).start()
 
     print("✅ Bot is live!")
