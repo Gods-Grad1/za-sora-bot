@@ -424,20 +424,18 @@ def show_schedule_panel(chat_id, edit_message_id=None):
     sched = load_scheduler()
     text, markup = _build_schedule_panel(chat_id)
 
-    # If we're trying to edit an existing message
     if edit_message_id:
         try:
             bot.edit_message_text(text, chat_id, edit_message_id, reply_markup=markup, parse_mode="Markdown")
-            return  # Success – keep the same message ID
+            return
         except ApiTelegramException as e:
             if "message is not modified" in str(e):
-                return  # No change needed – do nothing
-            print(f"Failed to edit schedule panel (API error): {e}")
+                return
+            print(f"Failed to edit schedule panel: {e}")
         except Exception as e:
-            print(f"Failed to edit schedule panel (other error): {e}")
-        # If we reach here, the edit failed – fall through to send a new one
+            print(f"Failed to edit schedule panel: {e}")
 
-    # Delete the old stored message (if it exists and is not the one we tried to edit)
+    # Delete old stored message if it exists
     old_id = sched.get("schedule_message_id")
     if old_id and old_id != edit_message_id:
         try:
@@ -445,7 +443,6 @@ def show_schedule_panel(chat_id, edit_message_id=None):
         except Exception:
             pass
 
-    # Send a fresh panel and store its ID
     msg = bot.send_message(chat_id, text, reply_markup=markup, parse_mode="Markdown")
     sched["schedule_message_id"] = msg.message_id
     save_scheduler(sched)
@@ -2254,7 +2251,7 @@ def handle_all_callbacks(call):
 def _serve_fixtures_page(chat_id, message_id, player, context, status, page):
     rows = database.fetch_csv_cached(bot, config.FIXTURES_CSV_URL)
 
-    home_idx, away_idx, matchday_idx, status_idx = graphics.detect_fixtures_columns(rows)
+    home_idx, away_idx, matchday_idx, status_idx, home_score_idx, away_score_idx = graphics.detect_fixtures_columns(rows)
     header_offset = 1
     if rows and len(rows) > 0:
         first_row = rows[0]
@@ -2894,7 +2891,7 @@ def show_league_table(message):
         database.log_error_to_admin(bot, "Table Command", e)
 
 def _build_fixtures_menu_markup(rows):
-    home_idx, away_idx, matchday_idx, status_idx = graphics.detect_fixtures_columns(rows)
+    home_idx, away_idx, matchday_idx, status_idx, home_score_idx, away_score_idx = graphics.detect_fixtures_columns(rows)
     header_offset = 1 if ("home" in str(rows[0][home_idx]).lower() or rows[0][0].lower() in ["md", "matchday"]) else 0
     teams = set()
     for row in rows[header_offset:]:
