@@ -699,10 +699,16 @@ def clean_bot_messages(chat_id, trigger_message):
 
     deleted_count = 0
     kept_count = 0
+    error_count = 0
     keep_patterns = database.get_keep_patterns()
 
-    # Iterate over a copy, as we'll modify the original list later
     for msg in tracked[:]:
+        # Validate entry
+        if not isinstance(msg, dict) or "id" not in msg:
+            print(f"⚠️ Skipping invalid tracked message: {msg}")
+            error_count += 1
+            continue
+
         text = msg.get("text", "")
         should_keep = any(pattern in text or pattern.lower() in text.lower() for pattern in keep_patterns)
 
@@ -713,8 +719,17 @@ def clean_bot_messages(chat_id, trigger_message):
         try:
             bot.delete_message(chat_id, msg["id"])
             deleted_count += 1
+        except ApiTelegramException as e:
+            # Catch "message can't be deleted" (too old, already deleted, etc.)
+            if "message can't be deleted" in str(e).lower() or "message to delete not found" in str(e).lower():
+                print(f"⏳ Cannot delete message {msg['id']}: {e}")
+                error_count += 1
+            else:
+                print(f"Failed to delete message {msg['id']}: {e}")
+                error_count += 1
         except Exception as e:
             print(f"Failed to delete message {msg['id']}: {e}")
+            error_count += 1
 
     # Clear the tracked list for this chat
     games.tracked_messages[chat_id] = []
@@ -723,9 +738,9 @@ def clean_bot_messages(chat_id, trigger_message):
                  f"🧹 *Cleanup Complete*\n\n"
                  f"🗑️ Deleted: {deleted_count} of my messages\n"
                  f"📌 Kept: {kept_count} important messages\n"
+                 f"⚠️ Errors/Skipped: {error_count}\n"
                  f"📊 Total tracked: {len(tracked)}",
                  parse_mode="Markdown")
-
 # ---------------------------------------------------------------------------
 # COMMAND ROUTER
 # ---------------------------------------------------------------------------
