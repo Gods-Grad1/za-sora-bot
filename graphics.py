@@ -28,7 +28,7 @@ def _cache_image(key, image):
     return cache_path
 
 # ---------------------------------------------------------------------------
-# FONTS
+# FONTS – using larger sizes for better resolution
 # ---------------------------------------------------------------------------
 
 def _get_font(size, bold=False):
@@ -45,7 +45,7 @@ def _get_font(size, bold=False):
     return ImageFont.load_default()
 
 # ---------------------------------------------------------------------------
-# LEAGUE TABLE IMAGE
+# LEAGUE TABLE IMAGE – improved readability
 # ---------------------------------------------------------------------------
 
 def generate_table_image(bot):
@@ -72,7 +72,7 @@ def generate_table_image(bot):
                 l = int(row[l_idx]) if l_idx is not None and row[l_idx].strip().isdigit() else 0
                 gf = int(row[gf_idx]) if gf_idx is not None and row[gf_idx].strip().isdigit() else 0
                 ga = int(row[ga_idx]) if ga_idx is not None and row[ga_idx].strip().isdigit() else 0
-                gd = gf - ga  # Calculate GD
+                gd = gf - ga
                 pts = int(row[pts_idx]) if row[pts_idx].strip().isdigit() else 0
                 form = row[form_idx].strip() if form_idx is not None and len(row) > form_idx else ""
             except (ValueError, IndexError):
@@ -136,11 +136,12 @@ def _detect_table_columns(header):
     return pos_idx, team_idx, mp_idx, w_idx, d_idx, l_idx, gf_idx, ga_idx, gd_idx, pts_idx, form_idx
 
 def _render_table_image(table_data, is_complete):
+    # Increased font sizes and row heights for better readability
     cols = ["POS", "TEAM", "MP", "W", "D", "L", "GF", "GA", "GD", "PTS", "FORM"]
-    col_widths = [40, 180, 40, 40, 40, 40, 40, 40, 40, 50, 80]
-    row_height = 30
-    header_height = 35
-    padding = 10
+    col_widths = [50, 220, 50, 50, 50, 50, 50, 50, 50, 60, 100]
+    row_height = 38
+    header_height = 45
+    padding = 12
     total_width = sum(col_widths) + padding * 2
     total_rows = len(table_data)
     total_height = header_height + total_rows * row_height + padding * 2
@@ -148,16 +149,17 @@ def _render_table_image(table_data, is_complete):
     img = Image.new('RGB', (total_width, total_height), color=config.THEME_BG)
     draw = ImageDraw.Draw(img)
 
-    header_font = _get_font(12, bold=True)
-    row_font = _get_font(11)
-    small_font = _get_font(9)
+    # Larger fonts
+    header_font = _get_font(16, bold=True)
+    row_font = _get_font(14)
+    small_font = _get_font(11)
 
     x = padding
     y = padding
     draw.rectangle([x, y, x + total_width - padding * 2, y + header_height], fill=config.THEME_HEADER_BG)
     for i, col in enumerate(cols):
         cx = x + sum(col_widths[:i]) + col_widths[i] // 2
-        draw.text((cx, y + header_height // 2 - 6), col, fill=config.THEME_TEXT_PRIMARY, font=header_font, anchor="mt")
+        draw.text((cx, y + header_height // 2 - 8), col, fill=config.THEME_TEXT_PRIMARY, font=header_font, anchor="mt")
 
     y += header_height
 
@@ -213,18 +215,18 @@ def _render_table_image(table_data, is_complete):
                 color = custom_colors[i]
 
             if i == 0:
-                draw.text((cx - 5, row_y + row_height // 2 - 6), value, fill=color, font=font, anchor="rm")
+                draw.text((cx - 5, row_y + row_height // 2 - 8), value, fill=color, font=font, anchor="rm")
             elif i == len(cols) - 1:
                 _draw_form_indicators(draw, cx, row_y, value, small_font)
             else:
-                draw.text((cx, row_y + row_height // 2 - 6), value, fill=color, font=font, anchor="mt")
+                draw.text((cx, row_y + row_height // 2 - 8), value, fill=color, font=font, anchor="mt")
 
         if is_champion:
-            draw.text((padding + 5, row_y + 2), "👑", font=small_font)
+            draw.text((padding + 5, row_y + 4), "👑", font=small_font)
         elif idx == 1 and is_complete:
-            draw.text((padding + 5, row_y + 2), "🥈", font=small_font)
+            draw.text((padding + 5, row_y + 4), "🥈", font=small_font)
         elif idx == 2 and is_complete:
-            draw.text((padding + 5, row_y + 2), "🥉", font=small_font)
+            draw.text((padding + 5, row_y + 4), "🥉", font=small_font)
 
     img_bytes = io.BytesIO()
     img.save(img_bytes, format='PNG')
@@ -233,28 +235,28 @@ def _render_table_image(table_data, is_complete):
 
 def _draw_form_indicators(draw, x, y, form, font):
     colors = {"W": "#00E676", "D": "#FFD700", "L": "#FF1744"}
-    box_size = 14
-    spacing = 2
+    box_size = 16
+    spacing = 3
     total_width = len(form) * (box_size + spacing) - spacing
     start_x = x - total_width // 2
 
     for i, letter in enumerate(form[:5]):
         letter = letter.upper()
         bx = start_x + i * (box_size + spacing)
-        by = y + (16 - box_size) // 2
+        by = y + (row_height - box_size) // 2
         color = colors.get(letter, "#555555")
         draw.rectangle([bx, by, bx + box_size, by + box_size], fill=color)
         draw.text((bx + box_size // 2, by + 2), letter, fill="#FFFFFF", font=font, anchor="mt")
 
 # ---------------------------------------------------------------------------
-# FIXTURES IMAGE (UPDATED – Matchday, Status column, hardcoded venue)
+# FIXTURES IMAGE – with scores and improved readability
 # ---------------------------------------------------------------------------
 
 def generate_fixtures_image(bot, rows, status, player, context, page):
     if not rows or len(rows) <= 1:
         return None
 
-    home_idx, away_idx, matchday_idx, status_idx = detect_fixtures_columns(rows)
+    home_idx, away_idx, matchday_idx, status_idx, home_score_idx, away_score_idx = detect_fixtures_columns(rows)
 
     header_offset = 1
     if rows and len(rows) > 0:
@@ -282,6 +284,10 @@ def generate_fixtures_image(bot, rows, status, player, context, page):
         matchday = row[matchday_idx].strip() if matchday_idx is not None and len(row) > matchday_idx else ""
         row_status = row[status_idx].strip().lower() if status_idx is not None and len(row) > status_idx else ""
 
+        # Get scores
+        home_score = row[home_score_idx].strip() if home_score_idx is not None and len(row) > home_score_idx else ""
+        away_score = row[away_score_idx].strip() if away_score_idx is not None and len(row) > away_score_idx else ""
+
         if status == "upcoming" and row_status in ["completed", "played", "finished"]:
             continue
         if status == "completed" and row_status not in ["completed", "played", "finished"]:
@@ -291,7 +297,9 @@ def generate_fixtures_image(bot, rows, status, player, context, page):
             "home": home,
             "away": away,
             "matchday": matchday,
-            "status": row_status
+            "status": row_status,
+            "home_score": home_score,
+            "away_score": away_score
         })
 
     per_page = 10
@@ -307,8 +315,9 @@ def generate_fixtures_image(bot, rows, status, player, context, page):
 
 def detect_fixtures_columns(rows):
     home_idx, away_idx, matchday_idx, status_idx = 0, 0, None, None
+    home_score_idx, away_score_idx = None, None
     if not rows:
-        return 0, 0, None, None
+        return 0, 0, None, None, None, None
 
     header = rows[0]
     for i, col in enumerate(header):
@@ -321,37 +330,44 @@ def detect_fixtures_columns(rows):
             matchday_idx = i
         elif col_lower in ["status", "result", "completed", "played", "score"]:
             status_idx = i
+        elif "home score" in col_lower or "hscore" in col_lower or "home_goals" in col_lower:
+            home_score_idx = i
+        elif "away score" in col_lower or "ascore" in col_lower or "away_goals" in col_lower:
+            away_score_idx = i
 
-    return home_idx, away_idx, matchday_idx, status_idx
+    return home_idx, away_idx, matchday_idx, status_idx, home_score_idx, away_score_idx
 
 def _render_fixtures_image(fixtures, player, context, status, page, total_pages):
-    cols = ["MATCHDAY", "HOME", "VS", "AWAY"]
-    col_widths = [80, 150, 30, 150]
-    row_height = 28
-    header_height = 32
-    padding = 10
+    # Added SCORE column and increased sizes
+    cols = ["MATCHDAY", "HOME", "VS", "SCORE", "AWAY"]
+    col_widths = [90, 170, 35, 90, 170]
+    row_height = 36
+    header_height = 44
+    padding = 12
     total_width = sum(col_widths) + padding * 2
-    total_height = header_height + len(fixtures) * row_height + padding * 2 + 40
+    total_height = header_height + len(fixtures) * row_height + padding * 2 + 50
 
     img = Image.new('RGB', (total_width, total_height), color=config.THEME_BG)
     draw = ImageDraw.Draw(img)
 
-    header_font = _get_font(12, bold=True)
-    row_font = _get_font(11)
+    # Larger fonts
+    header_font = _get_font(16, bold=True)
+    row_font = _get_font(14)
+    small_font = _get_font(11)
 
     title = f"📋 {status.upper()} FIXTURES"
-    draw.text((total_width // 2, 5), title, fill=config.THEME_ACCENT, font=header_font, anchor="mt")
+    draw.text((total_width // 2, 8), title, fill=config.THEME_ACCENT, font=header_font, anchor="mt")
 
     subtitle = f"👤 {player.upper()} | 🏟️ {context.upper()} | 📄 Page {page}/{total_pages}"
-    draw.text((total_width // 2, 22), subtitle, fill=config.THEME_TEXT_MUTED, font=row_font, anchor="mt")
+    draw.text((total_width // 2, 32), subtitle, fill=config.THEME_TEXT_MUTED, font=row_font, anchor="mt")
 
-    y = 40
+    y = 50
 
     x = padding
     draw.rectangle([x, y, x + total_width - padding * 2, y + header_height], fill=config.THEME_HEADER_BG)
     for i, col in enumerate(cols):
         cx = x + sum(col_widths[:i]) + col_widths[i] // 2
-        draw.text((cx, y + header_height // 2 - 6), col, fill=config.THEME_TEXT_PRIMARY, font=header_font, anchor="mt")
+        draw.text((cx, y + header_height // 2 - 8), col, fill=config.THEME_TEXT_PRIMARY, font=header_font, anchor="mt")
 
     y += header_height
 
@@ -360,10 +376,17 @@ def _render_fixtures_image(fixtures, player, context, status, page, total_pages)
         bg_color = config.THEME_CARD_BG if idx % 2 == 0 else config.THEME_BG
         draw.rectangle([padding, row_y, padding + total_width - padding * 2, row_y + row_height], fill=bg_color)
 
+        home_score = fixture.get("home_score", "")
+        away_score = fixture.get("away_score", "")
+        if home_score is None: home_score = ""
+        if away_score is None: away_score = ""
+        score_text = f"{home_score} - {away_score}" if (home_score or away_score) else "–"
+
         row_data = [
             fixture.get("matchday", ""),
             fixture["home"][:20],
             "VS",
+            score_text,
             fixture["away"][:20]
         ]
 
@@ -372,12 +395,16 @@ def _render_fixtures_image(fixtures, player, context, status, page, total_pages)
             color = config.THEME_TEXT_PRIMARY
             if i == 1 and player.lower() in value.lower():
                 color = config.THEME_ACCENT
-            elif i == 3 and player.lower() in value.lower():
+            elif i == 4 and player.lower() in value.lower():
                 color = config.THEME_ACCENT
-            draw.text((cx, row_y + row_height // 2 - 6), value, fill=color, font=row_font, anchor="mt")
+            elif i == 3:  # SCORE column
+                # Highlight if it's a completed match (scores exist)
+                if home_score and away_score and home_score.isdigit() and away_score.isdigit():
+                    color = config.THEME_ACCENT_GOLD if int(home_score) > int(away_score) else config.THEME_ACCENT_RED if int(home_score) < int(away_score) else config.THEME_ACCENT
+            draw.text((cx, row_y + row_height // 2 - 8), value, fill=color, font=row_font, anchor="mt")
 
     venue_text = "📍 Venue: Education Hall A"
-    draw.text((padding, total_height - 15), venue_text, fill=config.THEME_TEXT_MUTED, font=row_font)
+    draw.text((padding, total_height - 18), venue_text, fill=config.THEME_TEXT_MUTED, font=row_font)
 
     img_bytes = io.BytesIO()
     img.save(img_bytes, format='PNG')
@@ -385,7 +412,107 @@ def _render_fixtures_image(fixtures, player, context, status, page, total_pages)
     return img_bytes
 
 # ---------------------------------------------------------------------------
-# LEADERBOARD IMAGE
+# MATCHDAY IMAGE – also updated for consistency
+# ---------------------------------------------------------------------------
+
+def generate_matchday_image(bot, rows, matchday):
+    if not rows or len(rows) <= 1:
+        return None
+
+    home_idx, away_idx, matchday_idx, status_idx, home_score_idx, away_score_idx = detect_fixtures_columns(rows)
+    header_offset = 1 if ("home" in str(rows[0][home_idx]).lower() or rows[0][0].lower() in ["md", "matchday"]) else 0
+
+    fixtures = []
+    for row in rows[header_offset:]:
+        if len(row) <= max(home_idx, away_idx):
+            continue
+        md = row[matchday_idx].strip() if matchday_idx is not None and len(row) > matchday_idx else ""
+        if md.lower() != matchday.lower() and md != f"MD {matchday}" and md != f"Matchday {matchday}":
+            continue
+        home = row[home_idx].strip()
+        away = row[away_idx].strip()
+        if not home or not away or home.isdigit() or away.isdigit():
+            continue
+        home_score = row[home_score_idx].strip() if home_score_idx is not None and len(row) > home_score_idx else ""
+        away_score = row[away_score_idx].strip() if away_score_idx is not None and len(row) > away_score_idx else ""
+        fixtures.append({
+            "home": home,
+            "away": away,
+            "matchday": md,
+            "home_score": home_score,
+            "away_score": away_score
+        })
+
+    if not fixtures:
+        return None
+
+    return _render_matchday_image(fixtures, matchday)
+
+def _render_matchday_image(fixtures, matchday):
+    cols = ["MATCHDAY", "HOME", "VS", "SCORE", "AWAY"]
+    col_widths = [90, 170, 35, 90, 170]
+    row_height = 36
+    header_height = 44
+    padding = 12
+    total_width = sum(col_widths) + padding * 2
+    total_height = header_height + len(fixtures) * row_height + padding * 2 + 50
+
+    img = Image.new('RGB', (total_width, total_height), color=config.THEME_BG)
+    draw = ImageDraw.Draw(img)
+
+    header_font = _get_font(16, bold=True)
+    row_font = _get_font(14)
+
+    title = f"📅 MATCHDAY {matchday} — ALL FIXTURES"
+    draw.text((total_width // 2, 8), title, fill=config.THEME_ACCENT, font=header_font, anchor="mt")
+
+    y = 40
+
+    x = padding
+    draw.rectangle([x, y, x + total_width - padding * 2, y + header_height], fill=config.THEME_HEADER_BG)
+    for i, col in enumerate(cols):
+        cx = x + sum(col_widths[:i]) + col_widths[i] // 2
+        draw.text((cx, y + header_height // 2 - 8), col, fill=config.THEME_TEXT_PRIMARY, font=header_font, anchor="mt")
+
+    y += header_height
+
+    for idx, fixture in enumerate(fixtures):
+        row_y = y + idx * row_height
+        bg_color = config.THEME_CARD_BG if idx % 2 == 0 else config.THEME_BG
+        draw.rectangle([padding, row_y, padding + total_width - padding * 2, row_y + row_height], fill=bg_color)
+
+        home_score = fixture.get("home_score", "")
+        away_score = fixture.get("away_score", "")
+        if home_score is None: home_score = ""
+        if away_score is None: away_score = ""
+        score_text = f"{home_score} - {away_score}" if (home_score or away_score) else "–"
+
+        row_data = [
+            fixture.get("matchday", ""),
+            fixture["home"][:20],
+            "VS",
+            score_text,
+            fixture["away"][:20]
+        ]
+
+        for i, value in enumerate(row_data):
+            cx = padding + sum(col_widths[:i]) + col_widths[i] // 2
+            color = config.THEME_TEXT_PRIMARY
+            if i == 3:
+                if home_score and away_score and home_score.isdigit() and away_score.isdigit():
+                    color = config.THEME_ACCENT_GOLD if int(home_score) > int(away_score) else config.THEME_ACCENT_RED if int(home_score) < int(away_score) else config.THEME_ACCENT
+            draw.text((cx, row_y + row_height // 2 - 8), value, fill=color, font=row_font, anchor="mt")
+
+    venue_text = "📍 Venue: Education Hall A"
+    draw.text((padding, total_height - 18), venue_text, fill=config.THEME_TEXT_MUTED, font=row_font)
+
+    img_bytes = io.BytesIO()
+    img.save(img_bytes, format='PNG')
+    img_bytes.seek(0)
+    return img_bytes
+
+# ---------------------------------------------------------------------------
+# LEADERBOARD IMAGE – also improved resolution
 # ---------------------------------------------------------------------------
 
 def build_leaderboard_image(chat_id, mode, page):
@@ -402,29 +529,29 @@ def build_leaderboard_image(chat_id, mode, page):
         return None
 
     cols = ["#", "PLAYER", "PTS", "STREAK"]
-    col_widths = [30, 180, 60, 60]
-    row_height = 26
-    header_height = 30
-    padding = 10
+    col_widths = [40, 220, 80, 80]
+    row_height = 34
+    header_height = 42
+    padding = 12
     total_width = sum(col_widths) + padding * 2
-    total_height = header_height + len(page_entries) * row_height + padding * 2 + 20
+    total_height = header_height + len(page_entries) * row_height + padding * 2 + 30
 
     img = Image.new('RGB', (total_width, total_height), color=config.THEME_BG)
     draw = ImageDraw.Draw(img)
 
-    header_font = _get_font(11, bold=True)
-    row_font = _get_font(10)
+    header_font = _get_font(14, bold=True)
+    row_font = _get_font(13)
 
     title = f"🏆 LEADERBOARD — {mode.upper()}"
-    draw.text((total_width // 2, 5), title, fill=config.THEME_ACCENT, font=header_font, anchor="mt")
+    draw.text((total_width // 2, 6), title, fill=config.THEME_ACCENT, font=header_font, anchor="mt")
 
-    y = 30
+    y = 32
 
     x = padding
     draw.rectangle([x, y, x + total_width - padding * 2, y + header_height], fill=config.THEME_HEADER_BG)
     for i, col in enumerate(cols):
         cx = x + sum(col_widths[:i]) + col_widths[i] // 2
-        draw.text((cx, y + header_height // 2 - 6), col, fill=config.THEME_TEXT_PRIMARY, font=header_font, anchor="mt")
+        draw.text((cx, y + header_height // 2 - 8), col, fill=config.THEME_TEXT_PRIMARY, font=header_font, anchor="mt")
 
     y += header_height
 
@@ -459,88 +586,7 @@ def build_leaderboard_image(chat_id, mode, page):
                 color = rank_color
             elif i == 2:
                 color = config.THEME_ACCENT if points > 0 else config.THEME_TEXT_MUTED
-            draw.text((cx, row_y + row_height // 2 - 6), value, fill=color, font=row_font, anchor="mt")
-
-    img_bytes = io.BytesIO()
-    img.save(img_bytes, format='PNG')
-    img_bytes.seek(0)
-    return img_bytes
-
-# ---------------------------------------------------------------------------
-# MATCHDAY IMAGE
-# ---------------------------------------------------------------------------
-
-def generate_matchday_image(bot, rows, matchday):
-    if not rows or len(rows) <= 1:
-        return None
-
-    home_idx, away_idx, matchday_idx, status_idx = detect_fixtures_columns(rows)
-    header_offset = 1 if ("home" in str(rows[0][home_idx]).lower() or rows[0][0].lower() in ["md", "matchday"]) else 0
-
-    fixtures = []
-    for row in rows[header_offset:]:
-        if len(row) <= max(home_idx, away_idx):
-            continue
-        md = row[matchday_idx].strip() if matchday_idx is not None and len(row) > matchday_idx else ""
-        if md.lower() != matchday.lower() and md != f"MD {matchday}" and md != f"Matchday {matchday}":
-            continue
-        home = row[home_idx].strip()
-        away = row[away_idx].strip()
-        if not home or not away or home.isdigit() or away.isdigit():
-            continue
-        fixtures.append({"home": home, "away": away, "matchday": md})
-
-    if not fixtures:
-        return None
-
-    return _render_matchday_image(fixtures, matchday)
-
-def _render_matchday_image(fixtures, matchday):
-    cols = ["MATCHDAY", "HOME", "VS", "AWAY"]
-    col_widths = [80, 150, 30, 150]
-    row_height = 28
-    header_height = 32
-    padding = 10
-    total_width = sum(col_widths) + padding * 2
-    total_height = header_height + len(fixtures) * row_height + padding * 2 + 40
-
-    img = Image.new('RGB', (total_width, total_height), color=config.THEME_BG)
-    draw = ImageDraw.Draw(img)
-
-    header_font = _get_font(12, bold=True)
-    row_font = _get_font(11)
-
-    title = f"📅 MATCHDAY {matchday} — ALL FIXTURES"
-    draw.text((total_width // 2, 5), title, fill=config.THEME_ACCENT, font=header_font, anchor="mt")
-
-    y = 30
-
-    x = padding
-    draw.rectangle([x, y, x + total_width - padding * 2, y + header_height], fill=config.THEME_HEADER_BG)
-    for i, col in enumerate(cols):
-        cx = x + sum(col_widths[:i]) + col_widths[i] // 2
-        draw.text((cx, y + header_height // 2 - 6), col, fill=config.THEME_TEXT_PRIMARY, font=header_font, anchor="mt")
-
-    y += header_height
-
-    for idx, fixture in enumerate(fixtures):
-        row_y = y + idx * row_height
-        bg_color = config.THEME_CARD_BG if idx % 2 == 0 else config.THEME_BG
-        draw.rectangle([padding, row_y, padding + total_width - padding * 2, row_y + row_height], fill=bg_color)
-
-        row_data = [
-            fixture.get("matchday", ""),
-            fixture["home"][:20],
-            "VS",
-            fixture["away"][:20]
-        ]
-
-        for i, value in enumerate(row_data):
-            cx = padding + sum(col_widths[:i]) + col_widths[i] // 2
-            draw.text((cx, row_y + row_height // 2 - 6), value, fill=config.THEME_TEXT_PRIMARY, font=row_font, anchor="mt")
-
-    venue_text = "📍 Venue: Education Hall A"
-    draw.text((padding, total_height - 15), venue_text, fill=config.THEME_TEXT_MUTED, font=row_font)
+            draw.text((cx, row_y + row_height // 2 - 8), value, fill=color, font=row_font, anchor="mt")
 
     img_bytes = io.BytesIO()
     img.save(img_bytes, format='PNG')
