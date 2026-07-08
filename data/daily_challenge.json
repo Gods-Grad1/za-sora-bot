@@ -1,17 +1,14 @@
 {
-    "date": "2026-07-07",
-    "question": "In boxing, how many rounds are in a standard world title fight?",
+    "date": "2026-07-08",
+    "question": "Which film won the first Academy Award for Best Picture?",
     "options": [
-        "10",
-        "12",
-        "15",
-        "8"
+        "Gone with the Wind",
+        "Wings",
+        "Casablanca",
+        "It Happened One Night"
     ],
     "answer": "B",
-    "display": "12",
-    "category": "Sports",
-    "answered": [
-        8234402535,
-        1454425797
-    ]
+    "display": "Wings",
+    "category": "Movies",
+    "answered": []
 }
