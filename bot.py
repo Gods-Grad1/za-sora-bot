@@ -141,6 +141,18 @@ def safe_edit_message_media(chat_id, message_id, media, reply_markup=None):
             return False
         raise
 
+def send_tracked(chat_id, text, parse_mode="Markdown", reply_markup=None, disable_web_page_preview=False):
+    """Send a message and track it for future cleanup."""
+    msg = bot.send_message(
+        chat_id,
+        text,
+        parse_mode=parse_mode,
+        reply_markup=reply_markup,
+        disable_web_page_preview=disable_web_page_preview
+    )
+    games.track_message(chat_id, msg.message_id, text)
+    return msg
+    
 # ---------------------------------------------------------------------------
 # HELP MENU (Public)
 # ---------------------------------------------------------------------------
