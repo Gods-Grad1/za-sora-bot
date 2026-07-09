@@ -879,6 +879,7 @@ def handle_all_messages(message):
     # Admin state handling (DM only)
     if chat_id == config.ADMIN_ID:
         admin_state = database.load_json("admin_state.json", {})
+        print(f"📝 Admin state: user={user_id}, action={admin_state.get('action')}, message='{message.text}'")
         if admin_state.get("user_id") == user_id:
             action = admin_state.get("action")
 
