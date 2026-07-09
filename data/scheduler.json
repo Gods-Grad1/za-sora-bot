@@ -1,7 +1,7 @@
 {
-    "enabled": true,
+    "enabled": false,
     "interval": 30,
-    "game_type": "year",
+    "game_type": "trivia",
     "window_start": 10,
     "window_end": 22,
     "last_game": 1783368755,
