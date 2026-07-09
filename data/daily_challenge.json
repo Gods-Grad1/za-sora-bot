@@ -1,17 +1,14 @@
 {
-    "date": "2026-07-08",
-    "question": "Which film won the first Academy Award for Best Picture?",
+    "date": "2026-07-09",
+    "question": "What type of pasta is shaped like small rice grains?",
     "options": [
-        "Gone with the Wind",
-        "Wings",
-        "Casablanca",
-        "It Happened One Night"
+        "Penne",
+        "Orzo",
+        "Fusilli",
+        "Farfalle"
     ],
     "answer": "B",
-    "display": "Wings",
-    "category": "Movies",
-    "answered": [
-        6231510981,
-        8234402535
-    ]
+    "display": "Orzo",
+    "category": "Food",
+    "answered": []
 }
