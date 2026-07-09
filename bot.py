@@ -1500,9 +1500,9 @@ def handle_all_messages(message):
             bot.send_message(chat_id, text, parse_mode="Markdown")
 
     elif cmd == '/setschedule_group' and is_admin(user_id):
-    if args and len(args) >= 4:
+        if args and len(args) >= 4:
         # Direct argument mode
-        try:
+            try:
             group_id = int(args[0])
             interval = int(args[1])
             game_type = args[2].lower()
