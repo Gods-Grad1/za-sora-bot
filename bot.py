@@ -1499,6 +1499,39 @@ def handle_all_messages(message):
             bot.send_message(chat_id, text, parse_mode="Markdown")
 
     elif cmd == '/setschedule_group' and is_admin(user_id):
+    if args and len(args) >= 4:
+        # Direct argument mode
+        try:
+            group_id = int(args[0])
+            interval = int(args[1])
+            game_type = args[2].lower()
+            enabled = args[3].lower() in ["true", "yes", "1", "on"]
+            if game_type not in ["character", "year", "picture", "trivia", "random"]:
+                bot.reply_to(message, f"❌ Invalid game type. Choose from: character, year, picture, trivia, random")
+                return
+            settings = {
+                "enabled": enabled,
+                "interval": interval,
+                "game_type": game_type,
+                "window_start": 10,
+                "window_end": 23
+            }
+            database.set_group_schedule(group_id, settings)
+            try:
+                chat = bot.get_chat(group_id)
+                group_name = chat.title or f"Group {group_id}"
+            except Exception:
+                group_name = f"Group {group_id}"
+            bot.reply_to(message, f"✅ *{group_name}* schedule updated!\n\n"
+                                  f"📊 Enabled: {'✅' if enabled else '❌'}\n"
+                                  f"⏱️ Interval: {interval} min\n"
+                                  f"🎮 Type: {game_type.title()}")
+            return
+        except ValueError:
+            bot.reply_to(message, "❌ Invalid group ID or interval. Use numbers.")
+            return
+    else:
+        # Two-step mode
         bot.reply_to(message, "📅 *SET GROUP SCHEDULE*\n\n"
                               "Send me the settings in this format:\n\n"
                               "`<group_id> <interval> <game_type> <enabled>`\n\n"
@@ -1508,7 +1541,7 @@ def handle_all_messages(message):
                               "Type `/cancel` to cancel.",
                      parse_mode="Markdown")
         database.save_json(bot, "admin_state.json", {"action": "setgroupschedule", "user_id": user_id})
-
+        
     elif cmd == '/remove_schedule_group' and is_admin(user_id):
         bot.reply_to(message, "🗑️ *REMOVE GROUP SCHEDULE*\n\n"
                               "Send me the group ID:\n\n"
