@@ -1503,10 +1503,10 @@ def handle_all_messages(message):
         if args and len(args) >= 4:
         # Direct argument mode
             try:
-            group_id = int(args[0])
-            interval = int(args[1])
-            game_type = args[2].lower()
-            enabled = args[3].lower() in ["true", "yes", "1", "on"]
+                group_id = int(args[0])
+                interval = int(args[1])
+                game_type = args[2].lower()
+                enabled = args[3].lower() in ["true", "yes", "1", "on"]
             if game_type not in ["character", "year", "picture", "trivia", "random"]:
                 bot.reply_to(message, f"❌ Invalid game type. Choose from: character, year, picture, trivia, random")
                 return
