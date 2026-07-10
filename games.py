@@ -16,7 +16,26 @@ import database
 # ---------------------------------------------------------------------------
 
 tracked_messages = {}  # chat_id -> list of {"id": msg_id, "text": text, "timestamp": ts}
+_image_existence_cache = {}
+_image_existence_cache_lock = threading.Lock()
+IMAGE_EXISTENCE_TTL = 86400
 
+def _image_exists_github(remote_path):
+    global _image_existence_cache
+    with _image_existence_cache_lock:
+        cached = _image_existence_cache.get(remote_path)
+        if cached and time.time() - cached["timestamp"] < IMAGE_EXISTENCE_TTL:
+            return cached["exists"]
+    url = f"{config.GITHUB_RAW_BASE_URL}{remote_path}"
+    try:
+        r = requests.head(url, timeout=5)
+        exists = r.status_code == 200
+    except Exception:
+        exists = False
+    with _image_existence_cache_lock:
+        _image_existence_cache[remote_path] = {"exists": exists, "timestamp": time.time()}
+    return exists
+    
 def track_message(chat_id, message_id, text):
     if chat_id not in tracked_messages:
         tracked_messages[chat_id] = []
@@ -140,17 +159,20 @@ def get_image_bytes(bot, name, folder, url):
         remote_folder = folder
 
     github_url = f"{config.GITHUB_RAW_BASE_URL}{remote_folder}/{safe_name}.jpg"
-    data = _download_image(github_url)
-    if data:
-        bio = BytesIO(data)
-        bio.name = "image.jpg"
-        bio.seek(0)
-        return bio
+    
+    # Check existence cache to avoid unnecessary download attempts
+    if _image_exists_github(f"{remote_folder}/{safe_name}.jpg"):
+        data = _download_image(github_url)
+        if data:
+            bio = BytesIO(data)
+            bio.name = "image.jpg"
+            bio.seek(0)
+            return bio
 
+    # Fallback to original URL if provided
     if url:
         data = _download_image(url)
         if data:
-            import threading
             from github_uploader import upload_image_to_github
             def upload():
                 upload_image_to_github(bot, data, f"{safe_name}.jpg", remote_folder)
