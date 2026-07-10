@@ -1458,23 +1458,40 @@ def _payout_bets(bot, chat_id, winner_pick):
 # ---------------------------------------------------------------------------
 
 def post_daily_challenge(bot):
-    trivia_data = load_json_file(config.TRIVIA_DB) or []
-    if not trivia_data:
+    # Get today's theme category
+    character, theme_category = database.get_todays_character()
+    
+    # Load all trivia
+    all_trivia = database.load_trivia_from_github()
+    if not all_trivia:
         return
+
+    # Filter by theme category if available
+    if theme_category:
+        pool = [q for q in all_trivia if q.get("category", "").lower() == theme_category.lower()]
+    else:
+        pool = all_trivia  # fallback if no category given
+    
+    if not pool:
+        pool = all_trivia  # fallback if no questions match the theme
+
+    q = random.choice(pool)
+    options = q["options"]
+    answer = q["answer"]
 
     state = database.load_remote_json(config.DAILY_FILE, {})
     today = str(datetime.date.today())
     if state.get("date") == today:
         return
 
-    q       = random.choice(trivia_data)
-    options = q["options"]
-    answer  = q["answer"]
-
     state = {
-        "date": today, "question": q["question"], "options": options,
-        "answer": answer, "display": options[ord(answer) - ord("A")],
-        "category": q["category"], "answered": [],
+        "date": today,
+        "question": q["question"],
+        "options": options,
+        "answer": answer,
+        "display": options[ord(answer) - ord("A")],
+        "category": q["category"],
+        "answered": [],
     }
     database.save_remote_json(config.DAILY_FILE, state)
 
