@@ -1,17 +1,14 @@
 {
-    "date": "2026-07-09",
-    "question": "What type of pasta is shaped like small rice grains?",
+    "date": "2026-07-10",
+    "question": "What is the highest possible score in ten-pin bowling with one ball?",
     "options": [
-        "Penne",
-        "Orzo",
-        "Fusilli",
-        "Farfalle"
+        "10",
+        "300",
+        "200",
+        "100"
     ],
-    "answer": "B",
-    "display": "Orzo",
-    "category": "Food",
-    "answered": [
-        6231510981,
-        8234402535
-    ]
+    "answer": "A",
+    "display": "10",
+    "category": "Sports",
+    "answered": []
 }
