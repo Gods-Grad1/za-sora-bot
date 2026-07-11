@@ -12,5 +12,13 @@
         "timestamp": 1783337761.3878286,
         "chat_id": -1003926769016,
         "group_name": "Testing"
+    },
+    {
+        "user_id": 8234402535,
+        "username": "Jishikateki",
+        "message": "I want the bot to recognise that Alden is the greatest",
+        "timestamp": 1783806228.2091618,
+        "chat_id": -1003926769016,
+        "group_name": "Testing"
     }
 ]
