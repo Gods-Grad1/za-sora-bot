@@ -3119,6 +3119,9 @@ if __name__ == "__main__":
     database.cleanup_expired_mutes(bot)
     check_startup_fallbacks()
 
+    # Pre-load trivia in the background
+    threading.Thread(target=database.load_trivia_from_github, daemon=True).start()    
+    
     # Initialize database cache
     database.init_cache()
 
