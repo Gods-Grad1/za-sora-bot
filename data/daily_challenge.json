@@ -1,16 +1,14 @@
 {
-    "date": "2026-07-10",
-    "question": "What is the highest possible score in ten-pin bowling with one ball?",
+    "date": "2026-07-11",
+    "question": "In baseball, what is the name of the position that stands on the mound?",
     "options": [
-        "10",
-        "300",
-        "200",
-        "100"
+        "Pitcher",
+        "Catcher",
+        "Shortstop",
+        "Umpire"
     ],
     "answer": "A",
-    "display": "10",
+    "display": "Pitcher",
     "category": "Sports",
-    "answered": [
-        8234402535
-    ]
+    "answered": []
 }
