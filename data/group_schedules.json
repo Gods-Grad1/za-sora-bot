@@ -2,6 +2,7 @@
     "-1003926769016": {
         "schedule_message_id": 1631,
         "group_name": "Testing",
-        "interval": 30
+        "interval": 30,
+        "enabled": true
     }
 }
