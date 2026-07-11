@@ -152,7 +152,17 @@ def send_tracked(chat_id, text, parse_mode="Markdown", reply_markup=None, disabl
     )
     games.track_message(chat_id, msg.message_id, text)
     return msg
-    
+
+def reply_tracked(message, text, parse_mode="Markdown", reply_markup=None, disable_web_page_preview=False):
+    """Reply to a message and track it for future cleanup."""
+    return send_tracked(
+        message.chat.id,
+        text,
+        parse_mode=parse_mode,
+        reply_markup=reply_markup,
+        disable_web_page_preview=disable_web_page_preview
+    )
+
 # ---------------------------------------------------------------------------
 # HELP MENU (Public)
 # ---------------------------------------------------------------------------
