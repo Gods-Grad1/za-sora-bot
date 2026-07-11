@@ -1,5 +1,5 @@
 {
-    "enabled": true,
+    "enabled": false,
     "interval": 30,
     "game_type": "year",
     "window_start": 10,
@@ -10,6 +10,6 @@
     "tagall_pending_chat": 0,
     "answer_time_limit": 120,
     "last_morning_date": "2026-07-11",
-    "schedule_message_id": 2087,
+    "schedule_message_id": 1568,
     "last_game_per_group": {}
 }
