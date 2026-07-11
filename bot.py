@@ -780,8 +780,8 @@ def handle_all_messages(message):
             send_tracked(chat_id, config.WELCOME_MSG, parse_mode="Markdown")
 
     elif cmd == '/health' and is_admin(user_id):
-            import psutil
-            import os
+        import psutil
+        import os
 
         # Memory
         process = psutil.Process(os.getpid())
