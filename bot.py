@@ -1509,59 +1509,77 @@ def handle_all_messages(message):
         else:
             bot.send_message(chat_id, text, parse_mode="Markdown")
 
-    elif cmd == '/setschedule_group' and is_admin(user_id):
-    if args and len(args) >= 4:
+    # ========== PRESET COMMANDS ==========
+
+    elif cmd == '/savepreset' and is_admin(user_id):
+        if len(args) < 4:
+            bot.reply_to(message, "❌ Usage: /savepreset <name> <interval> <game_type> <enabled>\nExample: /savepreset year_60 60 year true")
+            return
+        name = args[0]
         try:
-            group_id = int(args[0])
             interval = int(args[1])
             game_type = args[2].lower()
             enabled = args[3].lower() in ["true", "yes", "1", "on"]
-
-            if game_type not in ["character", "year", "picture", "trivia", "random"]:
-                bot.reply_to(message, f"❌ Invalid game type. Choose from: character, year, picture, trivia, random")
-                return
-
-            settings = {
-                "enabled": enabled,
-                "interval": interval,
-                "game_type": game_type,
-                "window_start": 10,
-                "window_end": 23
-            }
-            database.set_group_schedule(group_id, settings)
-
-            try:
-                chat = bot.get_chat(group_id)
-                group_name = chat.title or f"Group {group_id}"
-            except Exception:
-                group_name = f"Group {group_id}"
-
-            bot.reply_to(message, f"✅ *{group_name}* schedule updated!\n\n"
-                                  f"📊 Enabled: {'✅' if enabled else '❌'}\n"
-                                  f"⏱️ Interval: {interval} min\n"
-                                  f"🎮 Type: {game_type.title()}")
-            return
         except ValueError:
-            bot.reply_to(message, "❌ Invalid group ID or interval. Use numbers.")
+            bot.reply_to(message, "❌ Invalid interval. Use a number.")
             return
-    else:
-        bot.reply_to(message, "📅 *SET GROUP SCHEDULE*\n\n"
-                              "Send me the settings in this format:\n\n"
-                              "`<group_id> <interval> <game_type> <enabled>`\n\n"
-                              "Example: `-100123456789 30 trivia true`\n\n"
-                              "Game types: character, year, picture, trivia, random\n"
-                              "Enabled: true or false\n\n"
-                              "Type `/cancel` to cancel.",
-                     parse_mode="Markdown")
-        database.save_json(bot, "admin_state.json", {"action": "setgroupschedule", "user_id": user_id})
-        
-    elif cmd == '/remove_schedule_group' and is_admin(user_id):
-        bot.reply_to(message, "🗑️ *REMOVE GROUP SCHEDULE*\n\n"
-                              "Send me the group ID:\n\n"
-                              "Example: `-100123456789`\n\n"
-                              "Type `/cancel` to cancel.",
-                     parse_mode="Markdown")
-        database.save_json(bot, "admin_state.json", {"action": "removegroupschedule", "user_id": user_id})
+        if game_type not in ["character", "year", "picture", "trivia", "random"]:
+            bot.reply_to(message, "❌ Invalid game type. Choose from: character, year, picture, trivia, random")
+            return
+        settings = {
+            "interval": interval,
+            "game_type": game_type,
+            "enabled": enabled,
+            "window_start": 10,
+            "window_end": 23
+        }
+        database.save_preset(name, settings)
+        bot.reply_to(message, f"✅ Preset *{name}* saved!\n📊 Interval: {interval} min\n🎮 Type: {game_type.title()}\n📌 Enabled: {'✅' if enabled else '❌'}")
+
+    elif cmd == '/applypreset' and is_admin(user_id):
+        if len(args) < 2:
+            bot.reply_to(message, "❌ Usage: /applypreset <group_id> <preset_name>\nExample: /applypreset -1003926769016 year_60")
+            return
+        try:
+            group_id = int(args[0])
+        except ValueError:
+            bot.reply_to(message, "❌ Invalid group ID.")
+            return
+        preset_name = args[1]
+        settings = database.get_preset(preset_name)
+        if not settings:
+            bot.reply_to(message, f"❌ Preset '{preset_name}' not found. Use /listpresets to see available presets.")
+            return
+        database.set_group_schedule(group_id, settings)
+        try:
+            chat = bot.get_chat(group_id)
+            group_name = chat.title or f"Group {group_id}"
+        except Exception:
+            group_name = f"Group {group_id}"
+        bot.reply_to(message, f"✅ *{group_name}* updated with preset *{preset_name}*!\n"
+                              f"📊 Interval: {settings['interval']} min\n🎮 Type: {settings['game_type'].title()}\n📌 Enabled: {'✅' if settings['enabled'] else '❌'}")
+
+    elif cmd == '/listpresets' and is_admin(user_id):
+        presets = database.list_presets()
+        if not presets:
+            bot.reply_to(message, "📭 No presets saved. Use /savepreset to create one.")
+            return
+        text = "📋 *SAVED PRESETS*\n\n"
+        for name, settings in presets.items():
+            text += f"• *{name}* – {settings['interval']}min, {settings['game_type'].title()}, Enabled: {'✅' if settings['enabled'] else '❌'}\n"
+        bot.reply_to(message, text, parse_mode="Markdown")
+
+    elif cmd == '/deletepreset' and is_admin(user_id):
+        if len(args) < 1:
+            bot.reply_to(message, "❌ Usage: /deletepreset <name>")
+            return
+        name = args[0]
+        if database.delete_preset(name):
+            bot.reply_to(message, f"✅ Preset *{name}* deleted.")
+        else:
+            bot.reply_to(message, f"❌ Preset '{name}' not found.")
+
+    # ========== END OF PRESET COMMANDS ==========
 
     elif cmd == '/reloadstats' and is_admin(user_id):
         database.reload_trivia()
