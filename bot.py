@@ -779,6 +779,62 @@ def handle_all_messages(message):
             print(f"Failed to send welcome GIF: {e}")
             send_tracked(chat_id, config.WELCOME_MSG, parse_mode="Markdown")
 
+    elif cmd == '/health' and is_admin(user_id):
+            import psutil
+            import os
+
+        # Memory
+        process = psutil.Process(os.getpid())
+        mem = process.memory_info()
+        mem_mb = mem.rss / 1024 / 1024
+
+        # CPU
+        cpu = process.cpu_percent(interval=0.5)
+
+        # Uptime
+        uptime_seconds = int(time.time() - BOT_START_TIME)
+        uptime = str(datetime.timedelta(seconds=uptime_seconds))
+
+        # Active games
+        active_games = len(games.active_games)
+        active_versus = len(games.versus_games)
+        active_lightning = len(games.lightning_sessions)
+
+        # Pending broadcasts
+        pending = database.get_pending_broadcasts()
+
+        # Tracked messages count
+        tracked_total = sum(len(msgs) for msgs in games.tracked_messages.values())
+
+        # Groups tracked
+        groups = database.get_all_groups()
+
+        # Last game per group (from scheduler.json)
+        sched = database.load_remote_json(config.SCHEDULER_FILE, {})
+        last_game_per_group = sched.get("last_game_per_group", {})
+
+        status_text = (
+            f"🤖 *Health Check*\n\n"
+            f"⏱️ *Uptime:* {uptime}\n"
+            f"🧠 *Memory:* {mem_mb:.1f} MB\n"
+            f"⚡ *CPU:* {cpu:.1f}%\n"
+            f"🎮 *Active Games:* {active_games}\n"
+            f"⚔️ *Active Versus:* {active_versus}\n"
+            f"⚡ *Active Lightning:* {active_lightning}\n"
+            f"📨 *Pending Broadcasts:* {len(pending)}\n"
+            f"📦 *Tracked Messages:* {tracked_total}\n"
+            f"👥 *Groups:* {len(groups)}\n"
+            f"📌 *Last Game Per Group:*\n"
+    )
+    for gid, ts in list(last_game_per_group.items())[:5]:
+        if ts:
+            dt = datetime.datetime.fromtimestamp(ts).strftime("%H:%M")
+            status_text += f"  • {gid}: {dt}\n"
+    if len(last_game_per_group) > 5:
+        status_text += f"  • ... and {len(last_game_per_group)-5} more\n"
+
+    send_tracked(chat_id, status_text, parse_mode="Markdown")
+    
     elif cmd == '/help':
         show_help(message)
 
