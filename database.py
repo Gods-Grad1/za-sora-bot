@@ -1158,6 +1158,36 @@ def set_weekly_table_opt_in(group_id, opt_in):
     return True
 
 # ---------------------------------------------------------------------------
+# PRESETS SYSTEM
+# ---------------------------------------------------------------------------
+
+def load_presets():
+    return load_remote_json(config.PRESETS_FILE, {})
+
+def save_presets(presets):
+    save_remote_json(config.PRESETS_FILE, presets)
+
+def save_preset(name, settings):
+    presets = load_presets()
+    presets[name] = settings
+    save_presets(presets)
+
+def get_preset(name):
+    presets = load_presets()
+    return presets.get(name)
+
+def delete_preset(name):
+    presets = load_presets()
+    if name in presets:
+        del presets[name]
+        save_presets(presets)
+        return True
+    return False
+
+def list_presets():
+    return load_presets()
+
+# ---------------------------------------------------------------------------
 # MESSAGE KEEP PATTERNS (for /clean command) – FINAL VERSION
 # ---------------------------------------------------------------------------
 
