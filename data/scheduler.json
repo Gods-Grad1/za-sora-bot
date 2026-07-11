@@ -4,12 +4,12 @@
     "game_type": "year",
     "window_start": 10,
     "window_end": 22,
-    "last_game": 1783795344,
+    "last_game": 1783795232,
     "tagall_last": 0,
     "tagall_pending_msg": "",
     "tagall_pending_chat": 0,
     "answer_time_limit": 120,
     "last_morning_date": "2026-07-11",
-    "schedule_message_id": 2087,
+    "schedule_message_id": 1566,
     "last_game_per_group": {}
 }
