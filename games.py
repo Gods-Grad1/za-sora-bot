@@ -745,21 +745,29 @@ def start_picture_game(bot, chat_id, category=None, user_id=None):
     cat_label = category.title() if category and category != "random" else "Character"
     hints = q.get('hints') or q.get('hint', 'No hints available.')
     hints_list = hints if isinstance(hints, list) else [hints]
+    aliases = q.get('aliases', [])  # <-- grab aliases
 
+    # Get original image
     img_data = get_image_bytes(bot, name, LOCAL_CHAR_DIR, img_url, subfolder)
     if not img_data:
         send_and_delete(bot, chat_id, "❌ Could not load image for this character.")
         return None
 
+    # Store original image bytes for later reveal
+    orig_img_bytes = img_data.getvalue()
+
+    # --- SCRAMBLE THE IMAGE ---
     from PIL import Image
     img = Image.open(img_data)
+    if img.mode != 'RGB':
+        img = img.convert('RGB')
     w, h = img.size
-    small = img.resize((w//8, h//8), Image.Resampling.NEAREST)
+    small = img.resize((w // 12, h // 12), Image.Resampling.NEAREST)
     scrambled = small.resize((w, h), Image.Resampling.NEAREST)
     bio = BytesIO()
-    scrambled.save(bio, 'PNG')
+    scrambled.save(bio, 'JPEG', quality=95)
     bio.seek(0)
-    bio.name = "scrambled.png"
+    bio.name = "scrambled.jpg"
 
     active_games[chat_id] = {
         "type": "picture",
@@ -769,6 +777,8 @@ def start_picture_game(bot, chat_id, category=None, user_id=None):
         "hints_used": 0,
         "img_url": img_url,
         "hints_list": hints_list,
+        "orig_img_bytes": orig_img_bytes,
+        "aliases": [a.lower() for a in aliases],  # <-- store aliases
     }
 
     last_game_type[chat_id] = "picture"
@@ -1703,7 +1713,6 @@ def check_user_answer(bot, message):
 
         pts, streak, mult, final = database.reward_user(bot, chat_id, user_id, username, base_pts)
         streak_txt = f"\n🔥 Streak: *{streak}* (x{mult})!" if streak > 1 else ""
-
         if double_down_active:
             streak_txt += " ⬆️ *Double Down active!*"
 
@@ -1712,16 +1721,38 @@ def check_user_answer(bot, message):
         markup.row(telebot.types.InlineKeyboardButton(
             "⏭️ Next Game", callback_data=f"nextgame_{chat_id}_{session['type']}"))
 
+        # --- REVEAL ORIGINAL IMAGE FOR PICTURE GAME ---
+        if session.get("type") == "picture" and session.get("orig_img_bytes"):
+            try:
+                from io import BytesIO
+                img_bytes = session["orig_img_bytes"]
+                img_bio = BytesIO(img_bytes)
+                img_bio.name = "reveal.jpg"
+                bot.send_photo(
+                    chat_id,
+                    img_bio,
+                    caption=f"🎉 *{username}* got it!\nIt was *{session['display']}*!\n+{final} pts{streak_txt}",
+                    reply_markup=markup,
+                    parse_mode="Markdown"
+                )
+                del active_games[chat_id]
+                return True
+            except Exception as e:
+                print(f"Failed to send reveal image: {e}")
+                # Fall through to text-only if image fails
+
+        # --- Text-only fallback for non-picture games or if image fails ---
         send_and_delete(
             bot,
             chat_id,
-            f"🎉 *CORRECT!* It was *{session['display']}*!\n"
-            f"+{final} pts (Total: {pts}){streak_txt}",
-            reply_markup=markup, parse_mode="Markdown"
+            f"🎉 *{username}* got it!\nIt was *{session['display']}*!\n+{final} pts{streak_txt}",
+            reply_markup=markup,
+            parse_mode="Markdown"
         )
         del active_games[chat_id]
         return True
 
+    # Wrong answer handling
     data = database.get_group_data()
     chat_str = str(chat_id)
     user_str = str(user_id)
