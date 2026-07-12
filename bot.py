@@ -2295,16 +2295,19 @@ def notify_missing_images():
     def to_filename(name):
         return re.sub(r'[^a-zA-Z0-9._-]', '_', name).strip('_')
 
-    def find_github(name, remote_path):
-        """Check if an image exists on GitHub at the given remote_path (e.g., 'characters/anime/Son_Goku.jpg')."""
-        safe_name = to_filename(name)
-        url = f"{config.GITHUB_RAW_BASE_URL}{remote_path}/{safe_name}.jpg"
+def find_github(name, remote_base):
+    safe_name = to_filename(name)
+    for ext in ['.jpg', '.jpeg', '.png', '.webp']:
+        full_remote = f"{remote_base}/{safe_name}{ext}"
+        url = f"{config.GITHUB_RAW_BASE_URL}{full_remote}"
         try:
             r = requests.head(url, timeout=5)
-            return r.status_code == 200
+            if r.status_code == 200:
+                return True
         except Exception:
-            return False
-
+            pass
+    return False
+    
     # Map database files to their subfolder paths
     char_subfolders = {
         config.CHAR_ANIME_DB: "characters/anime",
