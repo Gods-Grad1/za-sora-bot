@@ -12,30 +12,11 @@ import config
 import database
 
 # ---------------------------------------------------------------------------
-# TRACKED MESSAGES – For /clean command
+# TRACKED MESSAGES
 # ---------------------------------------------------------------------------
 
-tracked_messages = {}  # chat_id -> list of {"id": msg_id, "text": text, "timestamp": ts}
-_image_existence_cache = {}
-_image_existence_cache_lock = threading.Lock()
-IMAGE_EXISTENCE_TTL = 86400
+tracked_messages = {}
 
-def _image_exists_github(remote_path):
-    global _image_existence_cache
-    with _image_existence_cache_lock:
-        cached = _image_existence_cache.get(remote_path)
-        if cached and time.time() - cached["timestamp"] < IMAGE_EXISTENCE_TTL:
-            return cached["exists"]
-    url = f"{config.GITHUB_RAW_BASE_URL}{remote_path}"
-    try:
-        r = requests.head(url, timeout=5)
-        exists = r.status_code == 200
-    except Exception:
-        exists = False
-    with _image_existence_cache_lock:
-        _image_existence_cache[remote_path] = {"exists": exists, "timestamp": time.time()}
-    return exists
-    
 def track_message(chat_id, message_id, text):
     if chat_id not in tracked_messages:
         tracked_messages[chat_id] = []
@@ -44,7 +25,6 @@ def track_message(chat_id, message_id, text):
         "text": text,
         "timestamp": time.time()
     })
-    # Limit to 500 messages per chat (FIFO)
     if len(tracked_messages[chat_id]) > 500:
         tracked_messages[chat_id] = tracked_messages[chat_id][-500:]
 
@@ -56,10 +36,10 @@ def clear_tracked_messages(chat_id):
         tracked_messages[chat_id] = []
 
 # ---------------------------------------------------------------------------
-# AUTO CLEANUP – removes messages older than 72 hours
+# AUTO CLEANUP (36 HOURS)
 # ---------------------------------------------------------------------------
 
-def auto_clean_old_messages(bot, max_age_hours=36):  # Changed from 72 to 47
+def auto_clean_old_messages(bot, max_age_hours=36):
     """Delete tracked messages older than max_age_hours from Telegram."""
     now = time.time()
     cutoff = now - (max_age_hours * 3600)
@@ -76,6 +56,26 @@ def auto_clean_old_messages(bot, max_age_hours=36):  # Changed from 72 to 47
     if total_deleted:
         print(f"🧹 Auto-cleanup deleted {total_deleted} old messages.")
     return total_deleted
+
+# ---------------------------------------------------------------------------
+# IMAGE CACHE CLEANER
+# ---------------------------------------------------------------------------
+
+def clean_old_image_cache(max_age_days=7):
+    """Delete cached images older than max_age_days from the image cache directory."""
+    deleted = 0
+    now = time.time()
+    cutoff = now - (max_age_days * 86400)
+    for root, dirs, files in os.walk(IMAGE_CACHE_DIR):
+        for f in files:
+            filepath = os.path.join(root, f)
+            try:
+                if os.path.getmtime(filepath) < cutoff:
+                    os.remove(filepath)
+                    deleted += 1
+            except Exception:
+                pass
+    return deleted
 
 # ---------------------------------------------------------------------------
 # AUTO-DELETE HELPERS
@@ -108,7 +108,7 @@ def send_photo_and_delete(bot, chat_id, photo, caption="", reply_markup=None, pa
     return msg
 
 # ---------------------------------------------------------------------------
-# IMAGE SYSTEM (GitHub → URL, with upload)
+# IMAGE SYSTEM – with subfolder support
 # ---------------------------------------------------------------------------
 
 IMAGE_CACHE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "game_image_cache")
@@ -120,6 +120,11 @@ _IMG_HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
     "Referer":    "https://www.themoviedb.org/"
 }
+
+# Image existence cache (reduces GitHub HEAD requests)
+_image_existence_cache = {}
+_image_existence_cache_lock = threading.Lock()
+IMAGE_EXISTENCE_TTL = 86400  # 24 hours
 
 def _ensure_dirs():
     for d in [IMAGE_CACHE_DIR, LOCAL_CHAR_DIR, LOCAL_MEDIA_DIR]:
@@ -147,20 +152,41 @@ def _download_image(url, retries=3):
                 time.sleep(3 * attempt)
     return None
 
-def get_image_bytes(bot, name, folder, url):
+def _image_exists_github(remote_path):
+    """Check if an image exists on GitHub using a cache."""
+    global _image_existence_cache
+    with _image_existence_cache_lock:
+        cached = _image_existence_cache.get(remote_path)
+        if cached and time.time() - cached["timestamp"] < IMAGE_EXISTENCE_TTL:
+            return cached["exists"]
+    url = f"{config.GITHUB_RAW_BASE_URL}{remote_path}"
+    try:
+        r = requests.head(url, timeout=5)
+        exists = r.status_code == 200
+    except Exception:
+        exists = False
+    with _image_existence_cache_lock:
+        _image_existence_cache[remote_path] = {"exists": exists, "timestamp": time.time()}
+    return exists
+
+def get_image_bytes(bot, name, folder, url, subfolder=None):
     _ensure_dirs()
     safe_name = _name_to_filename(name)
 
     if folder == config.LOCAL_CHAR_IMAGES_DIR:
         remote_folder = "characters"
+        if subfolder:
+            remote_folder += f"/{subfolder}"
     elif folder == config.LOCAL_MEDIA_IMAGES_DIR:
         remote_folder = "media"
+        if subfolder:
+            remote_folder += f"/{subfolder}"
     else:
         remote_folder = folder
 
     github_url = f"{config.GITHUB_RAW_BASE_URL}{remote_folder}/{safe_name}.jpg"
     
-    # Check existence cache to avoid unnecessary download attempts
+    # Check existence cache before attempting download
     if _image_exists_github(f"{remote_folder}/{safe_name}.jpg"):
         data = _download_image(github_url)
         if data:
@@ -169,7 +195,7 @@ def get_image_bytes(bot, name, folder, url):
             bio.seek(0)
             return bio
 
-    # Fallback to original URL if provided
+    # Fallback to original URL
     if url:
         data = _download_image(url)
         if data:
@@ -217,14 +243,13 @@ def _load_all(db_list):
     return result
 
 # ---------------------------------------------------------------------------
-# CHARACTER CACHE (load once)
+# CHARACTER CACHE
 # ---------------------------------------------------------------------------
 
 _character_cache = None
 _character_cache_lock = threading.Lock()
 
 def get_all_characters():
-    """Get cached list of all characters, loading from disk once."""
     global _character_cache
     with _character_cache_lock:
         if _character_cache is None:
@@ -233,15 +258,10 @@ def get_all_characters():
         return _character_cache
 
 def reload_characters():
-    """Force reload character cache (e.g., after data update)."""
     global _character_cache
     with _character_cache_lock:
         _character_cache = None
     return get_all_characters()
-
-# ---------------------------------------------------------------------------
-# PRECACHE IMAGES (background thread)
-# ---------------------------------------------------------------------------
 
 def _precache_all_images(bot):
     _ensure_dirs()
@@ -256,7 +276,7 @@ def _precache_all_images(bot):
             if not url:
                 continue
             safe_name = _name_to_filename(entry.get('name') or entry.get('title'))
-            if entry in config.CHAR_ALL_DBS:
+            if db_path in config.CHAR_ALL_DBS:
                 remote_folder = "characters"
             else:
                 remote_folder = "media"
@@ -302,10 +322,8 @@ def _check_one_game_lock(bot, chat_id, user_id, game_type=None, category=None):
     if database.is_muted(bot, chat_id, user_id):
         bot.send_message(chat_id, "🔇 You are muted! Wait until your mute expires.")
         return True
-
     if not _is_game_active(chat_id) and chat_id not in versus_games:
         return False
-
     if user_id == config.ADMIN_ID:
         pending_admin_actions[chat_id] = {'type': game_type, 'category': category}
         import telebot
@@ -318,17 +336,11 @@ def _check_one_game_lock(bot, chat_id, user_id, game_type=None, category=None):
                          "⚠️ A game is already in progress. Do you want to stop it and start a new one?",
                          reply_markup=markup, parse_mode="Markdown")
         return True
-
     if chat_id in versus_games:
         bot.send_message(chat_id, "⚠️ A versus match is currently in progress. Please wait until it finishes.")
         return True
-
     bot.send_message(chat_id, "⚠️ A game is already in progress! Answer it, use /stop to cancel, or wait for the timer.")
     return True
-
-# ---------------------------------------------------------------------------
-# SCHEDULER HELPER – Update last_game timestamp on game START (PERSISTENT)
-# ---------------------------------------------------------------------------
 
 def _update_scheduler_last_game():
     try:
@@ -356,8 +368,8 @@ def _game_markup(chat_id, game_type):
     markup.row(*buttons)
     return markup
 
-def _send_game_message(bot, chat_id, text, name, folder, url, markup=None, delay=config.GAME_AUTO_DELETE_DELAY):
-    img_data = get_image_bytes(bot, name, folder, url)
+def _send_game_message(bot, chat_id, text, name, folder, url, subfolder=None, markup=None, delay=config.GAME_AUTO_DELETE_DELAY):
+    img_data = get_image_bytes(bot, name, folder, url, subfolder)
     kwargs = {"parse_mode": "Markdown"}
     if markup:
         kwargs["reply_markup"] = markup
@@ -374,18 +386,18 @@ def _send_game_message(bot, chat_id, text, name, folder, url, markup=None, delay
     send_and_delete(bot, chat_id, text, delay=delay, **kwargs)
 
 # ---------------------------------------------------------------------------
-# CATEGORY PICKER MENUS
+# CATEGORY PICKERS
 # ---------------------------------------------------------------------------
 
 def send_character_category_picker(bot, chat_id):
     import telebot
     markup = telebot.types.InlineKeyboardMarkup(row_width=2)
     markup.add(
-        telebot.types.InlineKeyboardButton("🌸 Anime",   callback_data="charcat_anime"),
-        telebot.types.InlineKeyboardButton("🦸 DC",      callback_data="charcat_dc"),
-        telebot.types.InlineKeyboardButton("⚡ Marvel",  callback_data="charcat_marvel"),
-        telebot.types.InlineKeyboardButton("🎮 Gaming",  callback_data="charcat_gaming"),
-        telebot.types.InlineKeyboardButton("🎲 Random",  callback_data="charcat_random"),
+        telebot.types.InlineKeyboardButton("🌸 Anime", callback_data="charcat_anime"),
+        telebot.types.InlineKeyboardButton("🦸 DC", callback_data="charcat_dc"),
+        telebot.types.InlineKeyboardButton("⚡ Marvel", callback_data="charcat_marvel"),
+        telebot.types.InlineKeyboardButton("🎮 Gaming", callback_data="charcat_gaming"),
+        telebot.types.InlineKeyboardButton("🎲 Random", callback_data="charcat_random"),
     )
     send_and_delete(bot, chat_id, "👤 *GUESS THE CHARACTER*\n\nChoose a category:",
                      reply_markup=markup, parse_mode="Markdown")
@@ -394,11 +406,11 @@ def send_year_category_picker(bot, chat_id):
     import telebot
     markup = telebot.types.InlineKeyboardMarkup(row_width=2)
     markup.add(
-        telebot.types.InlineKeyboardButton("🎬 Movies",       callback_data="yearcat_movies"),
+        telebot.types.InlineKeyboardButton("🎬 Movies", callback_data="yearcat_movies"),
         telebot.types.InlineKeyboardButton("📺 Anime Series", callback_data="yearcat_anime_series"),
-        telebot.types.InlineKeyboardButton("🎥 Anime Films",  callback_data="yearcat_anime_films"),
-        telebot.types.InlineKeyboardButton("🎨 Animation",    callback_data="yearcat_animation"),
-        telebot.types.InlineKeyboardButton("🎲 Random",       callback_data="yearcat_random"),
+        telebot.types.InlineKeyboardButton("🎥 Anime Films", callback_data="yearcat_anime_films"),
+        telebot.types.InlineKeyboardButton("🎨 Animation", callback_data="yearcat_animation"),
+        telebot.types.InlineKeyboardButton("🎲 Random", callback_data="yearcat_random"),
     )
     send_and_delete(bot, chat_id, "🎬 *GUESS THE YEAR*\n\nChoose a category:",
                      reply_markup=markup, parse_mode="Markdown")
@@ -521,18 +533,19 @@ def start_character_game(bot, chat_id, category=None, user_id=None):
     if user_id and _check_one_game_lock(bot, chat_id, user_id, game_type="character", category=category):
         return None
 
-    # Use cached characters
-    db_path    = config.CHAR_CATEGORIES.get((category or "random").lower())
+    db_path = config.CHAR_CATEGORIES.get((category or "random").lower())
     if db_path and category != "random":
         characters = load_json_file(db_path)
+        subfolder = category.lower() if category in ["anime", "dc", "marvel", "gaming"] else None
     else:
         characters = get_all_characters()
+        subfolder = None
 
     if not characters:
         send_and_delete(bot, chat_id, "⚠️ No characters found.")
         return None
 
-    q       = random.choice(characters)
+    q = random.choice(characters)
     name    = str(q.get('name', 'Unknown')).strip()
     hints   = q.get('hints') or q.get('hint', 'No hints available.')
     img_url = q.get('image') or q.get('image_url') or q.get('img')
@@ -564,7 +577,7 @@ def start_character_game(bot, chat_id, category=None, user_id=None):
     text += f"\n⏱️ *{time_limit}s to answer!*  💡 /hint for a clue (-{config.POINTS_HINT_PENALTY} pts)"
 
     markup = _game_markup(chat_id, "character")
-    _send_game_message(bot, chat_id, text, name, LOCAL_CHAR_DIR, img_url, markup)
+    _send_game_message(bot, chat_id, text, name, LOCAL_CHAR_DIR, img_url, subfolder, markup)
 
     _start_timer(bot, chat_id, time_limit)
     _update_scheduler_last_game()
@@ -585,12 +598,23 @@ def start_year_game(bot, chat_id, category=None, user_id=None):
         send_and_delete(bot, chat_id, "⚠️ No media found.")
         return None
 
-    q          = random.choice(items)
+    q = random.choice(items)
     title      = q.get('title', 'Unknown Title')
     media_type = q.get('type', 'Media')
     year       = str(q.get('year', '????')).strip()
     img_url    = q.get('image') or q.get('image_url') or q.get('img') or q.get('poster')
     cat_label  = category.replace("_", " ").title() if category and category != "random" else media_type
+
+    if category == "movies":
+        subfolder = "movies"
+    elif category == "anime_series":
+        subfolder = "anime_series"
+    elif category == "anime_films":
+        subfolder = "anime_films"
+    elif category == "animation":
+        subfolder = "animation"
+    else:
+        subfolder = None
 
     all_years = [item.get('year') for item in items if item.get('year') and item.get('year') != year]
     random.shuffle(all_years)
@@ -636,7 +660,7 @@ def start_year_game(bot, chat_id, category=None, user_id=None):
         f"⏱️ *{time_limit}s to answer!*"
     )
 
-    _send_game_message(bot, chat_id, text, title, LOCAL_MEDIA_DIR, img_url, markup)
+    _send_game_message(bot, chat_id, text, title, LOCAL_MEDIA_DIR, img_url, subfolder, markup)
     _start_timer(bot, chat_id, time_limit)
     _update_scheduler_last_game()
     return q
@@ -695,15 +719,17 @@ def start_picture_game(bot, chat_id, category=None, user_id=None):
     db_path = config.CHAR_CATEGORIES.get((category or "random").lower())
     if not db_path:
         db_path = config.CHAR_ANIME_DB
-    # Use cached characters if category is random
     if category == "random" or not db_path:
         items = get_all_characters()
+        subfolder = None
     else:
         items = load_json_file(db_path) or []
+        subfolder = category.lower() if category in ["anime", "dc", "marvel", "gaming"] else None
 
     if not items:
         send_and_delete(bot, chat_id, "⚠️ No items found.")
         return None
+
     q = random.choice(items)
     name = str(q.get('name', 'Unknown')).strip()
     img_url = q.get('image') or q.get('image_url') or q.get('img')
@@ -711,7 +737,7 @@ def start_picture_game(bot, chat_id, category=None, user_id=None):
     hints = q.get('hints') or q.get('hint', 'No hints available.')
     hints_list = hints if isinstance(hints, list) else [hints]
 
-    img_data = get_image_bytes(bot, name, LOCAL_CHAR_DIR, img_url)
+    img_data = get_image_bytes(bot, name, LOCAL_CHAR_DIR, img_url, subfolder)
     if not img_data:
         send_and_delete(bot, chat_id, "❌ Could not load image for this character.")
         return None
@@ -818,9 +844,9 @@ def start_trivia_game(bot, chat_id, category=None, user_id=None):
         send_and_delete(bot, chat_id, f"⚠️ No questions found for: {category}")
         return None
 
-    q       = random.choice(pool)
+    q = random.choice(pool)
     options = q["options"]
-    answer  = q["answer"]
+    answer = q["answer"]
 
     fifty_fifty_used = False
     if user_id:
@@ -1482,7 +1508,7 @@ def _payout_bets(bot, chat_id, winner_pick):
 def post_daily_challenge(bot):
     # Get today's theme category
     character, theme_category = database.get_todays_character()
-    
+
     # Load all trivia
     all_trivia = database.load_trivia_from_github()
     if not all_trivia:
@@ -1492,8 +1518,8 @@ def post_daily_challenge(bot):
     if theme_category:
         pool = [q for q in all_trivia if q.get("category", "").lower() == theme_category.lower()]
     else:
-        pool = all_trivia  # fallback if no category given
-    
+        pool = all_trivia
+
     if not pool:
         pool = all_trivia  # fallback if no questions match the theme
 
