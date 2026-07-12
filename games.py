@@ -159,7 +159,7 @@ def _image_exists_github(remote_path):
         cached = _image_existence_cache.get(remote_path)
         if cached and time.time() - cached["timestamp"] < IMAGE_EXISTENCE_TTL:
             return cached["exists"]
-    url = f"{config.GITHUB_RAW_BASE_URL}{remote_path}"
+    url = f"{config.GITHUB_RAW_IMAGES_URL}{remote_path}"
     try:
         r = requests.head(url, timeout=5)
         exists = r.status_code == 200
@@ -184,7 +184,7 @@ def get_image_bytes(bot, name, folder, url, subfolder=None):
     else:
         remote_folder = folder
 
-    github_url = f"{config.GITHUB_RAW_BASE_URL}{remote_folder}/{safe_name}.jpg"
+    github_url = f"{config.GITHUB_RAW_IMAGES_URL}{remote_folder}/{safe_name}.jpg"
     
     # Check existence cache before attempting download
     if _image_exists_github(f"{remote_folder}/{safe_name}.jpg"):
@@ -280,7 +280,7 @@ def _precache_all_images(bot):
                 remote_folder = "characters"
             else:
                 remote_folder = "media"
-            github_url = f"{config.GITHUB_RAW_BASE_URL}{remote_folder}/{safe_name}.jpg"
+            github_url = f"{config.GITHUB_RAW_IMAGES_URL}{remote_folder}/{safe_name}.jpg"
             if _download_image(github_url):
                 skipped += 1
                 continue
