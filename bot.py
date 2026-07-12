@@ -526,6 +526,45 @@ def send_goodnight_message(bot):
         database.log_error_to_admin(bot, "Goodnight Message Overall", e)
 
 # ---------------------------------------------------------------------------
+# DAILY STATS
+# ---------------------------------------------------------------------------
+
+def send_daily_stats(bot):
+    """Send a daily summary to the Captain."""
+    try:
+        groups = database.get_all_groups()
+        total_members = sum(len(database.get_all_members(gid)) for gid in groups)
+        total_games = 0
+        total_points = 0
+        active_groups = 0
+        
+        data = database.get_group_data()
+        for gid in groups:
+            chat_str = str(gid)
+            if chat_str in data:
+                users = data[chat_str]
+                total_games += sum(u.get("games_played", 0) for u in users.values())
+                total_points += sum(u.get("alltime_points", 0) for u in users.values())
+                if users:
+                    active_groups += 1
+        
+        pending = database.get_pending_broadcasts()
+        
+        msg = (
+            f"📊 *DAILY STATS* – {local_now().strftime('%Y-%m-%d')}\n\n"
+            f"👥 *Groups:* {len(groups)}\n"
+            f"👤 *Members:* {total_members}\n"
+            f"🎮 *Games played:* {total_games}\n"
+            f"💰 *Points distributed:* {total_points}\n"
+            f"📨 *Pending broadcasts:* {len(pending)}\n"
+            f"🏃 *Active groups:* {active_groups}\n"
+        )
+        bot.send_message(config.ADMIN_ID, msg, parse_mode="Markdown")
+        print("📊 Daily stats sent to Captain.")
+    except Exception as e:
+        print(f"❌ Daily stats error: {e}")
+
+# ---------------------------------------------------------------------------
 # BROADCAST HELPERS
 # ---------------------------------------------------------------------------
 
@@ -2080,6 +2119,11 @@ def background_scheduler():
                     games.post_daily_challenge(bot)
                     time.sleep(61)
 
+                # Send daily stats at 9:00 AM every day except Sunday (to avoid overlapping with weekly recap)
+                if hour == 9 and minute == 0 and now.weekday() != 6:
+                    send_daily_stats(bot)
+                    time.sleep(61)
+
                 if now.weekday() == 6 and hour == 0 and minute == 0:
                     graphics.clear_and_rebuild_disk_cache(bot)
                     time.sleep(61)
@@ -2167,6 +2211,21 @@ def background_scheduler():
         database.log_error_to_admin(bot, "Scheduler FATAL", fatal)
 
 # ---------------------------------------------------------------------------
+# IMAGE CACHE CLEANER THREAD
+# ---------------------------------------------------------------------------
+
+def image_cache_cleaner_loop():
+    """Run weekly image cache cleanup."""
+    while True:
+        time.sleep(604800)  # 7 days
+        try:
+            deleted = games.clean_old_image_cache(max_age_days=7)
+            if deleted:
+                print(f"🧹 Image cache cleaned: {deleted} files removed.")
+        except Exception as e:
+            print(f"❌ Image cache clean error: {e}")
+
+# ---------------------------------------------------------------------------
 # THREAD SUPERVISOR
 # ---------------------------------------------------------------------------
 
@@ -2213,14 +2272,14 @@ def thread_supervisor():
         time.sleep(30)
 
 # ---------------------------------------------------------------------------
-# AUTO CLEANUP THREAD
+# AUTO CLEANUP THREAD (36 HOURS)
 # ---------------------------------------------------------------------------
 
 def auto_cleanup_loop():
     while True:
-        time.sleep(21600)
+        time.sleep(21600)  # 6 hours
         try:
-            deleted = games.auto_clean_old_messages(bot, max_age_hours=47)
+            deleted = games.auto_clean_old_messages(bot, max_age_hours=36)
             if deleted:
                 print(f"🧹 Auto-cleanup deleted {deleted} old messages.")
         except Exception as e:
@@ -2605,6 +2664,7 @@ if __name__ == "__main__":
     start_cache_saver()
     auto_cleanup_thread = threading.Thread(target=auto_cleanup_loop, daemon=True)
     auto_cleanup_thread.start()
+    threading.Thread(target=image_cache_cleaner_loop, daemon=True).start()
     threading.Thread(target=thread_supervisor, daemon=True).start()
     threading.Thread(target=notify_missing_images, daemon=True).start()
     print("✅ Bot is live!")
