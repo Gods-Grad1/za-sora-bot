@@ -59,7 +59,7 @@ def clear_tracked_messages(chat_id):
 # AUTO CLEANUP – removes messages older than 72 hours
 # ---------------------------------------------------------------------------
 
-def auto_clean_old_messages(bot, max_age_hours=47):  # Changed from 72 to 47
+def auto_clean_old_messages(bot, max_age_hours=36):  # Changed from 72 to 47
     """Delete tracked messages older than max_age_hours from Telegram."""
     now = time.time()
     cutoff = now - (max_age_hours * 3600)
