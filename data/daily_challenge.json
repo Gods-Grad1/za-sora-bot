@@ -1,16 +1,14 @@
 {
-    "date": "2026-07-11",
-    "question": "In baseball, what is the name of the position that stands on the mound?",
+    "date": "2026-07-12",
+    "question": "Which prophet was known for his visions of apocalyptic scenes?",
     "options": [
-        "Pitcher",
-        "Catcher",
-        "Shortstop",
-        "Umpire"
+        "Daniel",
+        "Ezekiel",
+        "Isaiah",
+        "Zechariah"
     ],
     "answer": "A",
-    "display": "Pitcher",
-    "category": "Sports",
-    "answered": [
-        8234402535
-    ]
+    "display": "Daniel",
+    "category": "Bible",
+    "answered": []
 }
