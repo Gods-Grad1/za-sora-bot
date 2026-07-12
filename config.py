@@ -13,7 +13,7 @@ CURRENT_TABLE_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSh6Ulx
 FIXTURES_CSV_URL      = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSh6Ulx9_QZOrrAFNA4l1zj3Gv16HCpLilwhudvSJu4zUeMEoQDn5MM7UFe4c2hoUVSr0JYdNOggi-_/pub?gid=745306980&single=true&output=csv"
 
 # --- GITHUB IMAGE BACKUP ---
-GITHUB_RAW_BASE_URL = "https://raw.githubusercontent.com/Gods-Grad1/za-sora-bot/main/images/"
+GITHUB_RAW_BASE_URL = f"https://raw.githubusercontent.com/{GITHUB_REPO}/{TRIVIA_BRANCH}/images/"
 GITHUB_RAW_IMAGES_URL = f"https://raw.githubusercontent.com/{GITHUB_REPO}/{TRIVIA_BRANCH}/images/"
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "")
 GITHUB_REPO  = "Gods-Grad1/za-sora-bot"
