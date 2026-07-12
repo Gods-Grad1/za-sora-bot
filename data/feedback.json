@@ -20,5 +20,13 @@
         "timestamp": 1783806228.2091618,
         "chat_id": -1003926769016,
         "group_name": "Testing"
+    },
+    {
+        "user_id": 7616377296,
+        "username": "Michaela",
+        "message": "why does the bot tell me to sleep at 10pm but the creator dont sleep at 10pm? ... Hypocrisy",
+        "timestamp": 1783889843.8841197,
+        "chat_id": -1003926769016,
+        "group_name": "Testing"
     }
 ]
