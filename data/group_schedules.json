@@ -3,6 +3,6 @@
         "schedule_message_id": 1656,
         "group_name": "Testing",
         "interval": 30,
-        "enabled": true
+        "enabled": false
     }
 }
