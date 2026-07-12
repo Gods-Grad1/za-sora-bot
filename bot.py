@@ -236,7 +236,6 @@ def tag_all_members(message, custom_msg=""):
         telebot.types.InlineKeyboardButton("✅ Confirm Send", callback_data="tagall_confirm"),
         telebot.types.InlineKeyboardButton("❌ Cancel", callback_data="tagall_cancel")
     )
-    # Store pending info in memory (not in scheduler.json)
     _tagall_pending[message.chat.id] = {"msg": custom_msg, "user": message.from_user.id}
     reply_tracked(message, f"📢 *Tag All Preview:*\n\n{custom_msg}\n\nThis will tag all {len(database.get_all_members(message.chat.id))} tracked members. Confirm?", reply_markup=markup, parse_mode="Markdown")
 
@@ -289,7 +288,7 @@ def show_quotes_page(chat_id, page=1):
     return text, markup
 
 # ---------------------------------------------------------------------------
-# CAPTAIN'S CABIN (UPDATED)
+# CAPTAIN'S CABIN (UPDATED with Health Check button)
 # ---------------------------------------------------------------------------
 
 def show_admin_panel(message):
@@ -313,6 +312,7 @@ def show_admin_panel(message):
         telebot.types.InlineKeyboardButton("🖼️ Generate All Banners",  callback_data="admin_generateall"),
         telebot.types.InlineKeyboardButton("🔧 Setup Generated",       callback_data="admin_setupgenerated"),
         telebot.types.InlineKeyboardButton("📊 Bot Status",            callback_data="admin_status"),
+        telebot.types.InlineKeyboardButton("📊 Health Check",          callback_data="admin_health"),
         telebot.types.InlineKeyboardButton("📤 Force Broadcast",       callback_data="admin_forcebroadcast"),
         telebot.types.InlineKeyboardButton("🔄 Check Broadcasts",      callback_data="admin_checknow"),
         telebot.types.InlineKeyboardButton("📋 List Broadcasts",       callback_data="admin_listbroadcasts"),
@@ -779,62 +779,6 @@ def handle_all_messages(message):
             print(f"Failed to send welcome GIF: {e}")
             send_tracked(chat_id, config.WELCOME_MSG, parse_mode="Markdown")
 
-    elif cmd == '/health' and is_admin(user_id):
-        import psutil
-        import os
-
-        # Memory
-        process = psutil.Process(os.getpid())
-        mem = process.memory_info()
-        mem_mb = mem.rss / 1024 / 1024
-
-        # CPU
-        cpu = process.cpu_percent(interval=0.5)
-
-        # Uptime
-        uptime_seconds = int(time.time() - BOT_START_TIME)
-        uptime = str(datetime.timedelta(seconds=uptime_seconds))
-
-        # Active games
-        active_games = len(games.active_games)
-        active_versus = len(games.versus_games)
-        active_lightning = len(games.lightning_sessions)
-
-        # Pending broadcasts
-        pending = database.get_pending_broadcasts()
-
-        # Tracked messages count
-        tracked_total = sum(len(msgs) for msgs in games.tracked_messages.values())
-
-        # Groups tracked
-        groups = database.get_all_groups()
-
-        # Last game per group (from scheduler.json)
-        sched = database.load_remote_json(config.SCHEDULER_FILE, {})
-        last_game_per_group = sched.get("last_game_per_group", {})
-
-        status_text = (
-            f"🤖 *Health Check*\n\n"
-            f"⏱️ *Uptime:* {uptime}\n"
-            f"🧠 *Memory:* {mem_mb:.1f} MB\n"
-            f"⚡ *CPU:* {cpu:.1f}%\n"
-            f"🎮 *Active Games:* {active_games}\n"
-            f"⚔️ *Active Versus:* {active_versus}\n"
-            f"⚡ *Active Lightning:* {active_lightning}\n"
-            f"📨 *Pending Broadcasts:* {len(pending)}\n"
-            f"📦 *Tracked Messages:* {tracked_total}\n"
-            f"👥 *Groups:* {len(groups)}\n"
-            f"📌 *Last Game Per Group:*\n"
-    )
-    for gid, ts in list(last_game_per_group.items())[:5]:
-        if ts:
-            dt = datetime.datetime.fromtimestamp(ts).strftime("%H:%M")
-            status_text += f"  • {gid}: {dt}\n"
-    if len(last_game_per_group) > 5:
-        status_text += f"  • ... and {len(last_game_per_group)-5} more\n"
-
-    send_tracked(chat_id, status_text, parse_mode="Markdown")
-    
     elif cmd == '/help':
         show_help(message)
 
@@ -883,6 +827,49 @@ def handle_all_messages(message):
             handle_status(message)
         else:
             reply_tracked(message, "❌ Captain only.")
+
+    elif cmd == '/health' and is_admin(user_id):
+        try:
+            import psutil
+            import os
+            process = psutil.Process(os.getpid())
+            mem = process.memory_info()
+            mem_mb = mem.rss / 1024 / 1024
+            cpu = process.cpu_percent(interval=0.5)
+            uptime_seconds = int(time.time() - BOT_START_TIME)
+            uptime = str(datetime.timedelta(seconds=uptime_seconds))
+            active_games = len(games.active_games)
+            active_versus = len(games.versus_games)
+            active_lightning = len(games.lightning_sessions)
+            pending = database.get_pending_broadcasts()
+            tracked_total = sum(len(msgs) for msgs in games.tracked_messages.values())
+            groups = database.get_all_groups()
+            sched = database.load_remote_json(config.SCHEDULER_FILE, {})
+            last_game_per_group = sched.get("last_game_per_group", {})
+            status_text = (
+                f"🤖 *Health Check*\n\n"
+                f"⏱️ *Uptime:* {uptime}\n"
+                f"🧠 *Memory:* {mem_mb:.1f} MB\n"
+                f"⚡ *CPU:* {cpu:.1f}%\n"
+                f"🎮 *Active Games:* {active_games}\n"
+                f"⚔️ *Active Versus:* {active_versus}\n"
+                f"⚡ *Active Lightning:* {active_lightning}\n"
+                f"📨 *Pending Broadcasts:* {len(pending)}\n"
+                f"📦 *Tracked Messages:* {tracked_total}\n"
+                f"👥 *Groups:* {len(groups)}\n"
+                f"📌 *Last Game Per Group:*\n"
+            )
+            for gid, ts in list(last_game_per_group.items())[:5]:
+                if ts:
+                    dt = datetime.datetime.fromtimestamp(ts).strftime("%H:%M")
+                    status_text += f"  • {gid}: {dt}\n"
+            if len(last_game_per_group) > 5:
+                status_text += f"  • ... and {len(last_game_per_group)-5} more\n"
+            send_tracked(chat_id, status_text, parse_mode="Markdown")
+        except ImportError:
+            send_tracked(chat_id, "❌ `psutil` not installed. Add it to requirements.txt", parse_mode="Markdown")
+        except Exception as e:
+            send_tracked(chat_id, f"❌ Health check error: {e}", parse_mode="Markdown")
 
     elif cmd == '/table':
         show_league_table(message)
@@ -1044,21 +1031,16 @@ def handle_all_messages(message):
         if chat_id == config.ADMIN_ID:
             reply_tracked(message, "❌ This command is for groups only. Use it in the group chat.")
             return
-        # Only group admins and Captain can use this
         if not is_authorized(chat_id, user_id):
             reply_tracked(message, "❌ You need to be a group admin or the Captain to configure the schedule.")
             return
-        # Check if we have a stored message ID for this group
         msg_id = database.get_group_schedule_message_id(chat_id)
         if msg_id:
-            # Try to edit the existing panel
             try:
                 show_schedule_panel(chat_id, edit_message_id=msg_id)
                 return
             except Exception:
-                # If editing fails, we'll send a new one (fall-through)
                 pass
-        # Send new panel
         show_schedule_panel(chat_id)
 
     elif cmd == '/setwindow' and is_authorized(chat_id, user_id):
@@ -1076,7 +1058,6 @@ def handle_all_messages(message):
         sched["window_start"] = start
         sched["window_end"] = end
         database.set_group_schedule(chat_id, sched)
-        # Update the schedule panel if it exists
         msg_id = database.get_group_schedule_message_id(chat_id)
         if msg_id:
             try:
@@ -1703,6 +1684,12 @@ def handle_all_callbacks(call):
             elif action == "status":
                 bot.answer_callback_query(call.id)
                 handle_status(call.message)
+            elif action == "health":
+                bot.answer_callback_query(call.id)
+                # Simulate /health command
+                from types import SimpleNamespace
+                dummy_msg = SimpleNamespace(text="/health", chat=SimpleNamespace(id=chat_id), from_user=SimpleNamespace(id=user_id))
+                handle_all_messages(dummy_msg)
             elif action == "forcebroadcast":
                 bot.answer_callback_query(call.id)
                 send_tracked(chat_id, "📤 Force-sending all unsent broadcasts...")
@@ -2240,7 +2227,7 @@ def auto_cleanup_loop():
             print(f"❌ Auto-cleanup error: {e}")
 
 # ---------------------------------------------------------------------------
-# MISSING IMAGES NOTIFICATION
+# MISSING IMAGES NOTIFICATION (UPDATED for subfolder structure)
 # ---------------------------------------------------------------------------
 
 def notify_missing_images():
@@ -2249,54 +2236,52 @@ def notify_missing_images():
     def to_filename(name):
         return re.sub(r'[^a-zA-Z0-9._-]', '_', name).strip('_')
 
-    def find_github(name, folder):
+    def find_github(name, remote_path):
+        """Check if an image exists on GitHub at the given remote_path (e.g., 'characters/anime/Son_Goku.jpg')."""
         safe_name = to_filename(name)
-        if folder == config.LOCAL_CHAR_IMAGES_DIR:
-            remote_folder = "characters"
-        elif folder == config.LOCAL_MEDIA_IMAGES_DIR:
-            remote_folder = "media"
-        else:
-            remote_folder = folder
-        import requests
-        url = f"{config.GITHUB_RAW_BASE_URL}{remote_folder}/{safe_name}.jpg"
+        url = f"{config.GITHUB_RAW_BASE_URL}{remote_path}/{safe_name}.jpg"
         try:
             r = requests.head(url, timeout=5)
             return r.status_code == 200
         except Exception:
             return False
 
-    char_folder  = config.LOCAL_CHAR_IMAGES_DIR
-    media_folder = config.LOCAL_MEDIA_IMAGES_DIR
-
-    char_dbs = {
-        "🌸 Anime":   config.CHAR_ANIME_DB,
-        "🦸 DC":      config.CHAR_DC_DB,
-        "⚡ Marvel":  config.CHAR_MARVEL_DB,
-        "🎮 Gaming":  config.CHAR_GAMING_DB,
+    # Map database files to their subfolder paths
+    char_subfolders = {
+        config.CHAR_ANIME_DB: "characters/anime",
+        config.CHAR_DC_DB: "characters/dc",
+        config.CHAR_MARVEL_DB: "characters/marvel",
+        config.CHAR_GAMING_DB: "characters/gaming",
     }
-    media_dbs = {
-        "🎬 Movies":       config.MEDIA_DB,
-        "📺 Anime Series": config.ANIME_SERIES_DB,
-        "🎥 Anime Films":  config.ANIME_FILMS_DB,
-        "🎨 Animation":    config.ANIMATION_DB,
+    media_subfolders = {
+        config.MEDIA_DB: "media/movies",
+        config.ANIME_SERIES_DB: "media/anime_series",
+        config.ANIME_FILMS_DB: "media/anime_films",
+        config.ANIMATION_DB: "media/animation",
     }
 
     missing_chars = {}
     missing_media = {}
 
-    for cat, path in char_dbs.items():
-        data = database.load_json(path, []) if os.path.exists(path) else []
+    # Scan character databases
+    for db_path, remote_path in char_subfolders.items():
+        data = database.load_json(db_path, []) if os.path.exists(db_path) else []
         if isinstance(data, list):
-            missing = [c['name'] for c in data if not find_github(c.get('name', ''), char_folder)]
+            missing = [entry.get('name') for entry in data if not find_github(entry.get('name', ''), remote_path)]
             if missing:
-                missing_chars[cat] = missing
+                # Use category name from config keys (e.g., "🌸 Anime")
+                cat_name = next((k for k, v in config.CHAR_CATEGORIES.items() if v == os.path.basename(db_path)), db_path)
+                missing_chars[cat_name] = missing
 
-    for cat, path in media_dbs.items():
-        data = database.load_json(path, []) if os.path.exists(path) else []
+    # Scan media databases
+    for db_path, remote_path in media_subfolders.items():
+        data = database.load_json(db_path, []) if os.path.exists(db_path) else []
         if isinstance(data, list):
-            missing = [m['title'] for m in data if not find_github(m.get('title', ''), media_folder)]
+            missing = [entry.get('title') for entry in data if not find_github(entry.get('title', ''), remote_path)]
             if missing:
-                missing_media[cat] = missing
+                # Use a friendly category name
+                cat_name = next((k for k, v in config.YEAR_CATEGORIES.items() if v == os.path.basename(db_path)), db_path)
+                missing_media[cat_name] = missing
 
     total = sum(len(v) for v in missing_chars.values()) + sum(len(v) for v in missing_media.values())
 
@@ -2317,14 +2302,17 @@ def notify_missing_images():
         for cat, names in missing_chars.items():
             msg_lines.append(f"\n{cat} ({len(names)} missing):")
             for name in names:
-                msg_lines.append(f"  • {to_filename(name)}.jpg")
+                # Determine subfolder from category to show correct path
+                subfolder = char_subfolders.get(config.CHAR_CATEGORIES.get(cat.lower(), ""), "characters")
+                msg_lines.append(f"  • {subfolder}/{to_filename(name)}.jpg")
 
     if missing_media:
         msg_lines.append("\nMEDIA:")
         for cat, titles in missing_media.items():
             msg_lines.append(f"\n{cat} ({len(titles)} missing):")
             for title in titles:
-                msg_lines.append(f"  • {to_filename(title)}.jpg")
+                subfolder = media_subfolders.get(config.YEAR_CATEGORIES.get(cat.lower(), ""), "media")
+                msg_lines.append(f"  • {subfolder}/{to_filename(title)}.jpg")
 
     full_msg = "\n".join(msg_lines)
     chunk_size = 3500
@@ -2438,6 +2426,7 @@ def register_commands():
         telebot.types.BotCommand("testmorning",  "🧪 Test morning message (Captain only)"),
         telebot.types.BotCommand("testgoodnight", "🌙 Test goodnight message (Captain only)"),
         telebot.types.BotCommand("status",       "🤖 Bot status (Captain only)"),
+        telebot.types.BotCommand("health",       "📊 Health check (Captain only)"),
         telebot.types.BotCommand("listbroadcasts","📋 List scheduled broadcasts (Captain only)"),
         telebot.types.BotCommand("addquote",     "➕ Add a quote (DM only, Captain only)"),
         telebot.types.BotCommand("listquotes",   "📝 List all quotes (DM only, Captain only)"),
