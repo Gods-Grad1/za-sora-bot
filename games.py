@@ -153,13 +153,7 @@ def _download_image(url, retries=3):
     return None
 
 def _image_exists_github(remote_base):
-    """
-    Check if an image exists on GitHub by trying multiple extensions.
-    remote_base: e.g., "characters/anime/Son_Goku"
-    Returns (exists, full_remote_path) where full_remote_path includes the found extension.
-    """
     global _image_existence_cache
-    # Check cache for each possible extension
     for ext in SUPPORTED_EXTS:
         full_remote = remote_base + ext
         with _image_existence_cache_lock:
@@ -167,8 +161,7 @@ def _image_exists_github(remote_base):
             if cached and time.time() - cached["timestamp"] < IMAGE_EXISTENCE_TTL:
                 if cached["exists"]:
                     return True, full_remote
-                continue  # try next extension if cached false
-        # Not cached – do HEAD request
+                continue
         url = f"{config.GITHUB_RAW_BASE_URL}{full_remote}"
         try:
             r = requests.head(url, timeout=5)
@@ -196,11 +189,10 @@ def get_image_bytes(bot, name, folder, url, subfolder=None):
     else:
         remote_folder = folder
 
-    # Build remote base path (without extension)
     remote_base = f"{remote_folder}/{safe_name}"
     exists, found_remote = _image_exists_github(remote_base)
     if exists:
-        github_url = f"{config.GITHUB_RAW_IMAGES_URL}{found_remote}"
+        github_url = f"{config.GITHUB_RAW_BASE_URL}{found_remote}"
         data = _download_image(github_url)
         if data:
             bio = BytesIO(data)
@@ -208,12 +200,10 @@ def get_image_bytes(bot, name, folder, url, subfolder=None):
             bio.seek(0)
             return bio
 
-    # Fallback to original URL if provided
     if url:
         data = _download_image(url)
         if data:
             from github_uploader import upload_image_to_github
-            # Determine extension from original URL for upload
             ext = os.path.splitext(url.split("?")[0])[1]
             if ext not in SUPPORTED_EXTS:
                 ext = ".jpg"
@@ -232,7 +222,6 @@ def get_image_bytes(bot, name, folder, url, subfolder=None):
     except Exception:
         pass
     return None
-
 # ---------------------------------------------------------------------------
 # PRECACHE
 # ---------------------------------------------------------------------------
@@ -293,17 +282,14 @@ def _precache_all_images(bot):
             if not url:
                 continue
             safe_name = _name_to_filename(entry.get('name') or entry.get('title'))
-            # Determine remote folder and extension
             if db_path in config.CHAR_ALL_DBS:
                 remote_folder = "characters"
             else:
                 remote_folder = "media"
-            # Try to find existing file with any extension
             exists, found_remote = _image_exists_github(f"{remote_folder}/{safe_name}")
             if exists:
                 skipped += 1
                 continue
-            # No file found – download from original URL and upload
             data = _download_image(url)
             if data:
                 ext = os.path.splitext(url.split("?")[0])[1]
@@ -316,7 +302,7 @@ def _precache_all_images(bot):
             else:
                 failed += 1
     print(f"✅ [IMG CACHE] Done — uploaded:{total} cached:{skipped} failed:{failed}")
-
+    
 def precache_assets(bot):
     threading.Thread(target=_precache_all_images, args=(bot,), daemon=True).start()
 
