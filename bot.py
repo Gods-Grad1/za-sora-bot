@@ -288,7 +288,7 @@ def show_quotes_page(chat_id, page=1):
     return text, markup
 
 # ---------------------------------------------------------------------------
-# CAPTAIN'S CABIN (UPDATED with Health Check button)
+# CAPTAIN'S CABIN (with Pre-cache Scrambled button)
 # ---------------------------------------------------------------------------
 
 def show_admin_panel(message):
@@ -313,6 +313,7 @@ def show_admin_panel(message):
         telebot.types.InlineKeyboardButton("🔧 Setup Generated",       callback_data="admin_setupgenerated"),
         telebot.types.InlineKeyboardButton("📊 Bot Status",            callback_data="admin_status"),
         telebot.types.InlineKeyboardButton("📊 Health Check",          callback_data="admin_health"),
+        telebot.types.InlineKeyboardButton("🖼️ Pre-cache Scrambled",  callback_data="admin_precache_scrambled"),
         telebot.types.InlineKeyboardButton("📤 Force Broadcast",       callback_data="admin_forcebroadcast"),
         telebot.types.InlineKeyboardButton("🔄 Check Broadcasts",      callback_data="admin_checknow"),
         telebot.types.InlineKeyboardButton("📋 List Broadcasts",       callback_data="admin_listbroadcasts"),
@@ -491,7 +492,6 @@ def send_morning_message(bot):
             except Exception as e:
                 print(f"❌ Morning message failed for {group_id}: {e}")
                 database.log_error_to_admin(bot, "Morning Message", e)
-        # Update morning date in group schedules? Not needed; we use global last_morning_date in state.
     except Exception as e:
         print(f"❌ Morning message overall error: {e}")
         database.log_error_to_admin(bot, "Morning Message Overall", e)
@@ -530,14 +530,13 @@ def send_goodnight_message(bot):
 # ---------------------------------------------------------------------------
 
 def send_daily_stats(bot):
-    """Send a daily summary to the Captain."""
     try:
         groups = database.get_all_groups()
         total_members = sum(len(database.get_all_members(gid)) for gid in groups)
         total_games = 0
         total_points = 0
         active_groups = 0
-        
+
         data = database.get_group_data()
         for gid in groups:
             chat_str = str(gid)
@@ -547,9 +546,9 @@ def send_daily_stats(bot):
                 total_points += sum(u.get("alltime_points", 0) for u in users.values())
                 if users:
                     active_groups += 1
-        
+
         pending = database.get_pending_broadcasts()
-        
+
         msg = (
             f"📊 *DAILY STATS* – {local_now().strftime('%Y-%m-%d')}\n\n"
             f"👥 *Groups:* {len(groups)}\n"
@@ -575,7 +574,6 @@ def _send_pending_broadcasts(bot):
         return
     for broadcast in pending:
         success = True
-        # Determine if tag-all is enabled (stored in scheduler.json for simplicity)
         sched = database.load_remote_json(config.SCHEDULER_FILE, {})
         if f"broadcast_tagall_{broadcast['send_time']}" not in sched:
             tag_all = True
@@ -1729,6 +1727,15 @@ def handle_all_callbacks(call):
                 from types import SimpleNamespace
                 dummy_msg = SimpleNamespace(text="/health", chat=SimpleNamespace(id=chat_id), from_user=SimpleNamespace(id=user_id))
                 handle_all_messages(dummy_msg)
+            elif action == "precache_scrambled":
+                bot.answer_callback_query(call.id, "Starting pre‑cache in background...")
+                def run_precache():
+                    try:
+                        games.precache_scrambled_images(bot)
+                        send_tracked(chat_id, "✅ All scrambled images generated and uploaded to GitHub!")
+                    except Exception as e:
+                        send_tracked(chat_id, f"❌ Pre‑cache failed: {e}")
+                threading.Thread(target=run_precache, daemon=True).start()
             elif action == "forcebroadcast":
                 bot.answer_callback_query(call.id)
                 send_tracked(chat_id, "📤 Force-sending all unsent broadcasts...")
@@ -1790,7 +1797,6 @@ def handle_all_callbacks(call):
                 database.reload_trivia()
                 send_tracked(chat_id, "✅ Stats reloaded from GitHub.")
             elif action == "back":
-                # Just go back to cabin
                 from types import SimpleNamespace
                 dummy_msg = SimpleNamespace(chat=SimpleNamespace(id=chat_id), from_user=SimpleNamespace(id=user_id))
                 show_admin_panel(dummy_msg)
@@ -2295,20 +2301,21 @@ def notify_missing_images():
     def to_filename(name):
         return re.sub(r'[^a-zA-Z0-9._-]', '_', name).strip('_')
 
-def find_github(name, remote_base):
-    safe_name = to_filename(name)
-    for ext in ['.jpg', '.jpeg', '.png', '.webp']:
-        full_remote = f"{remote_base}/{safe_name}{ext}"
-        url = f"{config.GITHUB_RAW_BASE_URL}{full_remote}"
-        try:
-            r = requests.head(url, timeout=5)
-            if r.status_code == 200:
-                return True
-        except Exception:
-            pass
-    return False
-    
-    # Map database files to their subfolder paths
+    def find_github(name, remote_base):
+        """Check if an image exists on GitHub with any supported extension."""
+        safe_name = to_filename(name)
+        for ext in ['.jpg', '.jpeg', '.png', '.webp']:
+            full_remote = f"{remote_base}/{safe_name}{ext}"
+            url = f"{config.GITHUB_RAW_BASE_URL}{full_remote}"
+            try:
+                r = requests.head(url, timeout=5)
+                if r.status_code == 200:
+                    return True
+            except Exception:
+                pass
+        return False
+
+    # Map database files to their subfolder paths (the base folder)
     char_subfolders = {
         config.CHAR_ANIME_DB: "characters/anime",
         config.CHAR_DC_DB: "characters/dc",
@@ -2326,22 +2333,20 @@ def find_github(name, remote_base):
     missing_media = {}
 
     # Scan character databases
-    for db_path, remote_path in char_subfolders.items():
+    for db_path, remote_base in char_subfolders.items():
         data = database.load_json(db_path, []) if os.path.exists(db_path) else []
         if isinstance(data, list):
-            missing = [entry.get('name') for entry in data if not find_github(entry.get('name', ''), remote_path)]
+            missing = [entry.get('name') for entry in data if not find_github(entry.get('name', ''), remote_base)]
             if missing:
-                # Use category name from config keys (e.g., "🌸 Anime")
                 cat_name = next((k for k, v in config.CHAR_CATEGORIES.items() if v == os.path.basename(db_path)), db_path)
                 missing_chars[cat_name] = missing
 
     # Scan media databases
-    for db_path, remote_path in media_subfolders.items():
+    for db_path, remote_base in media_subfolders.items():
         data = database.load_json(db_path, []) if os.path.exists(db_path) else []
         if isinstance(data, list):
-            missing = [entry.get('title') for entry in data if not find_github(entry.get('title', ''), remote_path)]
+            missing = [entry.get('title') for entry in data if not find_github(entry.get('title', ''), remote_base)]
             if missing:
-                # Use a friendly category name
                 cat_name = next((k for k, v in config.YEAR_CATEGORIES.items() if v == os.path.basename(db_path)), db_path)
                 missing_media[cat_name] = missing
 
@@ -2364,9 +2369,8 @@ def find_github(name, remote_base):
         for cat, names in missing_chars.items():
             msg_lines.append(f"\n{cat} ({len(names)} missing):")
             for name in names:
-                # Determine subfolder from category to show correct path
                 subfolder = char_subfolders.get(config.CHAR_CATEGORIES.get(cat.lower(), ""), "characters")
-                msg_lines.append(f"  • {subfolder}/{to_filename(name)}.jpg")
+                msg_lines.append(f"  • {subfolder}/{to_filename(name)}.* (any supported extension)")
 
     if missing_media:
         msg_lines.append("\nMEDIA:")
@@ -2374,7 +2378,7 @@ def find_github(name, remote_base):
             msg_lines.append(f"\n{cat} ({len(titles)} missing):")
             for title in titles:
                 subfolder = media_subfolders.get(config.YEAR_CATEGORIES.get(cat.lower(), ""), "media")
-                msg_lines.append(f"  • {subfolder}/{to_filename(title)}.jpg")
+                msg_lines.append(f"  • {subfolder}/{to_filename(title)}.* (any supported extension)")
 
     full_msg = "\n".join(msg_lines)
     chunk_size = 3500
@@ -2597,8 +2601,6 @@ def show_my_stats(message, target_id=None, target_name=None):
 def check_startup_fallbacks():
     print("🔍 Checking startup fallbacks...")
     now = local_now()
-    # We no longer have a global scheduler state for morning, so we just check if morning was sent today
-    # This is handled inside send_morning_message (it updates a state file)
     _send_pending_broadcasts(bot)
 
 # ---------------------------------------------------------------------------
