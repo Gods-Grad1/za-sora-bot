@@ -191,10 +191,9 @@ def get_image_bytes(bot, name, folder, url, subfolder=None):
     else:
         remote_folder = folder
 
+    # Use multi-extension detection
     remote_base = f"{remote_folder}/{safe_name}"
     exists, found_remote = _image_exists_github(remote_base)
-
-    # Try to download from GitHub if found, else try direct download for each extension
     if exists:
         github_url = f"{config.GITHUB_RAW_BASE_URL}{found_remote}"
         data = _download_image(github_url)
@@ -204,7 +203,7 @@ def get_image_bytes(bot, name, folder, url, subfolder=None):
             bio.seek(0)
             return bio
 
-    # If existence check failed or download failed, try direct download for all extensions
+    # If not found on GitHub, try direct download for all extensions
     for ext in SUPPORTED_EXTS:
         github_url = f"{config.GITHUB_RAW_BASE_URL}{remote_base}{ext}"
         data = _download_image(github_url)
