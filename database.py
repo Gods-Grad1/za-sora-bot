@@ -981,17 +981,18 @@ def save_daily_themes(themes):
 
 def get_current_week():
     themes = load_daily_themes()
-    current_week = themes.get("current_week", 1)
     last_updated = themes.get("last_updated")
-    if last_updated:
-        try:
-            start_date = datetime.datetime.fromisoformat(last_updated)
-            days_diff = (datetime.datetime.now() - start_date).days
-            weeks_passed = days_diff // 7
-            current_week = ((themes.get("current_week", 1) + weeks_passed - 1) % 4) + 1
-        except Exception:
-            pass
-    return current_week
+    if not last_updated:
+        return 1  # default week 1
+
+    try:
+        start_date = datetime.datetime.fromisoformat(last_updated)
+        days_diff = (datetime.datetime.now() - start_date).days
+        weeks_passed = days_diff // 7
+        current_week = ((themes.get("current_week", 1) + weeks_passed - 1) % 4) + 1
+        return current_week
+    except Exception:
+        return 1
 
 def get_character_for_day(week, day):
     themes = load_daily_themes()
