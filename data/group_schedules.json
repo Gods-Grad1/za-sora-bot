@@ -3,7 +3,7 @@
         "schedule_message_id": 1738,
         "group_name": "Testing",
         "interval": 30,
-        "enabled": true,
+        "enabled": false,
         "window_start": 10,
         "window_end": 22
     }
