@@ -1,17 +1,14 @@
 {
-    "date": "2026-07-12",
-    "question": "Which prophet was known for his visions of apocalyptic scenes?",
+    "date": "2026-07-13",
+    "question": "What is the name of the main character in 'Rocket League'?",
     "options": [
-        "Daniel",
-        "Ezekiel",
-        "Isaiah",
-        "Zechariah"
+        "The Car",
+        "Octane",
+        "Merc",
+        "Dominus"
     ],
     "answer": "A",
-    "display": "Daniel",
-    "category": "Bible",
-    "answered": [
-        8234402535,
-        6231510981
-    ]
+    "display": "The Car",
+    "category": "Gaming",
+    "answered": []
 }
