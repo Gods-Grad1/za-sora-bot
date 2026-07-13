@@ -258,8 +258,8 @@ def get_scrambled_image_bytes(bot, name, folder, url, subfolder=None):
         remote_folder = folder
 
     scrambled_remote = f"scrambled/{remote_folder}/{safe_name}.jpg"
-    scrambled_url = f"{config.GITHUB_RAW_BASE_URL}{scrambled_remote}"
-
+    scrambled_url = f"{config.GITHUB_RAW_BASE_URL}scrambled/{remote_folder}/{safe_name}.jpg"
+    
     # Try to download from GitHub
     data = _download_image(scrambled_url)
     if data:
