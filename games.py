@@ -278,7 +278,6 @@ def get_scrambled_image_bytes(bot, name, folder, url, subfolder=None):
     if img.mode != 'RGB':
         img = img.convert('RGB')
     w, h = img.size
-    # Use a more aggressive downscale for obvious pixelation
     small = img.resize((w // 12, h // 12), Image.Resampling.NEAREST)
     scrambled = small.resize((w, h), Image.Resampling.NEAREST)
 
@@ -860,6 +859,7 @@ def start_picture_game(bot, chat_id, category=None, user_id=None):
         "hints_list": hints_list,
         "orig_img_bytes": orig_img_bytes,
         "aliases": [a.lower() for a in aliases],
+        "is_scrambled": True,   # mark as scrambled for higher points
     }
 
     last_game_type[chat_id] = "picture"
@@ -875,7 +875,6 @@ def start_picture_game(bot, chat_id, category=None, user_id=None):
     _start_timer(bot, chat_id, time_limit)
     _update_scheduler_last_game()
     return q
-
 # ---------------------------------------------------------------------------
 # TIMER
 # ---------------------------------------------------------------------------
