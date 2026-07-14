@@ -1,17 +1,14 @@
 {
-    "date": "2026-07-13",
-    "question": "What is the name of the main character in 'Rocket League'?",
+    "date": "2026-07-14",
+    "question": "Which anime is about a girl who travels through time?",
     "options": [
-        "The Car",
-        "Octane",
-        "Merc",
-        "Dominus"
+        "The Girl Who Leapt Through Time",
+        "Steins;Gate",
+        "Your Name",
+        "Weathering With You"
     ],
     "answer": "A",
-    "display": "The Car",
-    "category": "Gaming",
-    "answered": [
-        8234402535,
-        1449692981
-    ]
+    "display": "The Girl Who Leapt Through Time",
+    "category": "Anime",
+    "answered": []
 }
