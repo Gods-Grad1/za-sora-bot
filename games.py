@@ -242,29 +242,35 @@ def get_image_bytes(bot, name, folder, url, subfolder=None):
 # ---------------------------------------------------------------------------
 
 def get_scrambled_image_bytes(bot, name, folder, url, subfolder=None):
+    """Get scrambled image from GitHub (generates and uploads if missing)."""
     safe_name = _name_to_filename(name)
-    print(f"🔄 get_scrambled_image_bytes called for {name}")
-    # ... determine remote_folder ...
-    print(f"   remote_folder: {remote_folder}")
+
+    if folder == config.LOCAL_CHAR_IMAGES_DIR:
+        remote_folder = "characters"
+        if subfolder:
+            remote_folder += f"/{subfolder}"
+    elif folder == config.LOCAL_MEDIA_IMAGES_DIR:
+        remote_folder = "media"
+        if subfolder:
+            remote_folder += f"/{subfolder}"
+    else:
+        remote_folder = folder
 
     scrambled_remote = f"scrambled/{remote_folder}/{safe_name}.jpg"
     scrambled_url = f"{config.GITHUB_RAW_BASE_URL}{scrambled_remote}"
-    print(f"   Checking: {scrambled_url}")
 
+    # 1. Try to download from GitHub
     data = _download_image(scrambled_url)
     if data:
-        print("   ✅ Found existing scrambled image")
         bio = BytesIO(data)
         bio.name = "scrambled.jpg"
         bio.seek(0)
         return bio
 
-    print("   ⚠️ Scrambled image not found, generating...")
+    # 2. Not on GitHub – generate it
     img_data = get_image_bytes(bot, name, folder, url, subfolder)
     if not img_data:
-        print("   ❌ get_image_bytes returned None")
         return None
-    print("   ✅ Original image loaded")
 
     from PIL import Image
     img = Image.open(img_data)
@@ -278,14 +284,14 @@ def get_scrambled_image_bytes(bot, name, folder, url, subfolder=None):
     scrambled.save(bio, 'JPEG', quality=95)
     bio.seek(0)
 
-    print("   📤 Uploading to GitHub...")
+    # 3. Upload to GitHub (async)
     from github_uploader import upload_image_to_github
-    result = upload_image_to_github(bot, bio.getvalue(), f"{safe_name}.jpg", f"scrambled/{remote_folder}")
-    print(f"   Upload result: {result}")
+    def upload():
+        bio_data = bio.getvalue()
+        upload_image_to_github(bot, bio_data, f"{safe_name}.jpg", f"scrambled/{remote_folder}")
+    threading.Thread(target=upload, daemon=True).start()
 
-    bio.seek(0)
-    bio.name = "scrambled.jpg"
-    print("   ✅ Returning scrambled image")
+    # 4. Return the scrambled image (bio is already at position 0)
     return bio
 
 def precache_scrambled_images(bot):
