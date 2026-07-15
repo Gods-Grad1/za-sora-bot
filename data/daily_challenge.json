@@ -1,16 +1,14 @@
 {
-    "date": "2026-07-14",
-    "question": "Which anime is about a girl who travels through time?",
+    "date": "2026-07-15",
+    "question": "In 'The Grand Budapest Hotel', who is the protagonist?",
     "options": [
-        "The Girl Who Leapt Through Time",
-        "Steins;Gate",
-        "Your Name",
-        "Weathering With You"
+        "M. Gustave",
+        "Zero Moustafa",
+        "Madame D.",
+        "Agatha"
     ],
     "answer": "A",
-    "display": "The Girl Who Leapt Through Time",
-    "category": "Anime",
-    "answered": [
-        8234402535
-    ]
+    "display": "M. Gustave",
+    "category": "Movies",
+    "answered": []
 }
