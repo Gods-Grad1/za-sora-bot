@@ -1035,8 +1035,6 @@ def _load_greetings():
 
 def _get_hardcoded_greetings():
     """Hardcoded fallback – will be removed once JSON is stable."""
-    # This is the original dictionary from the previous version – kept here for safety.
-    # You can replace it with an empty dict after confirming JSON works.
     return {
         "kratos": {
             "morning": "🪓 Rise, warrior. The sun is already higher than your excuses. The day waits for no one – not even a God of War.\n\n*A true warrior finds strength in stillness.*",
@@ -1229,9 +1227,9 @@ def delete_preset(name):
 def list_presets():
     return load_presets()
 
-# ---------------------------------------------------------------------------
-# MESSAGE KEEP PATTERNS
-# ---------------------------------------------------------------------------
+# ============================================================
+# UPDATED get_keep_patterns – removed Bot Status & Health Check
+# ============================================================
 
 def get_keep_patterns():
     return [
@@ -1251,4 +1249,8 @@ def get_keep_patterns():
         "✅ Your feedback has been sent to the Captain",
         "⚔️ *VERSUS CHALLENGE*",
         "⚔️ *MATCH OVER*",
+        "🏆 *Leaderboard",
+        "📋 *FIXTURES",
+        "🧹 *Cleanup Complete",
+        # Removed: "🤖 *Bot Status" and "📊 *Health Check"
     ]
