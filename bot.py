@@ -635,40 +635,42 @@ def clean_bot_messages(chat_id, trigger_message):
         can_delete = bot_member.can_delete_messages or bot_member.status == "creator"
     except Exception:
         can_delete = False
+
     if not can_delete:
         reply_tracked(trigger_message, "❌ I don't have permission to delete messages!\n\nPlease promote me to Admin with 'Delete Messages' permission.")
         return
+
     reply_tracked(trigger_message, "🧹 Cleaning up my tracked messages in this chat...")
+
     tracked = games.tracked_messages.get(chat_id, [])
     if not tracked:
         reply_tracked(trigger_message, "📭 No tracked messages to delete.")
         return
+
+    keep_patterns = database.get_keep_patterns()
     deleted_count = 0
     kept_count = 0
-    error_count = 0
-    keep_patterns = database.get_keep_patterns()
+
     for msg in tracked[:]:
         if not isinstance(msg, dict) or "id" not in msg:
-            error_count += 1
             continue
         text = msg.get("text", "")
-        should_keep = any(pattern in text or pattern.lower() in text.lower() for pattern in keep_patterns)
+        should_keep = any(pattern in text for pattern in keep_patterns)
         if should_keep:
             kept_count += 1
             continue
         try:
             bot.delete_message(chat_id, msg["id"])
             deleted_count += 1
-        except ApiTelegramException as e:
-            if "message can't be deleted" in str(e).lower() or "message to delete not found" in str(e).lower():
-                error_count += 1
-            else:
-                error_count += 1
         except Exception:
-            error_count += 1
-    games.tracked_messages[chat_id] = []
-    reply_tracked(trigger_message, f"🧹 *Cleanup Complete*\n\n🗑️ Deleted: {deleted_count} of my messages\n📌 Kept: {kept_count} important messages\n⚠️ Errors/Skipped: {error_count}\n📊 Total tracked: {len(tracked)}", parse_mode="Markdown")
+            pass  # If deletion fails, just forget it
 
+    # Clear the list after attempting deletion
+    games.tracked_messages[chat_id] = []
+
+    reply_tracked(trigger_message,
+                  f"🧹 *Strict Cleanup Complete*\n\n🗑️ Deleted: {deleted_count}\n📌 Kept: {kept_count} (matched keep patterns)",
+                  parse_mode="Markdown")
 # ---------------------------------------------------------------------------
 # COMMAND ROUTER
 # ---------------------------------------------------------------------------
@@ -2283,9 +2285,9 @@ def thread_supervisor():
 
 def auto_cleanup_loop():
     while True:
-        time.sleep(21600)  # 6 hours
+        time.sleep(7200)  # 2 hours (was 6 hours)
         try:
-            deleted = games.auto_clean_old_messages(bot, max_age_hours=36)
+            deleted = games.auto_clean_old_messages(bot, max_age_hours=12)  # 12 hours (was 36)
             if deleted:
                 print(f"🧹 Auto-cleanup deleted {deleted} old messages.")
         except Exception as e:
