@@ -1,17 +1,14 @@
 {
-    "date": "2026-07-15",
-    "question": "In 'The Grand Budapest Hotel', who is the protagonist?",
+    "date": "2026-07-16",
+    "question": "What is the name of the largest bird in the world?",
     "options": [
-        "M. Gustave",
-        "Zero Moustafa",
-        "Madame D.",
-        "Agatha"
+        "Ostrich",
+        "Emu",
+        "Cassowary",
+        "Kiwi"
     ],
     "answer": "A",
-    "display": "M. Gustave",
-    "category": "Movies",
-    "answered": [
-        6231510981,
-        8234402535
-    ]
+    "display": "Ostrich",
+    "category": "General",
+    "answered": []
 }
