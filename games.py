@@ -191,9 +191,10 @@ def get_image_bytes(bot, name, folder, url, subfolder=None):
     else:
         remote_folder = folder
 
-    # Use multi-extension detection
     remote_base = f"{remote_folder}/{safe_name}"
     exists, found_remote = _image_exists_github(remote_base)
+
+    # Try to download from GitHub if found, else try direct download for each extension
     if exists:
         github_url = f"{config.GITHUB_RAW_BASE_URL}{found_remote}"
         data = _download_image(github_url)
@@ -203,7 +204,7 @@ def get_image_bytes(bot, name, folder, url, subfolder=None):
             bio.seek(0)
             return bio
 
-    # If not found on GitHub, try direct download for all extensions
+    # If existence check failed or download failed, try direct download for all extensions
     for ext in SUPPORTED_EXTS:
         github_url = f"{config.GITHUB_RAW_BASE_URL}{remote_base}{ext}"
         data = _download_image(github_url)
@@ -238,12 +239,13 @@ def get_image_bytes(bot, name, folder, url, subfolder=None):
     return None
 
 # ---------------------------------------------------------------------------
-# SCRAMBLED IMAGE – cached on GitHub
+# SCRAMBLED IMAGE – cached on GitHub (with debug prints)
 # ---------------------------------------------------------------------------
 
 def get_scrambled_image_bytes(bot, name, folder, url, subfolder=None):
     """Get scrambled image from GitHub (generates and uploads if missing)."""
     safe_name = _name_to_filename(name)
+    print(f"🔄 [SCRAMBLED] Getting scrambled for: {name}")
 
     if folder == config.LOCAL_CHAR_IMAGES_DIR:
         remote_folder = "characters"
@@ -258,20 +260,27 @@ def get_scrambled_image_bytes(bot, name, folder, url, subfolder=None):
 
     scrambled_remote = f"scrambled/{remote_folder}/{safe_name}.jpg"
     scrambled_url = f"{config.GITHUB_RAW_BASE_URL}{scrambled_remote}"
+    print(f"🔍 [SCRAMBLED] Checking URL: {scrambled_url}")
 
     # 1. Try to download from GitHub
     data = _download_image(scrambled_url)
     if data:
+        print(f"✅ [SCRAMBLED] Found existing scrambled image, size: {len(data)}")
         bio = BytesIO(data)
         bio.name = "scrambled.jpg"
         bio.seek(0)
         return bio
 
-    # 2. Not on GitHub – generate it
+    print(f"⚠️ [SCRAMBLED] Not found on GitHub, generating...")
+
+    # 2. Get original image
     img_data = get_image_bytes(bot, name, folder, url, subfolder)
     if not img_data:
+        print(f"❌ [SCRAMBLED] get_image_bytes returned None")
         return None
+    print(f"✅ [SCRAMBLED] Original image loaded, size: {len(img_data.getvalue())}")
 
+    # 3. Scramble
     from PIL import Image
     img = Image.open(img_data)
     if img.mode != 'RGB':
@@ -283,15 +292,19 @@ def get_scrambled_image_bytes(bot, name, folder, url, subfolder=None):
     bio = BytesIO()
     scrambled.save(bio, 'JPEG', quality=95)
     bio.seek(0)
+    print(f"✅ [SCRAMBLED] Generated scrambled image, size: {len(bio.getvalue())}")
 
-    # 3. Upload to GitHub (async)
+    # 4. Upload to GitHub (async)
     from github_uploader import upload_image_to_github
     def upload():
-        bio_data = bio.getvalue()
-        upload_image_to_github(bot, bio_data, f"{safe_name}.jpg", f"scrambled/{remote_folder}")
+        try:
+            result = upload_image_to_github(bot, bio.getvalue(), f"{safe_name}.jpg", f"scrambled/{remote_folder}")
+            print(f"📤 [SCRAMBLED] Upload result for {safe_name}: {result}")
+        except Exception as e:
+            print(f"❌ [SCRAMBLED] Upload error: {e}")
     threading.Thread(target=upload, daemon=True).start()
 
-    # 4. Return the scrambled image (bio is already at position 0)
+    # 5. Return the scrambled image (bio is at position 0)
     return bio
 
 def precache_scrambled_images(bot):
@@ -671,12 +684,8 @@ def start_character_game(bot, chat_id, category=None, user_id=None):
 
     time_limit = _get_time_limit()
     text = f"👤 *GUESS THE CHARACTER* 👤\n\n"
-    if isinstance(hints, list):
-        for i, h in enumerate(hints, 1):
-            text += f"🔍 *HINT {i}:* {h}\n"
-    else:
-        text += f"🔍 *HINT:* {hints}\n"
-    text += f"\n⏱️ *{time_limit}s to answer!*  💡 /hint for a clue (-{config.POINTS_HINT_PENALTY} pts)"
+    text += f"Category: *{cat_label}*\n\n"
+    text += f"⏱️ *{time_limit}s to answer!*  💡 /hint for a clue (-{config.POINTS_HINT_PENALTY} pts)"
 
     markup = _game_markup(chat_id, "character")
     _send_game_message(bot, chat_id, text, name, LOCAL_CHAR_DIR, img_url, subfolder, markup)
@@ -811,7 +820,7 @@ def handle_year_answer(bot, call):
         bot.answer_callback_query(call.id, "❌ Wrong! Streak broken.", show_alert=True)
 
 # ---------------------------------------------------------------------------
-# PICTURE GAME – with scrambled cache and reveal
+# PICTURE GAME – with scrambled cache and reveal (FIXED)
 # ---------------------------------------------------------------------------
 
 def start_picture_game(bot, chat_id, category=None, user_id=None):
@@ -840,15 +849,23 @@ def start_picture_game(bot, chat_id, category=None, user_id=None):
     hints_list = hints if isinstance(hints, list) else [hints]
     aliases = q.get('aliases', [])
 
+    print(f"🖼️ [PICTURE] Starting picture game for: {name}")
+
     # Get scrambled image (cached or generated)
     scrambled_data = get_scrambled_image_bytes(bot, name, LOCAL_CHAR_DIR, img_url, subfolder)
     if not scrambled_data:
+        print(f"❌ [PICTURE] scrambled_data is None")
         send_and_delete(bot, chat_id, "❌ Could not load scrambled image for this character.")
         return None
+    print(f"✅ [PICTURE] scrambled_data size: {len(scrambled_data.getvalue())}")
 
     # Get original image bytes for reveal
     orig_img_data = get_image_bytes(bot, name, LOCAL_CHAR_DIR, img_url, subfolder)
     orig_img_bytes = orig_img_data.getvalue() if orig_img_data else None
+    if orig_img_bytes:
+        print(f"✅ [PICTURE] Original image loaded for reveal, size: {len(orig_img_bytes)}")
+    else:
+        print(f"⚠️ [PICTURE] No original image for reveal")
 
     active_games[chat_id] = {
         "type": "picture",
@@ -860,7 +877,7 @@ def start_picture_game(bot, chat_id, category=None, user_id=None):
         "hints_list": hints_list,
         "orig_img_bytes": orig_img_bytes,
         "aliases": [a.lower() for a in aliases],
-        "is_scrambled": True,   # mark as scrambled for higher points
+        "is_scrambled": True,
     }
 
     last_game_type[chat_id] = "picture"
@@ -876,6 +893,7 @@ def start_picture_game(bot, chat_id, category=None, user_id=None):
     _start_timer(bot, chat_id, time_limit)
     _update_scheduler_last_game()
     return q
+
 # ---------------------------------------------------------------------------
 # TIMER
 # ---------------------------------------------------------------------------
@@ -1784,7 +1802,11 @@ def check_user_answer(bot, message):
 
     aliases = session.get("aliases", [])
     if is_character_match(user_guess, session["answer"], aliases):
-        base_pts = config.POINTS_CHARACTER_GAME
+        # Determine base points: higher for scrambled game
+        if session.get("is_scrambled"):
+            base_pts = config.POINTS_SCRAMBLED_GAME
+        else:
+            base_pts = config.POINTS_CHARACTER_GAME
 
         if double_down_active:
             base_pts *= 2
@@ -1817,10 +1839,9 @@ def check_user_answer(bot, message):
                 del active_games[chat_id]
                 return True
             except Exception as e:
-                print(f"Failed to send reveal image: {e}")
-                # Fall through to text-only if image fails
+                print(f"❌ Failed to send reveal image: {e}")
 
-        # --- Text-only fallback for non-picture games or if image fails ---
+        # --- Text-only fallback ---
         send_and_delete(
             bot,
             chat_id,
