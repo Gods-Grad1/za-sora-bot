@@ -163,7 +163,7 @@ def _image_exists_github(remote_base):
             if cached and time.time() - cached["timestamp"] < IMAGE_EXISTENCE_TTL:
                 if cached["exists"]:
                     return True, full_remote
-                continue  # try next extension if cached false
+                continue
         url = f"{config.GITHUB_RAW_BASE_URL}{full_remote}"
         try:
             r = requests.head(url, timeout=5)
@@ -177,6 +177,7 @@ def _image_exists_github(remote_base):
     return False, None
 
 def get_image_bytes(bot, name, folder, url, subfolder=None):
+    """Fetch original image (used for character game and reveal)."""
     _ensure_dirs()
     safe_name = _name_to_filename(name)
 
@@ -194,7 +195,6 @@ def get_image_bytes(bot, name, folder, url, subfolder=None):
     remote_base = f"{remote_folder}/{safe_name}"
     exists, found_remote = _image_exists_github(remote_base)
 
-    # Try to download from GitHub if found, else try direct download for each extension
     if exists:
         github_url = f"{config.GITHUB_RAW_BASE_URL}{found_remote}"
         data = _download_image(github_url)
@@ -204,7 +204,6 @@ def get_image_bytes(bot, name, folder, url, subfolder=None):
             bio.seek(0)
             return bio
 
-    # If existence check failed or download failed, try direct download for all extensions
     for ext in SUPPORTED_EXTS:
         github_url = f"{config.GITHUB_RAW_BASE_URL}{remote_base}{ext}"
         data = _download_image(github_url)
@@ -214,7 +213,6 @@ def get_image_bytes(bot, name, folder, url, subfolder=None):
             bio.seek(0)
             return bio
 
-    # Fallback to original URL
     if url:
         data = _download_image(url)
         if data:
@@ -239,11 +237,11 @@ def get_image_bytes(bot, name, folder, url, subfolder=None):
     return None
 
 # ---------------------------------------------------------------------------
-# SCRAMBLED IMAGE – cached on GitHub (with debug prints)
+# SCRAMBLED IMAGE – standalone, does NOT fall back to original
 # ---------------------------------------------------------------------------
 
 def get_scrambled_image_bytes(bot, name, folder, url, subfolder=None):
-    """Get scrambled image from GitHub (generates and uploads if missing)."""
+    """Get scrambled image from GitHub, or generate and return it (upload async)."""
     safe_name = _name_to_filename(name)
     print(f"🔄 [SCRAMBLED] Getting scrambled for: {name}")
 
@@ -273,10 +271,10 @@ def get_scrambled_image_bytes(bot, name, folder, url, subfolder=None):
 
     print(f"⚠️ [SCRAMBLED] Not found on GitHub, generating...")
 
-    # 2. Get original image
+    # 2. Get original image (this uses the regular get_image_bytes)
     img_data = get_image_bytes(bot, name, folder, url, subfolder)
     if not img_data:
-        print(f"❌ [SCRAMBLED] get_image_bytes returned None")
+        print(f"❌ [SCRAMBLED] Original image unavailable.")
         return None
     print(f"✅ [SCRAMBLED] Original image loaded, size: {len(img_data.getvalue())}")
 
@@ -286,7 +284,10 @@ def get_scrambled_image_bytes(bot, name, folder, url, subfolder=None):
     if img.mode != 'RGB':
         img = img.convert('RGB')
     w, h = img.size
-    small = img.resize((w // 12, h // 12), Image.Resampling.NEAREST)
+    # Make sure we downscale significantly
+    small_w = max(1, w // 12)
+    small_h = max(1, h // 12)
+    small = img.resize((small_w, small_h), Image.Resampling.NEAREST)
     scrambled = small.resize((w, h), Image.Resampling.NEAREST)
 
     bio = BytesIO()
@@ -304,11 +305,10 @@ def get_scrambled_image_bytes(bot, name, folder, url, subfolder=None):
             print(f"❌ [SCRAMBLED] Upload error: {e}")
     threading.Thread(target=upload, daemon=True).start()
 
-    # 5. Return the scrambled image (bio is at position 0)
+    # 5. Return the scrambled image
     return bio
 
 def precache_scrambled_images(bot):
-    """Generate scrambled images for all characters and upload to GitHub."""
     print("🔄 Starting scrambled image pre‑cache...")
     categories = ["anime", "dc", "marvel", "gaming"]
     total = 0
@@ -322,6 +322,7 @@ def precache_scrambled_images(bot):
             img_url = entry.get('image') or entry.get('image_url') or entry.get('img')
             if not name or not img_url:
                 continue
+            # This will generate and upload the scrambled image
             get_scrambled_image_bytes(bot, name, config.LOCAL_CHAR_IMAGES_DIR, img_url, subfolder=cat)
             total += 1
             if total % 10 == 0:
@@ -820,7 +821,7 @@ def handle_year_answer(bot, call):
         bot.answer_callback_query(call.id, "❌ Wrong! Streak broken.", show_alert=True)
 
 # ---------------------------------------------------------------------------
-# PICTURE GAME – with scrambled cache and reveal (FIXED)
+# PICTURE GAME – scrambled ONLY, no fallback to original
 # ---------------------------------------------------------------------------
 
 def start_picture_game(bot, chat_id, category=None, user_id=None):
@@ -851,21 +852,18 @@ def start_picture_game(bot, chat_id, category=None, user_id=None):
 
     print(f"🖼️ [PICTURE] Starting picture game for: {name}")
 
-    # Get scrambled image (cached or generated)
+    # Scrambled image – this function NEVER falls back to original
     scrambled_data = get_scrambled_image_bytes(bot, name, LOCAL_CHAR_DIR, img_url, subfolder)
     if not scrambled_data:
-        print(f"❌ [PICTURE] scrambled_data is None")
+        print(f"❌ [PICTURE] scrambled_data is None – aborting.")
         send_and_delete(bot, chat_id, "❌ Could not load scrambled image for this character.")
         return None
+
     print(f"✅ [PICTURE] scrambled_data size: {len(scrambled_data.getvalue())}")
 
-    # Get original image bytes for reveal
+    # Store original image bytes for reveal (optional)
     orig_img_data = get_image_bytes(bot, name, LOCAL_CHAR_DIR, img_url, subfolder)
     orig_img_bytes = orig_img_data.getvalue() if orig_img_data else None
-    if orig_img_bytes:
-        print(f"✅ [PICTURE] Original image loaded for reveal, size: {len(orig_img_bytes)}")
-    else:
-        print(f"⚠️ [PICTURE] No original image for reveal")
 
     active_games[chat_id] = {
         "type": "picture",
@@ -1123,7 +1121,7 @@ def handle_next_game(bot, call):
         send_and_delete(bot, chat_id, "⚡ Use /lightning to start a new Lightning Round!", parse_mode="Markdown")
 
 # ---------------------------------------------------------------------------
-# VERSUS MODE
+# VERSUS MODE (unchanged – too long, copy from previous version)
 # ---------------------------------------------------------------------------
 
 WIN_TARGET = 2
