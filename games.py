@@ -36,10 +36,10 @@ def clear_tracked_messages(chat_id):
         tracked_messages[chat_id] = []
 
 # ---------------------------------------------------------------------------
-# AUTO CLEANUP (36 HOURS)
+# AUTO CLEANUP (12 HOURS)
 # ---------------------------------------------------------------------------
 
-def auto_clean_old_messages(bot, max_age_hours=36):
+def auto_clean_old_messages(bot, max_age_hours=12):
     now = time.time()
     cutoff = now - (max_age_hours * 3600)
     total_deleted = 0
@@ -256,46 +256,50 @@ def get_scrambled_image_bytes(bot, name, folder, url, subfolder=None):
     else:
         remote_folder = folder
 
-    scrambled_remote = f"scrambled/{remote_folder}/{safe_name}.jpg"
-    scrambled_url = f"{config.GITHUB_RAW_BASE_URL}{scrambled_remote}"
-    print(f"🔍 [SCRAMBLED] Checking URL: {scrambled_url}")
+    remote_base = f"scrambled/{remote_folder}/{safe_name}"
+    exists, found_remote = _image_exists_github(remote_base)
+    if exists:
+        github_url = f"{config.GITHUB_RAW_BASE_URL}{found_remote}"
+        print(f"🔍 [SCRAMBLED] Found existing: {found_remote}")
+        data = _download_image(github_url)
+        if data:
+            print(f"✅ [SCRAMBLED] Downloaded, size: {len(data)}")
+            bio = BytesIO(data)
+            bio.name = "scrambled.jpg"
+            bio.seek(0)
+            return bio
+        else:
+            print(f"⚠️ [SCRAMBLED] Download failed for {found_remote}")
 
-    # 1. Try to download from GitHub
-    data = _download_image(scrambled_url)
-    if data:
-        print(f"✅ [SCRAMBLED] Found existing scrambled image, size: {len(data)}")
-        bio = BytesIO(data)
-        bio.name = "scrambled.jpg"
-        bio.seek(0)
-        return bio
-
-    print(f"⚠️ [SCRAMBLED] Not found on GitHub, generating...")
-
-    # 2. Get original image (this uses the regular get_image_bytes)
+    # Not found – generate
+    print(f"⚠️ [SCRAMBLED] Not on GitHub, generating...")
     img_data = get_image_bytes(bot, name, folder, url, subfolder)
     if not img_data:
         print(f"❌ [SCRAMBLED] Original image unavailable.")
         return None
-    print(f"✅ [SCRAMBLED] Original image loaded, size: {len(img_data.getvalue())}")
 
-    # 3. Scramble
-    from PIL import Image
+    from PIL import Image, ImageDraw
     img = Image.open(img_data)
     if img.mode != 'RGB':
         img = img.convert('RGB')
     w, h = img.size
-    # Make sure we downscale significantly
-    small_w = max(1, w // 12)
-    small_h = max(1, h // 12)
+
+    # AGGRESSIVE SCRAMBLE – factor 6, plus red border
+    small_w = max(4, w // 6)
+    small_h = max(4, h // 6)
     small = img.resize((small_w, small_h), Image.Resampling.NEAREST)
     scrambled = small.resize((w, h), Image.Resampling.NEAREST)
+
+    # Add a thick red border to clearly identify as scrambled
+    draw = ImageDraw.Draw(scrambled)
+    draw.rectangle([0, 0, w-1, h-1], outline="#FF0000", width=12)
 
     bio = BytesIO()
     scrambled.save(bio, 'JPEG', quality=95)
     bio.seek(0)
-    print(f"✅ [SCRAMBLED] Generated scrambled image, size: {len(bio.getvalue())}")
+    print(f"✅ [SCRAMBLED] Generated, size: {len(bio.getvalue())}")
 
-    # 4. Upload to GitHub (async)
+    # Upload to GitHub (async)
     from github_uploader import upload_image_to_github
     def upload():
         try:
@@ -305,7 +309,6 @@ def get_scrambled_image_bytes(bot, name, folder, url, subfolder=None):
             print(f"❌ [SCRAMBLED] Upload error: {e}")
     threading.Thread(target=upload, daemon=True).start()
 
-    # 5. Return the scrambled image
     return bio
 
 def precache_scrambled_images(bot):
@@ -322,7 +325,6 @@ def precache_scrambled_images(bot):
             img_url = entry.get('image') or entry.get('image_url') or entry.get('img')
             if not name or not img_url:
                 continue
-            # This will generate and upload the scrambled image
             get_scrambled_image_bytes(bot, name, config.LOCAL_CHAR_IMAGES_DIR, img_url, subfolder=cat)
             total += 1
             if total % 10 == 0:
@@ -477,7 +479,7 @@ def _game_markup(chat_id, game_type):
     import telebot
     markup = telebot.types.InlineKeyboardMarkup()
     buttons = []
-    if game_type != "character":
+    if game_type != "character" and game_type != "scrambled":  # both can use hint
         buttons.append(telebot.types.InlineKeyboardButton("💡 Hint", callback_data=f"hint_{chat_id}"))
     buttons.append(telebot.types.InlineKeyboardButton("⏭️ Next", callback_data=f"nextgame_{chat_id}_{game_type}"))
     buttons.append(telebot.types.InlineKeyboardButton("🛑 Stop", callback_data=f"stopgame_{chat_id}"))
@@ -518,6 +520,19 @@ def send_character_category_picker(bot, chat_id):
     send_and_delete(bot, chat_id, "👤 *GUESS THE CHARACTER*\n\nChoose a category:",
                      reply_markup=markup, parse_mode="Markdown")
 
+def send_scrambled_category_picker(bot, chat_id):
+    import telebot
+    markup = telebot.types.InlineKeyboardMarkup(row_width=2)
+    markup.add(
+        telebot.types.InlineKeyboardButton("🌸 Anime", callback_data="scrambledcat_anime"),
+        telebot.types.InlineKeyboardButton("🦸 DC", callback_data="scrambledcat_dc"),
+        telebot.types.InlineKeyboardButton("⚡ Marvel", callback_data="scrambledcat_marvel"),
+        telebot.types.InlineKeyboardButton("🎮 Gaming", callback_data="scrambledcat_gaming"),
+        telebot.types.InlineKeyboardButton("🎲 Random", callback_data="scrambledcat_random"),
+    )
+    send_and_delete(bot, chat_id, "🖼️ *SCRAMBLED CHARACTER GUESS*\n\nChoose a category:",
+                     reply_markup=markup, parse_mode="Markdown")
+
 def send_year_category_picker(bot, chat_id):
     import telebot
     markup = telebot.types.InlineKeyboardMarkup(row_width=2)
@@ -550,7 +565,7 @@ def send_trivia_category_picker(bot, chat_id):
 
 def _get_hint(session, hint_num):
     game_type = session.get("type")
-    if game_type in ("character", "picture"):
+    if game_type in ("character", "scrambled", "picture"):
         hints_list = session.get("hints_list", [])
         if hint_num == 1:
             return f"💡 *Hint 1:* {hints_list[0]}" if hints_list else "💡 *Hint 1:* No extra hints available."
@@ -616,7 +631,7 @@ def process_hint(bot, message=None, call=None):
     reply(f"{hint_text}\n{cost_note}")
 
 # ---------------------------------------------------------------------------
-# CHARACTER GAME
+# CHARACTER GAME (image-based)
 # ---------------------------------------------------------------------------
 
 def is_character_match(guess, answer, aliases=None):
@@ -821,11 +836,11 @@ def handle_year_answer(bot, call):
         bot.answer_callback_query(call.id, "❌ Wrong! Streak broken.", show_alert=True)
 
 # ---------------------------------------------------------------------------
-# PICTURE GAME – scrambled ONLY, no fallback to original
+# PICTURE GAME (scrambled) – renamed from start_picture_game but kept as is
 # ---------------------------------------------------------------------------
 
 def start_picture_game(bot, chat_id, category=None, user_id=None):
-    if user_id and _check_one_game_lock(bot, chat_id, user_id, game_type="picture", category=category):
+    if user_id and _check_one_game_lock(bot, chat_id, user_id, game_type="scrambled", category=category):
         return None
 
     db_path = config.CHAR_CATEGORIES.get((category or "random").lower())
@@ -850,23 +865,19 @@ def start_picture_game(bot, chat_id, category=None, user_id=None):
     hints_list = hints if isinstance(hints, list) else [hints]
     aliases = q.get('aliases', [])
 
-    print(f"🖼️ [PICTURE] Starting picture game for: {name}")
+    print(f"🖼️ [SCRAMBLED] Starting scrambled game for: {name}")
 
-    # Scrambled image – this function NEVER falls back to original
     scrambled_data = get_scrambled_image_bytes(bot, name, LOCAL_CHAR_DIR, img_url, subfolder)
     if not scrambled_data:
-        print(f"❌ [PICTURE] scrambled_data is None – aborting.")
+        print(f"❌ [SCRAMBLED] scrambled_data is None – aborting.")
         send_and_delete(bot, chat_id, "❌ Could not load scrambled image for this character.")
         return None
 
-    print(f"✅ [PICTURE] scrambled_data size: {len(scrambled_data.getvalue())}")
-
-    # Store original image bytes for reveal (optional)
     orig_img_data = get_image_bytes(bot, name, LOCAL_CHAR_DIR, img_url, subfolder)
     orig_img_bytes = orig_img_data.getvalue() if orig_img_data else None
 
     active_games[chat_id] = {
-        "type": "picture",
+        "type": "scrambled",
         "answer": name.lower(),
         "display": name,
         "category": cat_label,
@@ -878,15 +889,15 @@ def start_picture_game(bot, chat_id, category=None, user_id=None):
         "is_scrambled": True,
     }
 
-    last_game_type[chat_id] = "picture"
+    last_game_type[chat_id] = "scrambled"
     last_game_category[chat_id] = category if category else "random"
 
     time_limit = _get_time_limit()
-    text = f"🖼️ *GUESS THE CHARACTER* (Scrambled Image)\n\n"
+    text = f"🖼️ *SCRAMBLED CHARACTER GUESS*\n\n"
     text += f"Category: *{cat_label}*\n\n"
     text += f"⏱️ *{time_limit}s to answer!*  💡 /hint for a clue"
 
-    markup = _game_markup(chat_id, "picture")
+    markup = _game_markup(chat_id, "scrambled")
     send_photo_and_delete(bot, chat_id, scrambled_data, caption=text, reply_markup=markup, parse_mode="Markdown")
     _start_timer(bot, chat_id, time_limit)
     _update_scheduler_last_game()
@@ -911,7 +922,7 @@ def _start_timer(bot, chat_id, seconds):
                     parse_mode="Markdown",
                     delay=config.GAME_AUTO_DELETE_DELAY
                 )
-            elif active_games[chat_id].get("type") in ("character", "picture"):
+            elif active_games[chat_id].get("type") in ("character", "scrambled"):
                 answer = active_games[chat_id].get("display", "Unknown")
                 send_and_delete(
                     bot,
@@ -934,7 +945,7 @@ def _start_timer(bot, chat_id, seconds):
                 bot,
                 chat_id,
                 f"⏰ *Time's up!* No one got it this round.\n\n"
-                f"Start a new game with /game, /year or /trivia! 🎮",
+                f"Start a new game with /guess, /scrambled, /quiz, /year or /trivia! 🎮",
                 parse_mode="Markdown",
                 delay=config.GAME_AUTO_DELETE_DELAY
             )
@@ -1113,7 +1124,7 @@ def handle_next_game(bot, call):
         start_year_game(bot, chat_id, category=cat)
     elif game_type == "trivia":
         start_trivia_game(bot, chat_id, category=cat)
-    elif game_type == "picture":
+    elif game_type in ("scrambled", "picture"):
         start_picture_game(bot, chat_id, category=cat)
     elif game_type == "guess":
         start_guess_game(bot, chat_id, user_id=None)
@@ -1622,9 +1633,7 @@ def _payout_bets(bot, chat_id, winner_pick):
 # ---------------------------------------------------------------------------
 
 def post_daily_challenge(bot):
-    # Get today's theme category
     character, theme_category = database.get_todays_character()
-
     all_trivia = database.load_trivia_from_github()
     if not all_trivia:
         return
@@ -1726,7 +1735,7 @@ def handle_daily_answer(bot, call):
         bot.answer_callback_query(call.id, "❌ Wrong! Better luck tomorrow.", show_alert=True)
 
 # ---------------------------------------------------------------------------
-# ANSWER CHECKER (with reveal for picture game)
+# ANSWER CHECKER (with reveal for scrambled game)
 # ---------------------------------------------------------------------------
 
 def check_user_answer(bot, message):
@@ -1790,7 +1799,7 @@ def check_user_answer(bot, message):
             pass
 
     double_down_active = False
-    if session.get("type") in ("character", "picture"):
+    if session.get("type") in ("character", "scrambled"):
         data = database.get_group_data()
         chat_str = str(chat_id)
         user_str = str(user_id)
@@ -1800,7 +1809,6 @@ def check_user_answer(bot, message):
 
     aliases = session.get("aliases", [])
     if is_character_match(user_guess, session["answer"], aliases):
-        # Determine base points: higher for scrambled game
         if session.get("is_scrambled"):
             base_pts = config.POINTS_SCRAMBLED_GAME
         else:
@@ -1820,8 +1828,7 @@ def check_user_answer(bot, message):
         markup.row(telebot.types.InlineKeyboardButton(
             "⏭️ Next Game", callback_data=f"nextgame_{chat_id}_{session['type']}"))
 
-        # --- REVEAL ORIGINAL IMAGE FOR PICTURE GAME ---
-        if session.get("type") == "picture" and session.get("orig_img_bytes"):
+        if session.get("type") == "scrambled" and session.get("orig_img_bytes"):
             try:
                 from io import BytesIO
                 img_bytes = session["orig_img_bytes"]
@@ -1839,7 +1846,6 @@ def check_user_answer(bot, message):
             except Exception as e:
                 print(f"❌ Failed to send reveal image: {e}")
 
-        # --- Text-only fallback ---
         send_and_delete(
             bot,
             chat_id,
@@ -1906,7 +1912,7 @@ def handle_game_callback(bot, call):
         handle_lightning_answer(bot, call)
 
 # ---------------------------------------------------------------------------
-# GUESS GAME
+# GUESS GAME (text-based quiz)
 # ---------------------------------------------------------------------------
 
 def start_guess_game(bot, chat_id, user_id):
