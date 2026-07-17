@@ -1,18 +1,14 @@
 {
-    "date": "2026-07-16",
-    "question": "What is the name of the largest bird in the world?",
+    "date": "2026-07-17",
+    "question": "What does 'URL' stand for?",
     "options": [
-        "Ostrich",
-        "Emu",
-        "Cassowary",
-        "Kiwi"
+        "Uniform Resource Locator",
+        "Universal Resource Link",
+        "Uniform Resource Link",
+        "Universal Resource Locator"
     ],
     "answer": "A",
-    "display": "Ostrich",
-    "category": "General",
-    "answered": [
-        6231510981,
-        1449692981,
-        8234402535
-    ]
+    "display": "Uniform Resource Locator",
+    "category": "Technology",
+    "answered": []
 }
