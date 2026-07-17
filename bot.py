@@ -123,14 +123,14 @@ def _get_help_text(category):
     texts = {
         "games": (
             "🎮 *GAMES*\n\n"
-            "/game — Guess the Character\n"
+            "/guess — Look at the character image and guess the name\n"
+            "/scrambled — Guessing from a scrambled (pixelated) image\n"
+            "/quiz — Text‑based character quiz with hints\n"
             "/year — Guess the Release Year\n"
-            "/picture — Scrambled Image Guessing\n"
             "/trivia — Trivia (choose category)\n"
             "/spin — Wheel of Fortune\n"
             "/versus @user — Challenge someone to a duel\n"
-            "/guess — Character Quiz (text-based hints)\n"
-            "/lightning — Lightning Round (high-risk trivia)"
+            "/lightning — Lightning Round (high‑risk trivia)"
         ),
         "rankings": (
             "🏆 *RANKINGS & STATS*\n\n"
@@ -299,7 +299,7 @@ def show_admin_panel(message):
     markup.add(
         telebot.types.InlineKeyboardButton("🎮 Start Character Game", callback_data="admin_startchar"),
         telebot.types.InlineKeyboardButton("🎬 Start Year Game",      callback_data="admin_startyear"),
-        telebot.types.InlineKeyboardButton("🖼️ Start Picture Game",   callback_data="admin_startpicture"),
+        telebot.types.InlineKeyboardButton("🖼️ Start Scrambled Game", callback_data="admin_startpicture"),
         telebot.types.InlineKeyboardButton("❓ Start Trivia",          callback_data="admin_starttrivia"),
         telebot.types.InlineKeyboardButton("📊 Stats",                 callback_data="admin_stats"),
         telebot.types.InlineKeyboardButton("🏆 Leaderboard",           callback_data="admin_leaderboard"),
@@ -366,7 +366,7 @@ def _build_schedule_panel(group_id):
     markup.add(
         telebot.types.InlineKeyboardButton("🎮 Character", callback_data=f"sched_type_{group_id}_character"),
         telebot.types.InlineKeyboardButton("🎬 Year", callback_data=f"sched_type_{group_id}_year"),
-        telebot.types.InlineKeyboardButton("🖼️ Picture", callback_data=f"sched_type_{group_id}_picture"),
+        telebot.types.InlineKeyboardButton("🖼️ Scrambled", callback_data=f"sched_type_{group_id}_picture"),
         telebot.types.InlineKeyboardButton("❓ Trivia", callback_data=f"sched_type_{group_id}_trivia"),
         telebot.types.InlineKeyboardButton("🎲 Random", callback_data=f"sched_type_{group_id}_random"),
     )
@@ -663,14 +663,14 @@ def clean_bot_messages(chat_id, trigger_message):
             bot.delete_message(chat_id, msg["id"])
             deleted_count += 1
         except Exception:
-            pass  # If deletion fails, just forget it
+            pass
 
-    # Clear the list after attempting deletion
     games.tracked_messages[chat_id] = []
 
     reply_tracked(trigger_message,
                   f"🧹 *Strict Cleanup Complete*\n\n🗑️ Deleted: {deleted_count}\n📌 Kept: {kept_count} (matched keep patterns)",
                   parse_mode="Markdown")
+
 # ---------------------------------------------------------------------------
 # COMMAND ROUTER
 # ---------------------------------------------------------------------------
@@ -916,20 +916,21 @@ def handle_all_messages(message):
     elif cmd == '/fixtures':
         show_fixtures(message)
 
-    elif cmd in ['/game', '/startgame', '/quiz']:
+    # --- Updated command handlers ---
+    elif cmd in ['/guess', '/game', '/startguess']:
         games.send_character_category_picker(bot, chat_id)
+
+    elif cmd in ['/scrambled', '/picture']:
+        games.send_scrambled_category_picker(bot, chat_id)
+
+    elif cmd in ['/quiz', '/charquiz']:
+        games.start_guess_game(bot, chat_id, user_id)
 
     elif cmd in ['/year', '/startyear', '/yeargame']:
         games.send_year_category_picker(bot, chat_id)
 
-    elif cmd == '/picture':
-        games.send_character_category_picker(bot, chat_id)
-
     elif cmd == '/trivia':
         games.send_trivia_category_picker(bot, chat_id)
-
-    elif cmd == '/guess':
-        games.start_guess_game(bot, chat_id, user_id)
 
     elif cmd == '/lightning':
         games.start_lightning_round(bot, chat_id, user_id)
@@ -1500,6 +1501,17 @@ def handle_all_callbacks(call):
     username = call.from_user.username or call.from_user.first_name
 
     try:
+        # --- Scrambled category picker ---
+        if data.startswith("scrambledcat_"):
+            cat = data.replace("scrambledcat_", "")
+            bot.answer_callback_query(call.id)
+            try:
+                bot.delete_message(chat_id, call.message.message_id)
+            except Exception:
+                pass
+            games.start_picture_game(bot, chat_id, category=cat, user_id=user_id)
+            return
+
         if data.startswith("guess_hint_"):
             games.handle_guess_hint(bot, call)
             return
@@ -1550,7 +1562,7 @@ def handle_all_callbacks(call):
                     games.start_character_game(bot, chat_id, category=cat)
                 elif gtype == 'year':
                     games.start_year_game(bot, chat_id, category=cat)
-                elif gtype == 'picture':
+                elif gtype == 'scrambled':
                     games.start_picture_game(bot, chat_id, category=cat)
                 elif gtype == 'trivia':
                     games.start_trivia_game(bot, chat_id, category=cat)
@@ -1725,7 +1737,6 @@ def handle_all_callbacks(call):
                 handle_status(call.message)
             elif action == "health":
                 bot.answer_callback_query(call.id)
-                # Simulate /health command
                 from types import SimpleNamespace
                 dummy_msg = SimpleNamespace(text="/health", chat=SimpleNamespace(id=chat_id), from_user=SimpleNamespace(id=user_id))
                 handle_all_messages(dummy_msg)
@@ -2160,7 +2171,7 @@ def background_scheduler():
                 for g_id in groups:
                     group_sched = database.get_group_schedule(g_id)
                     if not group_sched or not group_sched.get("enabled", False):
-                        continue  # No schedule or disabled
+                        continue
 
                     window_start = group_sched.get("window_start", config.SCHEDULER_WINDOW_START)
                     window_end   = group_sched.get("window_end", config.SCHEDULER_WINDOW_END)
@@ -2168,7 +2179,6 @@ def background_scheduler():
                     interval_sec = group_sched.get("interval", 60) * 60
                     game_type    = group_sched.get("game_type", "random")
 
-                    # Load last_game from scheduler.json (we keep per-group tracking in scheduler.json)
                     sched_global = database.load_remote_json(config.SCHEDULER_FILE, {})
                     per_group = sched_global.get("last_game_per_group", {})
                     group_last_game = per_group.get(str(g_id), 0)
@@ -2184,7 +2194,7 @@ def background_scheduler():
                         print(f"⏳ Scheduler: group={g_id}, in_window={in_window}, diff={now_ts - group_last_game}, interval={interval_sec}")
 
                         if game_type == "random":
-                            game_type = random.choice(["character", "year", "picture", "trivia"])
+                            game_type = random.choice(["character", "year", "scrambled", "trivia"])
 
                         if games._is_game_active(g_id) or g_id in games.versus_games:
                             continue
@@ -2196,7 +2206,7 @@ def background_scheduler():
                         elif game_type == "year":
                             games.start_year_game(bot, g_id)
                             started = True
-                        elif game_type == "picture":
+                        elif game_type == "scrambled":
                             games.start_picture_game(bot, g_id)
                             started = True
                         elif game_type == "trivia":
@@ -2223,9 +2233,8 @@ def background_scheduler():
 # ---------------------------------------------------------------------------
 
 def image_cache_cleaner_loop():
-    """Run weekly image cache cleanup."""
     while True:
-        time.sleep(604800)  # 7 days
+        time.sleep(604800)
         try:
             deleted = games.clean_old_image_cache(max_age_days=7)
             if deleted:
@@ -2280,21 +2289,21 @@ def thread_supervisor():
         time.sleep(30)
 
 # ---------------------------------------------------------------------------
-# AUTO CLEANUP THREAD (36 HOURS)
+# AUTO CLEANUP THREAD (12 HOURS)
 # ---------------------------------------------------------------------------
 
 def auto_cleanup_loop():
     while True:
-        time.sleep(7200)  # 2 hours (was 6 hours)
+        time.sleep(7200)  # 2 hours
         try:
-            deleted = games.auto_clean_old_messages(bot, max_age_hours=12)  # 12 hours (was 36)
+            deleted = games.auto_clean_old_messages(bot, max_age_hours=12)  # 12 hours
             if deleted:
                 print(f"🧹 Auto-cleanup deleted {deleted} old messages.")
         except Exception as e:
             print(f"❌ Auto-cleanup error: {e}")
 
 # ---------------------------------------------------------------------------
-# MISSING IMAGES NOTIFICATION (UPDATED for subfolder structure)
+# MISSING IMAGES NOTIFICATION
 # ---------------------------------------------------------------------------
 
 def notify_missing_images():
@@ -2304,7 +2313,6 @@ def notify_missing_images():
         return re.sub(r'[^a-zA-Z0-9._-]', '_', name).strip('_')
 
     def find_github(name, remote_base):
-        """Check if an image exists on GitHub with any supported extension."""
         safe_name = to_filename(name)
         for ext in ['.jpg', '.jpeg', '.png', '.webp']:
             full_remote = f"{remote_base}/{safe_name}{ext}"
@@ -2317,7 +2325,6 @@ def notify_missing_images():
                 pass
         return False
 
-    # Map database files to their subfolder paths (the base folder)
     char_subfolders = {
         config.CHAR_ANIME_DB: "characters/anime",
         config.CHAR_DC_DB: "characters/dc",
@@ -2334,7 +2341,6 @@ def notify_missing_images():
     missing_chars = {}
     missing_media = {}
 
-    # Scan character databases
     for db_path, remote_base in char_subfolders.items():
         data = database.load_json(db_path, []) if os.path.exists(db_path) else []
         if isinstance(data, list):
@@ -2343,7 +2349,6 @@ def notify_missing_images():
                 cat_name = next((k for k, v in config.CHAR_CATEGORIES.items() if v == os.path.basename(db_path)), db_path)
                 missing_chars[cat_name] = missing
 
-    # Scan media databases
     for db_path, remote_base in media_subfolders.items():
         data = database.load_json(db_path, []) if os.path.exists(db_path) else []
         if isinstance(data, list):
@@ -2458,23 +2463,22 @@ def handle_image_upload(message):
 def register_commands():
     public_commands = [
         telebot.types.BotCommand("start",       "👋 Welcome message"),
-        telebot.types.BotCommand("help",         "📖 Full command list"),
-        telebot.types.BotCommand("game",         "👤 Guess the Character"),
-        telebot.types.BotCommand("year",         "🎬 Guess the Release Year"),
-        telebot.types.BotCommand("picture",      "🖼️ Scrambled Image Guessing"),
-        telebot.types.BotCommand("trivia",       "❓ Trivia (choose category)"),
-        telebot.types.BotCommand("guess",        "🔍 Character Quiz (text hints)"),
-        telebot.types.BotCommand("lightning",    "⚡ High-risk rapid-fire trivia"),
-        telebot.types.BotCommand("spin",         "🎰 Wheel of Fortune"),
-        telebot.types.BotCommand("versus",       "⚔️ Challenge another player"),
-        telebot.types.BotCommand("leaderboard",  "🏆 View rankings"),
-        telebot.types.BotCommand("mystats",      "📊 Your stats (text)"),
-        telebot.types.BotCommand("viewstats",    "📊 Stats of mentioned user"),
-        telebot.types.BotCommand("shop",         "🛒 Spend your points"),
-        telebot.types.BotCommand("powerups",     "⚡ View your power-ups"),
-        telebot.types.BotCommand("table",        "📋 League standings"),
-        telebot.types.BotCommand("fixtures",     "📅 Match fixtures"),
-        telebot.types.BotCommand("feedback",     "💬 Send feedback to the Captain"),
+        telebot.types.BotCommand("help",        "📖 Full command list"),
+        telebot.types.BotCommand("guess",       "👤 Guess the character (image)"),
+        telebot.types.BotCommand("scrambled",   "🖼️ Scrambled image guessing"),
+        telebot.types.BotCommand("quiz",        "🔍 Text‑based character quiz"),
+        telebot.types.BotCommand("year",        "🎬 Guess the Release Year"),
+        telebot.types.BotCommand("trivia",      "❓ Trivia (choose category)"),
+        telebot.types.BotCommand("spin",        "🎰 Wheel of Fortune"),
+        telebot.types.BotCommand("versus",      "⚔️ Challenge another player"),
+        telebot.types.BotCommand("leaderboard", "🏆 View rankings"),
+        telebot.types.BotCommand("mystats",     "📊 Your stats (text)"),
+        telebot.types.BotCommand("viewstats",   "📊 Stats of mentioned user"),
+        telebot.types.BotCommand("shop",        "🛒 Spend your points"),
+        telebot.types.BotCommand("powerups",    "⚡ View your power‑ups"),
+        telebot.types.BotCommand("table",       "📋 League standings"),
+        telebot.types.BotCommand("fixtures",    "📅 Match fixtures"),
+        telebot.types.BotCommand("feedback",    "💬 Send feedback to the Captain"),
     ]
 
     admin_commands = public_commands + [
