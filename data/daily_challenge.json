@@ -1,16 +1,14 @@
 {
-    "date": "2026-07-17",
-    "question": "What does 'URL' stand for?",
+    "date": "2026-07-18",
+    "question": "Which country is known for the sport of 'Hurling'?",
     "options": [
-        "Uniform Resource Locator",
-        "Universal Resource Link",
-        "Uniform Resource Link",
-        "Universal Resource Locator"
+        "Ireland",
+        "Scotland",
+        "Wales",
+        "England"
     ],
     "answer": "A",
-    "display": "Uniform Resource Locator",
-    "category": "Technology",
-    "answered": [
-        6231510981
-    ]
+    "display": "Ireland",
+    "category": "Sports",
+    "answered": []
 }
