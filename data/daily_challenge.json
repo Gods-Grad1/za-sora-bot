@@ -1,16 +1,14 @@
 {
-    "date": "2026-07-18",
-    "question": "Which country is known for the sport of 'Hurling'?",
+    "date": "2026-07-19",
+    "question": "Who was the first person to be raised from the dead by Jesus in the New Testament?",
     "options": [
-        "Ireland",
-        "Scotland",
-        "Wales",
-        "England"
+        "Lazarus",
+        "Jairus' daughter",
+        "The son of the widow of Nain",
+        "All of the above"
     ],
-    "answer": "A",
-    "display": "Ireland",
-    "category": "Sports",
-    "answered": [
-        6231510981
-    ]
+    "answer": "D",
+    "display": "All of the above",
+    "category": "Bible",
+    "answered": []
 }
