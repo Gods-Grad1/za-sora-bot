@@ -1,17 +1,14 @@
 {
-    "date": "2026-07-19",
-    "question": "Who was the first person to be raised from the dead by Jesus in the New Testament?",
+    "date": "2026-07-20",
+    "question": "Who is the creator of Minecraft?",
     "options": [
-        "Lazarus",
-        "Jairus' daughter",
-        "The son of the widow of Nain",
-        "All of the above"
+        "Notch",
+        "Jeb",
+        "Dinnerbone",
+        "C418"
     ],
-    "answer": "D",
-    "display": "All of the above",
-    "category": "Bible",
-    "answered": [
-        6231510981,
-        1454425797
-    ]
+    "answer": "A",
+    "display": "Notch",
+    "category": "Gaming",
+    "answered": []
 }
