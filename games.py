@@ -249,6 +249,7 @@ def get_scrambled_image_bytes(bot, name, folder, url, subfolder=None):
         remote_folder = "characters"
         if subfolder:
             remote_folder += f"/{subfolder}"
+            remote_base = f"scrambled/{remote_folder}/{safe_name}"
     elif folder == config.LOCAL_MEDIA_IMAGES_DIR:
         remote_folder = "media"
         if subfolder:
@@ -313,23 +314,31 @@ def get_scrambled_image_bytes(bot, name, folder, url, subfolder=None):
 
 def precache_scrambled_images(bot):
     print("🔄 Starting scrambled image pre‑cache...")
-    categories = ["anime", "dc", "marvel", "gaming"]
+    
+    # Get all categories from config, excluding 'random' if present
+    categories = [cat for cat in config.CHAR_CATEGORIES.keys() if cat != "random"]
     total = 0
+    
     for cat in categories:
         db_path = config.CHAR_CATEGORIES.get(cat)
         if not db_path:
             continue
+        # Load the JSON file from local path – it should exist in the same directory
+        # (In production, the JSONs are on GitHub; this function runs locally)
         entries = load_json_file(db_path) or []
+        print(f"   → Processing {cat} ({len(entries)} entries)")
         for entry in entries:
             name = entry.get('name', 'Unknown').strip()
             img_url = entry.get('image') or entry.get('image_url') or entry.get('img')
             if not name or not img_url:
                 continue
+            # This will generate and upload the scrambled image using the correct subfolder
             get_scrambled_image_bytes(bot, name, config.LOCAL_CHAR_IMAGES_DIR, img_url, subfolder=cat)
             total += 1
             if total % 10 == 0:
                 print(f"   → {total} images processed...")
-    print(f"✅ Scrambled images pre‑cached: {total} total.")
+    
+    print(f"✅ Scrambled images pre‑cached: {total} total across {len(categories)} categories."))
 
 # ---------------------------------------------------------------------------
 # PRECACHE
