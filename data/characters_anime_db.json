@@ -1131,6 +1131,308 @@
     ],
     "aliases": [
       "Clare"
+    ],
+  {
+    "name": "Charizard",
+    "image": "https://upload.wikimedia.org/wikipedia/en/e/ec/Charizard_XY.png",
+    "hints": [
+      "From: Anime (Pokémon)",
+      "About: A powerful fire-breathing dragon-like Pokémon, one of Ash Ketchum's most iconic partners."
+    ],
+    "aliases": [
+      "Charizard"
     ]
+  },
+  {
+    "name": "Mewtwo",
+    "image": "https://upload.wikimedia.org/wikipedia/en/1/1b/Mewtwo_XY.png",
+    "hints": [
+      "From: Anime (Pokémon)",
+      "About: A genetically engineered psychic Pokémon created to be the ultimate fighter, questioning its own existence."
+    ],
+    "aliases": [
+      "Mewtwo"
+    ]
+  },
+  {
+    "name": "Eevee",
+    "image": "https://upload.wikimedia.org/wikipedia/en/1/1b/Eevee_XY.png",
+    "hints": [
+      "From: Anime (Pokémon)",
+      "About: A cute, fox-like Pokémon with an unstable genetic code that allows it to evolve into multiple different forms."
+    ],
+    "aliases": [
+      "Eevee"
+    ]
+  },
+  {
+    "name": "Sailor Moon",
+    "image": "https://upload.wikimedia.org/wikipedia/en/5/5a/Sailor_Moon_character.png",
+    "hints": [
+      "From: Anime (Sailor Moon)",
+      "About: The clumsy but determined leader of the Sailor Guardians, who fights evil in the name of the moon."
+    ],
+    "aliases": [
+      "Usagi Tsukino",
+      "Serena"
+    ]
+  },
+  {
+    "name": "Sailor Mercury",
+    "image": "https://upload.wikimedia.org/wikipedia/en/5/54/Sailor_Mercury_character.png",
+    "hints": [
+      "From: Anime (Sailor Moon)",
+      "About: The intelligent and shy Sailor Guardian of water, who uses her tech skills to support her team."
+    ],
+    "aliases": [
+      "Ami Mizuno"
+    ]
+  },
+  {
+    "name": "Sailor Mars",
+    "image": "https://upload.wikimedia.org/wikipedia/en/f/f2/Sailor_Mars_character.png",
+    "hints": [
+      "From: Anime (Sailor Moon)",
+      "About: The fiery Sailor Guardian of fire, who uses purification and fire attacks to defeat evil."
+    ],
+    "aliases": [
+      "Rei Hino"
+    ]
+  },
+  {
+    "name": "Sailor Jupiter",
+    "image": "https://upload.wikimedia.org/wikipedia/en/e/e6/Sailor_Jupiter_character.png",
+    "hints": [
+      "From: Anime (Sailor Moon)",
+      "About: The strong and protective Sailor Guardian of lightning, who balances her toughness with a love for cooking."
+    ],
+    "aliases": [
+      "Makoto Kino"
+    ]
+  },
+  {
+    "name": "Gintoki Sakata",
+    "image": "https://upload.wikimedia.org/wikipedia/en/2/2b/Gintoki_Sakata.png",
+    "hints": [
+      "From: Anime (Gintama)",
+      "About: A lazy, silver-haired samurai with a sweet tooth, who runs a freelance business and gets into absurd adventures."
+    ],
+    "aliases": [
+      "Gintoki",
+      "Gin-san"
+    ]
+  },
+  {
+    "name": "Hanamichi Sakuragi",
+    "image": "https://upload.wikimedia.org/wikipedia/en/7/77/Hanamichi_Sakuragi.png",
+    "hints": [
+      "From: Anime (Slam Dunk)",
+      "About: A hot-headed delinquent who discovers a passion for basketball, becoming the star of his high school team."
+    ],
+    "aliases": [
+      "Sakuragi",
+      "The Genius"
+    ]
+  },
+  {
+    "name": "Kaede Rukawa",
+    "image": "https://upload.wikimedia.org/wikipedia/en/1/1a/Kaede_Rukawa.png",
+    "hints": [
+      "From: Anime (Slam Dunk)",
+      "About: A gifted and cold-hearted basketball prodigy who is Sakuragi's rival, loved by fangirls across Japan."
+    ],
+    "aliases": [
+      "Rukawa"
+    ]
+  },
+  {
+    "name": "Kuroko Tetsuya",
+    "image": "https://upload.wikimedia.org/wikipedia/en/0/0b/Kuroko_Tetsuya.png",
+    "hints": [
+      "From: Anime (Kuroko's Basketball)",
+      "About: A quiet, unassuming basketball player with incredible passing and misdirection skills, making him the 'shadow' of the court."
+    ],
+    "aliases": [
+      "Kuroko"
+    ]
+  },
+  {
+    "name": "Kagami Taiga",
+    "image": "https://upload.wikimedia.org/wikipedia/en/1/1a/Kagami_Taiga.png",
+    "hints": [
+      "From: Anime (Kuroko's Basketball)",
+      "About: A loud, passionate basketball player from the US who becomes Kuroko's partner, aiming to be the best in Japan."
+    ],
+    "aliases": [
+      "Kagami"
+    ]
+  },
+  {
+    "name": "Yujiro Hanma",
+    "image": "https://upload.wikimedia.org/wikipedia/en/3/3e/Yujiro_Hanma.png",
+    "hints": [
+      "From: Anime (Baki)",
+      "About: The strongest creature on Earth, Baki's father, a brutal and unstoppable force of nature."
+    ],
+    "aliases": [
+      "Yujiro",
+      "The Ogre"
+    ]
+  },
+  {
+    "name": "Rin Itoshi",
+    "image": "https://upload.wikimedia.org/wikipedia/en/7/7e/Rin_Itoshi.png",
+    "hints": [
+      "From: Anime (Blue Lock)",
+      "About: An elite striker with an exceptional analytical mind and a cold personality, obsessed with being the best."
+    ],
+    "aliases": [
+      "Rin"
+    ]
+  },
+  {
+    "name": "Meguru Bachira",
+    "image": "https://upload.wikimedia.org/wikipedia/en/0/0b/Meguru_Bachira.png",
+    "hints": [
+      "From: Anime (Blue Lock)",
+      "About: A creative and unpredictable striker who plays by instinct, always looking to have fun on the pitch."
+    ],
+    "aliases": [
+      "Bachira"
+    ]
+  },
+  {
+    "name": "Ken Ryuguji",
+    "image": "https://upload.wikimedia.org/wikipedia/en/6/6f/Ken_Ryuguji.png",
+    "hints": [
+      "From: Anime (Tokyo Revengers)",
+      "About: The loyal vice-captain of the Tokyo Manji Gang, known for his dragon tattoo and fierce fighting style."
+    ],
+    "aliases": [
+      "Draken"
+    ]
+  },
+  {
+    "name": "Aira Shiratori",
+    "image": "https://upload.wikimedia.org/wikipedia/en/8/86/Aira_Shiratori.png",
+    "hints": [
+      "From: Anime (Dandadan)",
+      "About: A beautiful and popular girl who joins Momo and Okarun, believing she is the chosen one destined to fight aliens."
+    ],
+    "aliases": [
+      "Aira"
+    ]
+  },
+  {
+    "name": "Jiji",
+    "image": "https://upload.wikimedia.org/wikipedia/en/e/e7/Jiji_%28Dandadan%29.png",
+    "hints": [
+      "From: Anime (Dandadan)",
+      "About: Momo's childhood friend who becomes possessed by a powerful demon, bringing chaos to the group."
+    ],
+    "aliases": [
+      "Jiji"
+    ]
+  },
+  {
+    "name": "Sojo",
+    "image": "https://upload.wikimedia.org/wikipedia/en/0/07/Sojo_%28Kagurabachi%29.png",
+    "hints": [
+      "From: Anime (Kagurabachi)",
+      "About: A ruthless and ambitious swordsman who seeks the stolen enchanted blades to achieve his dark goals."
+    ],
+    "aliases": [
+      "Sojo"
+    ]
+  },
+  {
+    "name": "Enjin",
+    "image": "https://upload.wikimedia.org/wikipedia/en/f/f6/Enjin_%28Gachiakuta%29.png",
+    "hints": [
+      "From: Anime (Gachiakuta)",
+      "About: A mysterious and skilled fighter who guides Rudo in the hellish world of the Abyss, wielding powerful cursed tools."
+    ],
+    "aliases": [
+      "Enjin"
+    ]
+  },
+  {
+    "name": "Fern",
+    "image": "https://upload.wikimedia.org/wikipedia/en/5/59/Fern_%28Frieren%29.png",
+    "hints": [
+      "From: Anime (Frieren: Beyond Journey's End)",
+      "About: A young mage who travels with Frieren, possessing a calm demeanor and powerful magical abilities."
+    ],
+    "aliases": [
+      "Fern"
+    ]
+  },
+  {
+    "name": "Stark",
+    "image": "https://upload.wikimedia.org/wikipedia/en/c/c6/Stark_%28Frieren%29.png",
+    "hints": [
+      "From: Anime (Frieren: Beyond Journey's End)",
+      "About: A young warrior with a tragic past who joins Frieren's party, overcoming his cowardice to protect his friends."
+    ],
+    "aliases": [
+      "Stark"
+    ]
+  },
+  {
+    "name": "Bond",
+    "image": "https://upload.wikimedia.org/wikipedia/en/7/73/Bond_%28Spy_x_Family%29.png",
+    "hints": [
+      "From: Anime (Spy x Family)",
+      "About: The Forger family's fluffy white dog, who has the ability to see the future."
+    ],
+    "aliases": [
+      "Bond"
+    ]
+  },
+  {
+    "name": "Ruby Hoshino",
+    "image": "https://upload.wikimedia.org/wikipedia/en/b/b7/Ruby_Hoshino.png",
+    "hints": [
+      "From: Anime (Oshi no Ko)",
+      "About: Aqua's twin sister, an idol who dreams of following in their mother's footsteps, keeping a dark secret."
+    ],
+    "aliases": [
+      "Ruby"
+    ]
+  },
+  {
+    "name": "Ai Hoshino",
+    "image": "https://upload.wikimedia.org/wikipedia/en/d/d9/Ai_Hoshino.png",
+    "hints": [
+      "From: Anime (Oshi no Ko)",
+      "About: The legendary idol and mother of Aqua and Ruby, whose tragic death sets their story in motion."
+    ],
+    "aliases": [
+      "Ai"
+    ]
+  },
+  {
+    "name": "Cha Hae-In",
+    "image": "https://upload.wikimedia.org/wikipedia/en/8/8e/Cha_Hae-In.png",
+    "hints": [
+      "From: Anime (Solo Leveling)",
+      "About: An S-rank hunter who becomes an important ally to Jinwoo, possessing incredible speed and strength."
+    ],
+    "aliases": [
+      "Hae-In"
+    ]
+  },
+  {
+    "name": "Yoo Jin-Ho",
+    "image": "https://upload.wikimedia.org/wikipedia/en/1/19/Yoo_Jin-Ho.png",
+    "hints": [
+      "From: Anime (Solo Leveling)",
+      "About: A wealthy and loyal friend to Jinwoo, managing his guild and providing support from behind the scenes."
+    ],
+    "aliases": [
+      "Jin-Ho"
+    ]
+  }
+]
   }
 ]
