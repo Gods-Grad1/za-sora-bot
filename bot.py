@@ -749,6 +749,10 @@ def handle_document(message):
     except Exception as e:
         reply_tracked(message, f"❌ Error: {e}")
 
+# ============================================================
+# FIX: Welcome new members – force save immediately
+# ============================================================
+
 @bot.message_handler(content_types=['new_chat_members'])
 def welcome_new_member(message):
     for member in message.new_chat_members:
@@ -756,7 +760,9 @@ def welcome_new_member(message):
             continue
         username = member.username or member.first_name
         database.track_member(bot, message.chat.id, member.id, username)
-        members  = database.get_all_members(message.chat.id)
+        # Force immediate save so the member appears in leaderboards/tagall
+        database.force_save_group_data()
+        members = database.get_all_members(message.chat.id)
         tag_line = " ".join([f"[{n}](tg://user?id={uid})" for uid, n in members if uid != member.id])
         welcome = (
             f"{config.WELCOME_MSG}\n\n"
@@ -940,6 +946,8 @@ def handle_all_messages(message):
 
     elif cmd == '/stop':
         if chat_id in games.active_games:
+            # Update scheduler timestamp when game is stopped
+            games._update_scheduler_last_game(chat_id)
             del games.active_games[chat_id]
             reply_tracked(message, "🛑 Game stopped.")
 
@@ -1250,6 +1258,7 @@ def handle_all_messages(message):
 
     elif cmd == '/trackgroup' and is_admin(user_id):
         database.track_member(bot, chat_id, user_id, username)
+        database.force_save_group_data()
         reply_tracked(message, "✅ This group is now tracked in the database.")
 
     elif cmd == '/generateall' and is_admin(user_id):
@@ -1650,6 +1659,7 @@ def handle_all_callbacks(call):
             elif action == "trackgroup":
                 bot.answer_callback_query(call.id)
                 database.track_member(bot, chat_id, user_id, username)
+                database.force_save_group_data()
                 send_tracked(chat_id, "✅ This group is now tracked in the database.")
             elif action == "groupschedules":
                 bot.answer_callback_query(call.id)
@@ -2030,15 +2040,16 @@ def handle_all_callbacks(call):
         print(f"Callback error: {e}")
         database.log_error_to_admin(bot, "Callback Handler", e)
 
+# ============================================================
+# FIX: _serve_fixtures_page – correct pagination
+# ============================================================
+
 def _serve_fixtures_page(chat_id, message_id, player, context, status, page):
     rows = database.fetch_csv_cached(bot, config.FIXTURES_CSV_URL)
     home_idx, away_idx, matchday_idx, status_idx, home_score_idx, away_score_idx = graphics.detect_fixtures_columns(rows)
-    header_offset = 1
-    if rows and len(rows) > 0:
-        first_row = rows[0]
-        if len(first_row) > max(home_idx, away_idx):
-            if first_row[0].lower() in ["md", "matchday", "round"]:
-                header_offset = 1
+    header_offset = 1 if rows and len(rows) > 0 and (rows[0][0].lower() in ["md", "matchday", "round"]) else 0
+
+    # Count total fixtures (same filtering as generate_fixtures_image)
     total_fixtures = 0
     for row in rows[header_offset:]:
         if len(row) <= max(home_idx, away_idx):
@@ -2053,33 +2064,38 @@ def _serve_fixtures_page(chat_id, message_id, player, context, status, page):
             continue
         if context == "all" and player.lower() not in [home.lower(), away.lower()]:
             continue
+        row_status = row[status_idx].strip().lower() if status_idx is not None and len(row) > status_idx else ""
+        if status == "upcoming" and row_status in ["completed", "played", "finished"]:
+            continue
+        if status == "completed" and row_status not in ["completed", "played", "finished"]:
+            continue
         total_fixtures += 1
+
     per_page = 10
-    total_pages = (total_fixtures + per_page - 1) // per_page
-    if total_pages == 0:
-        total_pages = 1
+    total_pages = max(1, (total_fixtures + per_page - 1) // per_page)
+
     img = graphics.generate_fixtures_image(bot, rows, status, player, context, page)
     if not img:
         send_tracked(chat_id, f"❌ No {status} matches found for {player.upper()} ({context.upper()}).")
         return
+
+    markup = telebot.types.InlineKeyboardMarkup()
+    nav_btns = []
+    if page > 1:
+        nav_btns.append(telebot.types.InlineKeyboardButton("⬅️ Prev", callback_data=f"fix_pg_{player}_{context}_{status}_{page-1}"))
+    if page < total_pages:
+        nav_btns.append(telebot.types.InlineKeyboardButton("Next ➡️", callback_data=f"fix_pg_{player}_{context}_{status}_{page+1}"))
+    if nav_btns:
+        markup.row(*nav_btns)
+
+    caption = f"📋 *{status.upper()} MATCHES*\n👤 {player.upper()} | 🏟️ {context.upper()} | 📄 Page {page}/{total_pages}"
     try:
-        markup = telebot.types.InlineKeyboardMarkup()
-        nav_btns = []
-        if page > 1:
-            nav_btns.append(telebot.types.InlineKeyboardButton("⬅️ Prev", callback_data=f"fix_pg_{player}_{context}_{status}_{page-1}"))
-        if page < total_pages:
-            nav_btns.append(telebot.types.InlineKeyboardButton("Next ➡️", callback_data=f"fix_pg_{player}_{context}_{status}_{page+1}"))
-        if nav_btns:
-            markup.row(*nav_btns)
-        caption = f"📋 *{status.upper()} MATCHES*\n👤 {player.upper()} | 🏟️ {context.upper()} | 📄 Page {page}/{total_pages}"
-        try:
-            bot.delete_message(chat_id, message_id)
-        except Exception:
-            pass
-        bot.send_photo(chat_id, img, caption=caption, reply_markup=markup, parse_mode="Markdown")
-    finally:
-        if hasattr(img, 'close'):
-            img.close()
+        bot.delete_message(chat_id, message_id)
+    except Exception:
+        pass
+    bot.send_photo(chat_id, img, caption=caption, reply_markup=markup, parse_mode="Markdown")
+    if hasattr(img, 'close'):
+        img.close()
 
 # ---------------------------------------------------------------------------
 # BROADCAST CHECKER THREAD
@@ -2302,21 +2318,24 @@ def auto_cleanup_loop():
         except Exception as e:
             print(f"❌ Auto-cleanup error: {e}")
 
-# ---------------------------------------------------------------------------
-# MISSING IMAGES NOTIFICATION
-# ---------------------------------------------------------------------------
+# ============================================================
+# FIX: notify_missing_images – scan generated branch properly
+# ============================================================
 
 def notify_missing_images():
+    """Scan the generated branch for missing character and media images."""
     import re
 
     def to_filename(name):
         return re.sub(r'[^a-zA-Z0-9._-]', '_', name).strip('_')
 
-    def find_github(name, remote_base):
-        safe_name = to_filename(name)
-        for ext in ['.jpg', '.jpeg', '.png', '.webp']:
-            full_remote = f"{remote_base}/{safe_name}{ext}"
-            url = f"{config.GITHUB_RAW_BASE_URL}{full_remote}"
+    # Use the same SUPPORTED_EXTS as games.py
+    SUPPORTED_EXTS = [".jpg", ".jpeg", ".png", ".webp"]
+
+    def image_exists_on_github(remote_path):
+        """Check if an image exists at the given remote path (any extension)."""
+        for ext in SUPPORTED_EXTS:
+            url = f"{config.GITHUB_RAW_BASE_URL}{remote_path}{ext}"
             try:
                 r = requests.head(url, timeout=5)
                 if r.status_code == 200:
@@ -2325,37 +2344,74 @@ def notify_missing_images():
                 pass
         return False
 
-    char_subfolders = {
-        config.CHAR_ANIME_DB: "characters/anime",
-        config.CHAR_DC_DB: "characters/dc",
-        config.CHAR_MARVEL_DB: "characters/marvel",
-        config.CHAR_GAMING_DB: "characters/gaming",
+    # Map categories to their image folders
+    char_folders = {
+        "anime": "characters/anime",
+        "dc": "characters/dc",
+        "marvel": "characters/marvel",
+        "gaming": "characters/gaming",
     }
-    media_subfolders = {
-        config.MEDIA_DB: "media/movies",
-        config.ANIME_SERIES_DB: "media/anime_series",
-        config.ANIME_FILMS_DB: "media/anime_films",
-        config.ANIMATION_DB: "media/animation",
+    media_folders = {
+        "movies": "media/movies",
+        "anime_series": "media/anime_series",
+        "anime_films": "media/anime_films",
+        "animation": "media/animation",
     }
 
     missing_chars = {}
     missing_media = {}
 
-    for db_path, remote_base in char_subfolders.items():
-        data = database.load_json(db_path, []) if os.path.exists(db_path) else []
-        if isinstance(data, list):
-            missing = [entry.get('name') for entry in data if not find_github(entry.get('name', ''), remote_base)]
+    # Scan character databases (fetch from generated branch)
+    for cat_name, db_file in config.CHAR_CATEGORIES.items():
+        try:
+            url = f"https://raw.githubusercontent.com/{config.GITHUB_REPO}/generated/{db_file}"
+            resp = requests.get(url, timeout=10)
+            if resp.status_code != 200:
+                print(f"⚠️ Could not fetch {db_file} from generated branch")
+                continue
+            data = resp.json()
+            if not isinstance(data, list):
+                continue
+            folder = char_folders.get(cat_name, f"characters/{cat_name}")
+            missing = []
+            for entry in data:
+                name = entry.get('name', '').strip()
+                if not name:
+                    continue
+                safe_name = to_filename(name)
+                remote_path = f"{folder}/{safe_name}"
+                if not image_exists_on_github(remote_path):
+                    missing.append(name)
             if missing:
-                cat_name = next((k for k, v in config.CHAR_CATEGORIES.items() if v == os.path.basename(db_path)), db_path)
-                missing_chars[cat_name] = missing
+                missing_chars[cat_name.title()] = missing
+        except Exception as e:
+            print(f"Error scanning {db_file}: {e}")
 
-    for db_path, remote_base in media_subfolders.items():
-        data = database.load_json(db_path, []) if os.path.exists(db_path) else []
-        if isinstance(data, list):
-            missing = [entry.get('title') for entry in data if not find_github(entry.get('title', ''), remote_base)]
+    # Scan media databases (fetch from generated branch)
+    for cat_name, db_file in config.YEAR_CATEGORIES.items():
+        try:
+            url = f"https://raw.githubusercontent.com/{config.GITHUB_REPO}/generated/{db_file}"
+            resp = requests.get(url, timeout=10)
+            if resp.status_code != 200:
+                print(f"⚠️ Could not fetch {db_file} from generated branch")
+                continue
+            data = resp.json()
+            if not isinstance(data, list):
+                continue
+            folder = media_folders.get(cat_name, f"media/{cat_name}")
+            missing = []
+            for entry in data:
+                title = entry.get('title', '').strip()
+                if not title:
+                    continue
+                safe_name = to_filename(title)
+                remote_path = f"{folder}/{safe_name}"
+                if not image_exists_on_github(remote_path):
+                    missing.append(title)
             if missing:
-                cat_name = next((k for k, v in config.YEAR_CATEGORIES.items() if v == os.path.basename(db_path)), db_path)
-                missing_media[cat_name] = missing
+                missing_media[cat_name.replace("_", " ").title()] = missing
+        except Exception as e:
+            print(f"Error scanning {db_file}: {e}")
 
     total = sum(len(v) for v in missing_chars.values()) + sum(len(v) for v in missing_media.values())
 
@@ -2367,25 +2423,32 @@ def notify_missing_images():
         return
 
     msg_lines = []
-    msg_lines.append(f"📁 Missing Images on GitHub — {total} total")
+    msg_lines.append(f"📁 Missing Images on Generated Branch — {total} total")
     msg_lines.append("(Bot will fall back to original URLs for these)")
     msg_lines.append("")
 
     if missing_chars:
         msg_lines.append("CHARACTERS:")
         for cat, names in missing_chars.items():
+            folder = char_folders.get(cat.lower(), f"characters/{cat.lower()}")
             msg_lines.append(f"\n{cat} ({len(names)} missing):")
-            for name in names:
-                subfolder = char_subfolders.get(config.CHAR_CATEGORIES.get(cat.lower(), ""), "characters")
-                msg_lines.append(f"  • {subfolder}/{to_filename(name)}.* (any supported extension)")
+            for name in names[:10]:
+                safe_name = to_filename(name)
+                msg_lines.append(f"  • {folder}/{safe_name}.* (any supported extension)")
+            if len(names) > 10:
+                msg_lines.append(f"  • ... and {len(names)-10} more")
 
     if missing_media:
         msg_lines.append("\nMEDIA:")
         for cat, titles in missing_media.items():
+            cat_key = cat.lower().replace(" ", "_")
+            folder = media_folders.get(cat_key, f"media/{cat_key}")
             msg_lines.append(f"\n{cat} ({len(titles)} missing):")
-            for title in titles:
-                subfolder = media_subfolders.get(config.YEAR_CATEGORIES.get(cat.lower(), ""), "media")
-                msg_lines.append(f"  • {subfolder}/{to_filename(title)}.* (any supported extension)")
+            for title in titles[:10]:
+                safe_name = to_filename(title)
+                msg_lines.append(f"  • {folder}/{safe_name}.* (any supported extension)")
+            if len(titles) > 10:
+                msg_lines.append(f"  • ... and {len(titles)-10} more")
 
     full_msg = "\n".join(msg_lines)
     chunk_size = 3500
@@ -2677,6 +2740,7 @@ if __name__ == "__main__":
     auto_cleanup_thread.start()
     threading.Thread(target=image_cache_cleaner_loop, daemon=True).start()
     threading.Thread(target=thread_supervisor, daemon=True).start()
+    # Run missing images check on startup
     threading.Thread(target=notify_missing_images, daemon=True).start()
     print("✅ Bot is live!")
     bot.infinity_polling(timeout=20, long_polling_timeout=30)
