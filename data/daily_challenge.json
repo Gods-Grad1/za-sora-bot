@@ -1,14 +1,14 @@
 {
-    "date": "2026-07-20",
-    "question": "Who is the creator of Minecraft?",
+    "date": "2026-07-21",
+    "question": "Which anime is set in a world where people have 'Alchemy' powers?",
     "options": [
-        "Notch",
-        "Jeb",
-        "Dinnerbone",
-        "C418"
+        "Fullmetal Alchemist",
+        "Magi",
+        "Fairy Tail",
+        "Black Clover"
     ],
     "answer": "A",
-    "display": "Notch",
-    "category": "Gaming",
+    "display": "Fullmetal Alchemist",
+    "category": "Anime",
     "answered": []
 }
