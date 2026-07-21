@@ -460,14 +460,29 @@ def _check_one_game_lock(bot, chat_id, user_id, game_type=None, category=None):
     bot.send_message(chat_id, "⚠️ A game is already in progress! Answer it, use /stop to cancel, or wait for the timer.")
     return True
 
-def _update_scheduler_last_game():
+# ============================================================
+# FIX: Update scheduler timestamp when a game ends
+# ============================================================
+
+def _update_scheduler_last_game(chat_id=None):
+    """Update the last_game timestamp in scheduler.json.
+       If chat_id is provided, updates per-group timestamp.
+    """
     try:
         sched = database.load_remote_json(config.SCHEDULER_FILE, {})
         if not sched:
             sched = {}
-        sched["last_game"] = int(time.time())
+        now_ts = int(time.time())
+        sched["last_game"] = now_ts
+
+        # Also update per-group timestamp if chat_id provided
+        if chat_id:
+            per_group = sched.get("last_game_per_group", {})
+            per_group[str(chat_id)] = now_ts
+            sched["last_game_per_group"] = per_group
+
         database.save_remote_json(config.SCHEDULER_FILE, sched)
-        print(f"✅ Updated scheduler last_game to {sched['last_game']}")
+        print(f"✅ Updated scheduler last_game to {now_ts} (group: {chat_id})")
     except Exception as e:
         print(f"⚠️ Failed to update scheduler last_game: {e}")
 
@@ -479,7 +494,7 @@ def _game_markup(chat_id, game_type):
     import telebot
     markup = telebot.types.InlineKeyboardMarkup()
     buttons = []
-    if game_type != "character" and game_type != "scrambled":  # both can use hint
+    if game_type != "character" and game_type != "scrambled":
         buttons.append(telebot.types.InlineKeyboardButton("💡 Hint", callback_data=f"hint_{chat_id}"))
     buttons.append(telebot.types.InlineKeyboardButton("⏭️ Next", callback_data=f"nextgame_{chat_id}_{game_type}"))
     buttons.append(telebot.types.InlineKeyboardButton("🛑 Stop", callback_data=f"stopgame_{chat_id}"))
@@ -631,6 +646,23 @@ def process_hint(bot, message=None, call=None):
     reply(f"{hint_text}\n{cost_note}")
 
 # ---------------------------------------------------------------------------
+# ALIAS NORMALIZATION HELPER
+# ---------------------------------------------------------------------------
+
+def _normalize_aliases(aliases):
+    """Convert aliases from string or list into a clean list of lowercase strings."""
+    if not aliases:
+        return []
+    if isinstance(aliases, str):
+        # Split by comma, semicolon, or slash, then strip whitespace
+        import re
+        parts = re.split(r'[,;/]', aliases)
+        return [p.strip().lower() for p in parts if p.strip()]
+    if isinstance(aliases, list):
+        return [str(a).strip().lower() for a in aliases if a]
+    return []
+
+# ---------------------------------------------------------------------------
 # CHARACTER GAME (image-based)
 # ---------------------------------------------------------------------------
 
@@ -649,7 +681,7 @@ def is_character_match(guess, answer, aliases=None):
         return True
     if aliases:
         for alias in aliases:
-            alias_lower = alias.lower()
+            alias_lower = alias.lower() if isinstance(alias, str) else str(alias).lower()
             if guess == alias_lower:
                 return True
             if guess in alias_lower or alias_lower in guess:
@@ -659,6 +691,41 @@ def is_character_match(guess, answer, aliases=None):
             if SequenceMatcher(None, guess, alias_lower).ratio() >= 0.85:
                 return True
     return False
+
+# ============================================================
+# FIX: Character repetition prevention – track seen characters
+# ============================================================
+
+# Per-chat seen characters to avoid repeats
+_seen_characters = {}
+_SEEN_MAX = 20  # Keep last 20 seen to avoid memory bloat
+
+def _get_seen_list(chat_id):
+    """Get the seen list for a chat, or create it."""
+    global _seen_characters
+    if chat_id not in _seen_characters:
+        _seen_characters[chat_id] = []
+    return _seen_characters[chat_id]
+
+def _add_seen_character(chat_id, character_name):
+    """Add a character to the seen list for a chat."""
+    seen = _get_seen_list(chat_id)
+    if character_name not in seen:
+        seen.append(character_name)
+    # Keep only the last _SEEN_MAX entries
+    if len(seen) > _SEEN_MAX:
+        _seen_characters[chat_id] = seen[-_SEEN_MAX:]
+
+def _get_character_pool(chat_id, items, exclude=None):
+    """Get a list of characters, excluding recently seen ones."""
+    seen = _get_seen_list(chat_id)
+    # If we have seen characters, try to find unseen ones
+    available = [item for item in items if item.get('name', '').strip() not in seen]
+    if not available:
+        # If all characters have been seen, reset the seen list
+        _seen_characters[chat_id] = []
+        available = items
+    return available
 
 def start_character_game(bot, chat_id, category=None, user_id=None):
     if user_id and _check_one_game_lock(bot, chat_id, user_id, game_type="character", category=category):
@@ -676,13 +743,20 @@ def start_character_game(bot, chat_id, category=None, user_id=None):
         send_and_delete(bot, chat_id, "⚠️ No characters found.")
         return None
 
-    q = random.choice(characters)
-    name    = str(q.get('name', 'Unknown')).strip()
-    hints   = q.get('hints') or q.get('hint', 'No hints available.')
+    # Get characters excluding recently seen ones
+    available = _get_character_pool(chat_id, characters)
+    q = random.choice(available)
+    name = str(q.get('name', 'Unknown')).strip()
+    
+    # Track this character as seen
+    _add_seen_character(chat_id, name)
+    
+    hints = q.get('hints') or q.get('hint', 'No hints available.')
     img_url = q.get('image') or q.get('image_url') or q.get('img')
     hints_list = hints if isinstance(hints, list) else [hints]
-    aliases = q.get('aliases', [])
-    cat_label  = category.title() if category and category != "random" else "Character"
+    raw_aliases = q.get('aliases', [])
+    aliases = _normalize_aliases(raw_aliases)
+    cat_label = category.title() if category and category != "random" else "Character"
 
     active_games[chat_id] = {
         "type":       "character",
@@ -692,7 +766,7 @@ def start_character_game(bot, chat_id, category=None, user_id=None):
         "category":   cat_label,
         "hints_used": 0,
         "img_url":    img_url,
-        "aliases":    [a.lower() for a in aliases],
+        "aliases":    aliases,
     }
 
     last_game_type[chat_id] = "character"
@@ -707,7 +781,7 @@ def start_character_game(bot, chat_id, category=None, user_id=None):
     _send_game_message(bot, chat_id, text, name, LOCAL_CHAR_DIR, img_url, subfolder, markup)
 
     _start_timer(bot, chat_id, time_limit)
-    _update_scheduler_last_game()
+    _update_scheduler_last_game(chat_id)
     return q
 
 # ---------------------------------------------------------------------------
@@ -789,7 +863,7 @@ def start_year_game(bot, chat_id, category=None, user_id=None):
 
     _send_game_message(bot, chat_id, text, title, LOCAL_MEDIA_DIR, img_url, subfolder, markup)
     _start_timer(bot, chat_id, time_limit)
-    _update_scheduler_last_game()
+    _update_scheduler_last_game(chat_id)
     return q
 
 def handle_year_answer(bot, call):
@@ -830,13 +904,15 @@ def handle_year_answer(bot, call):
             f"+{final} pts{streak_txt}",
             reply_markup=markup, parse_mode="Markdown"
         )
+        # FIX: Update scheduler timestamp when game ends
+        _update_scheduler_last_game(chat_id)
         del active_games[chat_id]
     else:
         database.penalise_wrong(bot, chat_id, user_id, username)
         bot.answer_callback_query(call.id, "❌ Wrong! Streak broken.", show_alert=True)
 
 # ---------------------------------------------------------------------------
-# PICTURE GAME (scrambled) – renamed from start_picture_game but kept as is
+# PICTURE GAME (scrambled)
 # ---------------------------------------------------------------------------
 
 def start_picture_game(bot, chat_id, category=None, user_id=None):
@@ -857,15 +933,23 @@ def start_picture_game(bot, chat_id, category=None, user_id=None):
         send_and_delete(bot, chat_id, "⚠️ No items found.")
         return None
 
-    q = random.choice(items)
+    # Get characters excluding recently seen ones
+    available = _get_character_pool(chat_id, items)
+    q = random.choice(available)
     name = str(q.get('name', 'Unknown')).strip()
+    
+    # Track this character as seen
+    _add_seen_character(chat_id, name)
+
     img_url = q.get('image') or q.get('image_url') or q.get('img')
     cat_label = category.title() if category and category != "random" else "Character"
     hints = q.get('hints') or q.get('hint', 'No hints available.')
     hints_list = hints if isinstance(hints, list) else [hints]
-    aliases = q.get('aliases', [])
+    raw_aliases = q.get('aliases', [])
+    aliases = _normalize_aliases(raw_aliases)
 
     print(f"🖼️ [SCRAMBLED] Starting scrambled game for: {name}")
+    print(f"   📝 Aliases: {aliases}")
 
     scrambled_data = get_scrambled_image_bytes(bot, name, LOCAL_CHAR_DIR, img_url, subfolder)
     if not scrambled_data:
@@ -885,7 +969,7 @@ def start_picture_game(bot, chat_id, category=None, user_id=None):
         "img_url": img_url,
         "hints_list": hints_list,
         "orig_img_bytes": orig_img_bytes,
-        "aliases": [a.lower() for a in aliases],
+        "aliases": aliases,
         "is_scrambled": True,
     }
 
@@ -900,7 +984,7 @@ def start_picture_game(bot, chat_id, category=None, user_id=None):
     markup = _game_markup(chat_id, "scrambled")
     send_photo_and_delete(bot, chat_id, scrambled_data, caption=text, reply_markup=markup, parse_mode="Markdown")
     _start_timer(bot, chat_id, time_limit)
-    _update_scheduler_last_game()
+    _update_scheduler_last_game(chat_id)
     return q
 
 # ---------------------------------------------------------------------------
@@ -940,6 +1024,8 @@ def _start_timer(bot, chat_id, seconds):
                     parse_mode="Markdown",
                     delay=config.GAME_AUTO_DELETE_DELAY
                 )
+            # FIX: Update scheduler timestamp when game times out
+            _update_scheduler_last_game(chat_id)
             del active_games[chat_id]
             send_and_delete(
                 bot,
@@ -1043,10 +1129,12 @@ def start_trivia_game(bot, chat_id, category=None, user_id=None):
                 parse_mode="Markdown",
                 delay=config.GAME_AUTO_DELETE_DELAY
             )
+            # FIX: Update scheduler timestamp when trivia times out
+            _update_scheduler_last_game(chat_id)
             if chat_id in active_games:
                 del active_games[chat_id]
     threading.Thread(target=auto_reveal, daemon=True).start()
-    _update_scheduler_last_game()
+    _update_scheduler_last_game(chat_id)
     return q
 
 def handle_trivia_answer(bot, call):
@@ -1096,6 +1184,8 @@ def handle_trivia_answer(bot, call):
             f"+{final} pts{streak_txt}",
             reply_markup=markup, parse_mode="Markdown"
         )
+        # FIX: Update scheduler timestamp when trivia ends
+        _update_scheduler_last_game(chat_id)
         del active_games[chat_id]
     else:
         database.penalise_wrong(bot, chat_id, user_id, username)
@@ -1132,7 +1222,7 @@ def handle_next_game(bot, call):
         send_and_delete(bot, chat_id, "⚡ Use /lightning to start a new Lightning Round!", parse_mode="Markdown")
 
 # ---------------------------------------------------------------------------
-# VERSUS MODE (unchanged – too long, copy from previous version)
+# VERSUS MODE
 # ---------------------------------------------------------------------------
 
 WIN_TARGET = 2
@@ -1755,6 +1845,8 @@ def check_user_answer(bot, message):
     if message.text and message.text.startswith('/'):
         cmd = message.text.split()[0].split('@')[0].lower()
         if cmd == '/stop':
+            # FIX: Update scheduler timestamp when game is stopped
+            _update_scheduler_last_game(chat_id)
             del active_games[chat_id]
             send_and_delete(bot, chat_id, "🛑 Game canceled.")
             return True
@@ -1793,6 +1885,8 @@ def check_user_answer(bot, message):
                 f"💡 Hints used: {hints_shown - 1}",
                 reply_markup=markup, parse_mode="Markdown"
             )
+            # FIX: Update scheduler timestamp when game ends
+            _update_scheduler_last_game(chat_id)
             del active_games[chat_id]
             return True
         else:
@@ -1841,6 +1935,8 @@ def check_user_answer(bot, message):
                     reply_markup=markup,
                     parse_mode="Markdown"
                 )
+                # FIX: Update scheduler timestamp when game ends
+                _update_scheduler_last_game(chat_id)
                 del active_games[chat_id]
                 return True
             except Exception as e:
@@ -1853,6 +1949,8 @@ def check_user_answer(bot, message):
             reply_markup=markup,
             parse_mode="Markdown"
         )
+        # FIX: Update scheduler timestamp when game ends
+        _update_scheduler_last_game(chat_id)
         del active_games[chat_id]
         return True
 
@@ -1903,6 +2001,8 @@ def handle_game_callback(bot, call):
     elif data.startswith("stopgame_"):
         chat_id = int(data.split("_")[1])
         if chat_id in active_games:
+            # FIX: Update scheduler timestamp when game is stopped via button
+            _update_scheduler_last_game(chat_id)
             del active_games[chat_id]
         bot.answer_callback_query(call.id)
         send_and_delete(bot, chat_id, "🛑 Game stopped.")
@@ -1924,12 +2024,19 @@ def start_guess_game(bot, chat_id, user_id):
         send_and_delete(bot, chat_id, "⚠️ No character data found.")
         return None
 
-    q = random.choice(characters)
+    # Get characters excluding recently seen ones
+    available = _get_character_pool(chat_id, characters)
+    q = random.choice(available)
     name = str(q.get('name', 'Unknown')).strip()
+    
+    # Track this character as seen
+    _add_seen_character(chat_id, name)
+
     hints = q.get('hints') or q.get('hint', 'No hints available.')
     hints_list = hints if isinstance(hints, list) else [hints]
     img_url = q.get('image') or q.get('image_url') or q.get('img')
-    aliases = q.get('aliases', [])
+    raw_aliases = q.get('aliases', [])
+    aliases = _normalize_aliases(raw_aliases)
 
     active_games[chat_id] = {
         "type": "guess",
@@ -1939,7 +2046,7 @@ def start_guess_game(bot, chat_id, user_id):
         "hints_shown": 1,
         "max_hints": config.MAX_GUESS_HINTS,
         "img_url": img_url,
-        "aliases": [a.lower() for a in aliases],
+        "aliases": aliases,
         "answered": False,
     }
 
@@ -1963,7 +2070,7 @@ def start_guess_game(bot, chat_id, user_id):
     )
 
     send_and_delete(bot, chat_id, text, reply_markup=markup, parse_mode="Markdown")
-    _update_scheduler_last_game()
+    _update_scheduler_last_game(chat_id)
     return q
 
 def handle_guess_hint(bot, call):
