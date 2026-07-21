@@ -564,6 +564,887 @@
     ],
     "aliases": [
       "Astarion"
+    ],
+  {
+    "name": "Mega Man",
+    "image": "https://upload.wikimedia.org/wikipedia/en/5/5c/Mega_Man_character.png",
+    "hints": [
+      "From: Video Games (Mega Man)",
+      "About: A blue robot who fights against Dr. Wily's evil robots and copies the weapons of his defeated enemies."
+    ],
+    "aliases": [
+      "Rockman"
     ]
+  },
+  {
+    "name": "Kirby",
+    "image": "https://upload.wikimedia.org/wikipedia/en/3/36/Kirby_%28character%29.png",
+    "hints": [
+      "From: Video Games (Kirby)",
+      "About: A cheerful pink puffball who inhales enemies to copy their abilities, protecting Dream Land from various threats."
+    ],
+    "aliases": [
+      "Kirby"
+    ]
+  },
+  {
+    "name": "Sam Fisher",
+    "image": "https://upload.wikimedia.org/wikipedia/en/d/db/Sam_Fisher_%28Splinter_Cell%29.png",
+    "hints": [
+      "From: Video Games (Splinter Cell)",
+      "About: A covert operative for the NSA, skilled in stealth, infiltration, and using advanced optical technology."
+    ],
+    "aliases": [
+      "Fisher"
+    ]
+  },
+  {
+    "name": "Banjo & Kazooie",
+    "image": "https://upload.wikimedia.org/wikipedia/en/5/5a/Banjo-Kazooie_artwork.png",
+    "hints": [
+      "From: Video Games (Banjo-Kazooie)",
+      "About: A bear and his bird sidekick who travel through magical worlds to stop a wicked witch's plans."
+    ],
+    "aliases": [
+      "Banjo",
+      "Kazooie"
+    ]
+  },
+  {
+    "name": "Rayman",
+    "image": "https://upload.wikimedia.org/wikipedia/en/4/4d/Rayman_character.png",
+    "hints": [
+      "From: Video Games (Rayman)",
+      "About: A limbless, cartoonish hero with helicopter hair, who protects the Glade of Dreams from evil."
+    ],
+    "aliases": [
+      "Rayman"
+    ]
+  },
+  {
+    "name": "Bomberman",
+    "image": "https://upload.wikimedia.org/wikipedia/en/6/66/Bomberman_character.png",
+    "hints": [
+      "From: Video Games (Bomberman)",
+      "About: A white robot who lays explosive bombs and navigates mazes to defeat enemies and clear stages."
+    ],
+    "aliases": [
+      "Bomberman"
+    ]
+  },
+  {
+    "name": "Simon Belmont",
+    "image": "https://upload.wikimedia.org/wikipedia/en/2/2d/Simon_Belmont.png",
+    "hints": [
+      "From: Video Games (Castlevania)",
+      "About: A vampire hunter with a magical whip, dedicated to vanquishing Dracula and his forces of darkness."
+    ],
+    "aliases": [
+      "Simon"
+    ]
+  },
+  {
+    "name": "Alucard",
+    "image": "https://upload.wikimedia.org/wikipedia/en/b/b2/Alucard_%28Castlevania%29.png",
+    "hints": [
+      "From: Video Games (Castlevania)",
+      "About: The half-vampire son of Dracula who fights against his father's evil, wielding a sword and dark magic."
+    ],
+    "aliases": [
+      "Alucard"
+    ]
+  },
+  {
+    "name": "Shovel Knight",
+    "image": "https://upload.wikimedia.org/wikipedia/en/9/99/Shovel_Knight.png",
+    "hints": [
+      "From: Video Games (Shovel Knight)",
+      "About: An armored knight who wields a shovel as a weapon, digging, digging, and digging his way to victory."
+    ],
+    "aliases": [
+      "Shovel Knight"
+    ]
+  },
+  {
+    "name": "Cuphead",
+    "image": "https://upload.wikimedia.org/wikipedia/en/4/4a/Cuphead_%28character%29.png",
+    "hints": [
+      "From: Video Games (Cuphead)",
+      "About: A cup-headed character who runs and shoots through surreal cartoon worlds after making a deal with the devil."
+    ],
+    "aliases": [
+      "Cuphead"
+    ]
+  },
+  {
+    "name": "Ori",
+    "image": "https://upload.wikimedia.org/wikipedia/en/5/56/Ori_%28character%29.png",
+    "hints": [
+      "From: Video Games (Ori and the Blind Forest)",
+      "About: A white guardian spirit who embarks on a journey through a dying forest to save its inhabitants."
+    ],
+    "aliases": [
+      "Ori"
+    ]
+  },
+  {
+    "name": "The Knight",
+    "image": "https://upload.wikimedia.org/wikipedia/en/3/3c/The_Knight_%28Hollow_Knight%29.png",
+    "hints": [
+      "From: Video Games (Hollow Knight)",
+      "About: A silent, bug-like warrior who explores a ruined kingdom, wielding a nail and uncovering its dark secrets."
+    ],
+    "aliases": [
+      "Hollow Knight"
+    ]
+  },
+  {
+    "name": "Aloy",
+    "image": "https://upload.wikimedia.org/wikipedia/en/f/f3/Aloy_%28Horizon%29.png",
+    "hints": [
+      "From: Video Games (Horizon)",
+      "About: A skilled hunter and archer in a world overrun by robotic creatures, who uncovers the truth about her origins."
+    ],
+    "aliases": [
+      "Aloy"
+    ]
+  },
+  {
+    "name": "Jin Sakai",
+    "image": "https://upload.wikimedia.org/wikipedia/en/2/22/Jin_Sakai.png",
+    "hints": [
+      "From: Video Games (Ghost of Tsushima)",
+      "About: A samurai warrior who fights to protect his island home from Mongol invaders, evolving into a ghostly legend."
+    ],
+    "aliases": [
+      "Jin",
+      "Ghost"
+    ]
+  },
+  {
+    "name": "Cal Kestis",
+    "image": "https://upload.wikimedia.org/wikipedia/en/7/7a/Cal_Kestis.png",
+    "hints": [
+      "From: Video Games (Star Wars Jedi)",
+      "About: A Jedi Padawan who survives Order 66 and goes on a quest to rebuild the Jedi Order while escaping the Empire."
+    ],
+    "aliases": [
+      "Cal"
+    ]
+  },
+  {
+    "name": "Ratchet & Clank",
+    "image": "https://upload.wikimedia.org/wikipedia/en/1/15/Ratchet_%26_Clank.png",
+    "hints": [
+      "From: Video Games (Ratchet & Clank)",
+      "About: A Lombax and his robot companion who travel across the galaxy, saving planets with an arsenal of outrageous weapons."
+    ],
+    "aliases": [
+      "Ratchet",
+      "Clank"
+    ]
+  },
+  {
+    "name": "Jak & Daxter",
+    "image": "https://upload.wikimedia.org/wikipedia/en/3/36/Jak_and_Daxter.png",
+    "hints": [
+      "From: Video Games (Jak & Daxter)",
+      "About: A human and his ottsel friend who journey through time and space to stop a global conspiracy."
+    ],
+    "aliases": [
+      "Jak",
+      "Daxter"
+    ]
+  },
+  {
+    "name": "Sly Cooper",
+    "image": "https://upload.wikimedia.org/wikipedia/en/f/f0/Sly_Cooper_%28character%29.png",
+    "hints": [
+      "From: Video Games (Sly Cooper)",
+      "About: A raccoon thief who uses stealth and acrobatics to pull off heists, carrying on his family's legacy."
+    ],
+    "aliases": [
+      "Sly"
+    ]
+  },
+  {
+    "name": "Duke Nukem",
+    "image": "https://upload.wikimedia.org/wikipedia/en/3/30/Duke_Nukem_%28character%29.png",
+    "hints": [
+      "From: Video Games (Duke Nukem)",
+      "About: A muscle-bound action hero with a one-liner for every situation, fighting aliens and saving the world."
+    ],
+    "aliases": [
+      "Duke"
+    ]
+  },
+  {
+    "name": "Serious Sam",
+    "image": "https://upload.wikimedia.org/wikipedia/en/9/9d/Serious_Sam.png",
+    "hints": [
+      "From: Video Games (Serious Sam)",
+      "About: A loud, boisterous soldier who battles hordes of enemies in ancient Egypt and alien worlds."
+    ],
+    "aliases": [
+      "Sam"
+    ]
+  },
+  {
+    "name": "Max Payne",
+    "image": "https://upload.wikimedia.org/wikipedia/en/0/06/Max_Payne_%28character%29.png",
+    "hints": [
+      "From: Video Games (Max Payne)",
+      "About: A tortured NYPD detective who uses bullet-time to take down enemies while unraveling a dark conspiracy."
+    ],
+    "aliases": [
+      "Max"
+    ]
+  },
+  {
+    "name": "Alan Wake",
+    "image": "https://upload.wikimedia.org/wikipedia/en/6/6b/Alan_Wake_%28character%29.png",
+    "hints": [
+      "From: Video Games (Alan Wake)",
+      "About: A bestselling author who discovers that his horror stories are coming to life, trapped in a nightmare town."
+    ],
+    "aliases": [
+      "Wake"
+    ]
+  },
+  {
+    "name": "Booker DeWitt",
+    "image": "https://upload.wikimedia.org/wikipedia/en/5/54/Booker_DeWitt.png",
+    "hints": [
+      "From: Video Games (BioShock Infinite)",
+      "About: A former Pinkerton agent sent to rescue a mysterious woman from a floating city, uncovering a reality-shattering truth."
+    ],
+    "aliases": [
+      "Booker"
+    ]
+  },
+  {
+    "name": "Elizabeth",
+    "image": "https://upload.wikimedia.org/wikipedia/en/c/c9/Elizabeth_%28BioShock_Infinite%29.png",
+    "hints": [
+      "From: Video Games (BioShock Infinite)",
+      "About: A woman with the ability to open tears between dimensions, held captive for her incredible powers."
+    ],
+    "aliases": [
+      "Elizabeth"
+    ]
+  },
+  {
+    "name": "Sekiro",
+    "image": "https://upload.wikimedia.org/wikipedia/en/9/99/Sekiro_%28character%29.png",
+    "hints": [
+      "From: Video Games (Sekiro: Shadows Die Twice)",
+      "About: A one-armed shinobi who fights to rescue his master, using a prosthetic arm filled with deadly tools."
+    ],
+    "aliases": [
+      "Wolf"
+    ]
+  },
+  {
+    "name": "Jin Kazama",
+    "image": "https://upload.wikimedia.org/wikipedia/en/b/b5/Jin_Kazama.png",
+    "hints": [
+      "From: Video Games (Tekken)",
+      "About: The fierce warrior of the Mishima bloodline, fighting to end the Devil Gene curse in his veins."
+    ],
+    "aliases": [
+      "Jin"
+    ]
+  },
+  {
+    "name": "Kazuya Mishima",
+    "image": "https://upload.wikimedia.org/wikipedia/en/8/8d/Kazuya_Mishima.png",
+    "hints": [
+      "From: Video Games (Tekken)",
+      "About: Jin's father and a ruthless fighter possessed by the Devil, seeking world domination."
+    ],
+    "aliases": [
+      "Kazuya"
+    ]
+  },
+  {
+    "name": "Heihachi Mishima",
+    "image": "https://upload.wikimedia.org/wikipedia/en/4/48/Heihachi_Mishima.png",
+    "hints": [
+      "From: Video Games (Tekken)",
+      "About: The iron-fisted patriarch of the Mishima family, a martial arts master who survived countless betrayals."
+    ],
+    "aliases": [
+      "Heihachi"
+    ]
+  },
+  {
+    "name": "Sora",
+    "image": "https://upload.wikimedia.org/wikipedia/en/3/3d/Sora_%28Kingdom_Hearts%29.png",
+    "hints": [
+      "From: Video Games (Kingdom Hearts)",
+      "About: A Keyblade wielder who travels across Disney and Final Fantasy worlds to fight the Heartless."
+    ],
+    "aliases": [
+      "Sora"
+    ]
+  },
+  {
+    "name": "Riku",
+    "image": "https://upload.wikimedia.org/wikipedia/en/c/cc/Riku_%28Kingdom_Hearts%29.png",
+    "hints": [
+      "From: Video Games (Kingdom Hearts)",
+      "About: Sora's childhood friend and rival, who struggles with the darkness before finding his own path."
+    ],
+    "aliases": [
+      "Riku"
+    ]
+  },
+  {
+    "name": "Shulk",
+    "image": "https://upload.wikimedia.org/wikipedia/en/3/31/Shulk_%28Xenoblade%29.png",
+    "hints": [
+      "From: Video Games (Xenoblade Chronicles)",
+      "About: A scientist who wields the Monado, a sword that can see the future, to battle mechanical gods."
+    ],
+    "aliases": [
+      "Shulk"
+    ]
+  },
+  {
+    "name": "Pyra",
+    "image": "https://upload.wikimedia.org/wikipedia/en/d/dd/Pyra_%28Xenoblade%29.png",
+    "hints": [
+      "From: Video Games (Xenoblade Chronicles 2)",
+      "About: A legendary Blade who can transform into a powerful sword, and her partner Rex, on a journey to Elysium."
+    ],
+    "aliases": [
+      "Pyra"
+    ]
+  },
+  {
+    "name": "Joker",
+    "image": "https://upload.wikimedia.org/wikipedia/en/4/47/Joker_%28Persona_5%29.png",
+    "hints": [
+      "From: Video Games (Persona 5)",
+      "About: The leader of the Phantom Thieves, who uses his Persona powers to change the hearts of corrupt adults."
+    ],
+    "aliases": [
+      "Ren Amamiya"
+    ]
+  },
+  {
+    "name": "Morgana",
+    "image": "https://upload.wikimedia.org/wikipedia/en/e/e1/Morgana_%28Persona_5%29.png",
+    "hints": [
+      "From: Video Games (Persona 5)",
+      "About: A mysterious cat-like creature who mentors the Phantom Thieves and transforms into a van."
+    ],
+    "aliases": [
+      "Morgana"
+    ]
+  },
+  {
+    "name": "Phoenix Wright",
+    "image": "https://upload.wikimedia.org/wikipedia/en/9/9a/Phoenix_Wright.png",
+    "hints": [
+      "From: Video Games (Ace Attorney)",
+      "About: A defence attorney known for his "Objection!" and for uncovering the truth in the courtroom."
+    ],
+    "aliases": [
+      "Wright",
+      "Nick"
+    ]
+  },
+  {
+    "name": "Professor Layton",
+    "image": "https://upload.wikimedia.org/wikipedia/en/0/03/Professor_Layton_%28character%29.png",
+    "hints": [
+      "From: Video Games (Professor Layton)",
+      "About: A gentleman archaeologist and puzzle-solver who travels the world solving mysteries."
+    ],
+    "aliases": [
+      "Layton"
+    ]
+  },
+  {
+    "name": "The Prince",
+    "image": "https://upload.wikimedia.org/wikipedia/en/f/fa/The_Prince_%28Katamari%29.png",
+    "hints": [
+      "From: Video Games (Katamari)",
+      "About: A small, green-clad prince who rolls a sticky ball to collect objects and rebuild the stars."
+    ],
+    "aliases": [
+      "Prince"
+    ]
+  },
+  {
+    "name": "Kat",
+    "image": "https://upload.wikimedia.org/wikipedia/en/6/65/Kat_%28Gravity_Rush%29.png",
+    "hints": [
+      "From: Video Games (Gravity Rush)",
+      "About: A woman who manipulates gravity to fly and fight, protecting a floating city from monsters."
+    ],
+    "aliases": [
+      "Kat"
+    ]
+  },
+  {
+    "name": "Earthworm Jim",
+    "image": "https://upload.wikimedia.org/wikipedia/en/f/fe/Earthworm_Jim.png",
+    "hints": [
+      "From: Video Games (Earthworm Jim)",
+      "About: A heroic earthworm in a robotic suit who fights aliens and saves princesses."
+    ],
+    "aliases": [
+      "Jim"
+    ]
+  },
+  {
+    "name": "Conker",
+    "image": "https://upload.wikimedia.org/wikipedia/en/4/44/Conker_%28character%29.png",
+    "hints": [
+      "From: Video Games (Conker's Bad Fur Day)",
+      "About: A foul-mouthed squirrel who drinks, swears, and battles a giant singing poop."
+    ],
+    "aliases": [
+      "Conker"
+    ]
+  },
+  {
+    "name": "Bayonetta",
+    "image": "https://upload.wikimedia.org/wikipedia/en/0/09/Bayonetta_%28character%29.png",
+    "hints": [
+      "From: Video Games (Bayonetta)",
+      "About: A witch who uses her hair to summon demons and fights angelic beings with stylish combos."
+    ],
+    "aliases": [
+      "Bayonetta",
+      "Cereza"
+    ]
+  },
+  {
+    "name": "2B",
+    "image": "https://upload.wikimedia.org/wikipedia/en/a/a5/2B_%28NieR_Automata%29.png",
+    "hints": [
+      "From: Video Games (NieR: Automata)",
+      "About: An android combat unit who fights for humanity against machine lifeforms in a post-apocalyptic world."
+    ],
+    "aliases": [
+      "2B",
+      "YoRHa No.2 Type B"
+    ]
+  },
+  {
+    "name": "Kazuma Kiryu",
+    "image": "https://upload.wikimedia.org/wikipedia/en/5/50/Kazuma_Kiryu.png",
+    "hints": [
+      "From: Video Games (Yakuza)",
+      "About: The Dragon of Dojima, a yakuza legend known for his honor, his fists, and his love of karaoke."
+    ],
+    "aliases": [
+      "Kiryu"
+    ]
+  },
+  {
+    "name": "Ichiban Kasuga",
+    "image": "https://upload.wikimedia.org/wikipedia/en/f/f9/Ichiban_Kasuga.png",
+    "hints": [
+      "From: Video Games (Yakuza: Like a Dragon)",
+      "About: An optimistic and loyal yakuza who sees the world through the lens of Dragon Quest, believing he's a hero."
+    ],
+    "aliases": [
+      "Ichiban"
+    ]
+  },
+  {
+    "name": "Goro Majima",
+    "image": "https://upload.wikimedia.org/wikipedia/en/2/2f/Goro_Majima.png",
+    "hints": [
+      "From: Video Games (Yakuza)",
+      "About: The Mad Dog of Shimano, a wild and unpredictable yakuza with a love for fighting and a hidden sadness."
+    ],
+    "aliases": [
+      "Majima"
+    ]
+  },
+  {
+    "name": "Delsin Rowe",
+    "image": "https://upload.wikimedia.org/wikipedia/en/f/f0/Delsin_Rowe.png",
+    "hints": [
+      "From: Video Games (inFAMOUS)",
+      "About: A graffiti artist who discovers he has superpowers, choosing to use them to protect his tribe."
+    ],
+    "aliases": [
+      "Delsin"
+    ]
+  },
+  {
+    "name": "Cole MacGrath",
+    "image": "https://upload.wikimedia.org/wikipedia/en/9/94/Cole_MacGrath.png",
+    "hints": [
+      "From: Video Games (inFAMOUS)",
+      "About: A bike courier who gains electrical powers after a massive explosion, forced to choose between heroism and villainy."
+    ],
+    "aliases": [
+      "Cole"
+    ]
+  },
+  {
+    "name": "V",
+    "image": "https://upload.wikimedia.org/wikipedia/en/2/2c/V_%28Cyberpunk_2077%29.png",
+    "hints": [
+      "From: Video Games (Cyberpunk 2077)",
+      "About: A mercenary in Night City who has a chip in their head that slowly overwrites their consciousness with a dead rockstar."
+    ],
+    "aliases": [
+      "V"
+    ]
+  },
+  {
+    "name": "Jill Valentine",
+    "image": "https://upload.wikimedia.org/wikipedia/en/7/7a/Jill_Valentine.png",
+    "hints": [
+      "From: Video Games (Resident Evil)",
+      "About: An elite S.T.A.R.S. officer who survives the Mansion Incident and later fights against a bioterrorist organization."
+    ],
+    "aliases": [
+      "Jill"
+    ]
+  },
+  {
+    "name": "Chris Redfield",
+    "image": "https://upload.wikimedia.org/wikipedia/en/8/86/Chris_Redfield.png",
+    "hints": [
+      "From: Video Games (Resident Evil)",
+      "About: A former pilot who becomes a member of S.T.A.R.S. and leads the fight against bioterrorism across the globe."
+    ],
+    "aliases": [
+      "Chris"
+    ]
+  },
+  {
+    "name": "Claire Redfield",
+    "image": "https://upload.wikimedia.org/wikipedia/en/2/2f/Claire_Redfield.png",
+    "hints": [
+      "From: Video Games (Resident Evil)",
+      "About: A college student looking for her brother Chris, who gets caught up in a zombie outbreak in Raccoon City."
+    ],
+    "aliases": [
+      "Claire"
+    ]
+  },
+  {
+    "name": "Ganondorf",
+    "image": "https://upload.wikimedia.org/wikipedia/en/d/d0/Ganondorf_%28character%29.png",
+    "hints": [
+      "From: Video Games (The Legend of Zelda)",
+      "About: The Gerudo king who constantly seeks the Triforce to rule the world, the recurring antagonist of the Zelda series."
+    ],
+    "aliases": [
+      "Ganondorf",
+      "Ganon"
+    ]
+  },
+  {
+    "name": "Tifa Lockhart",
+    "image": "https://upload.wikimedia.org/wikipedia/en/4/42/Tifa_Lockhart_FFVII_Remake.png",
+    "hints": [
+      "From: Video Games (Final Fantasy VII)",
+      "About: Cloud's childhood friend and a martial artist who runs a bar, fighting alongside Avalanche to save the planet."
+    ],
+    "aliases": [
+      "Tifa"
+    ]
+  },
+  {
+    "name": "Aerith Gainsborough",
+    "image": "https://upload.wikimedia.org/wikipedia/en/e/e3/Aerith_Gainsborough.png",
+    "hints": [
+      "From: Video Games (Final Fantasy VII)",
+      "About: A flower seller who is the last of the Cetra, possessing the ability to commune with the Planet."
+    ],
+    "aliases": [
+      "Aerith"
+    ]
+  },
+  {
+    "name": "Zack Fair",
+    "image": "https://upload.wikimedia.org/wikipedia/en/2/2f/Zack_Fair.png",
+    "hints": [
+      "From: Video Games (Final Fantasy VII)",
+      "About: A SOLDIER operative who is Cloud's mentor and friend, sharing his dream of becoming a hero."
+    ],
+    "aliases": [
+      "Zack"
+    ]
+  },
+  {
+    "name": "Ghost",
+    "image": "https://upload.wikimedia.org/wikipedia/en/d/db/Ghost_%28Call_of_Duty%29.png",
+    "hints": [
+      "From: Video Games (Call of Duty)",
+      "About: A British special forces operator known for his skull-patterned balaclava and tactical expertise."
+    ],
+    "aliases": [
+      "Ghost"
+    ]
+  },
+  {
+    "name": "Captain Price",
+    "image": "https://upload.wikimedia.org/wikipedia/en/7/70/Captain_Price.png",
+    "hints": [
+      "From: Video Games (Call of Duty)",
+      "About: A British SAS officer who leads Task Force 141, sporting a thick mustache and a cigar."
+    ],
+    "aliases": [
+      "Price"
+    ]
+  },
+  {
+    "name": "Soap MacTavish",
+    "image": "https://upload.wikimedia.org/wikipedia/en/6/64/Soap_MacTavish.png",
+    "hints": [
+      "From: Video Games (Call of Duty)",
+      "About: A Scottish SAS sergeant who is Price's most trusted soldier, named for his ability to clean a room quickly."
+    ],
+    "aliases": [
+      "Soap"
+    ]
+  },
+  {
+    "name": "Jinx",
+    "image": "https://upload.wikimedia.org/wikipedia/en/d/d0/Jinx_%28League_of_Legends%29.png",
+    "hints": [
+      "From: Video Games (League of Legends)",
+      "About: A chaotic criminal and demolition expert from Zaun, armed with a rocket launcher and a machine gun."
+    ],
+    "aliases": [
+      "Jinx"
+    ]
+  },
+  {
+    "name": "Yasuo",
+    "image": "https://upload.wikimedia.org/wikipedia/en/1/1a/Yasuo_%28League_of_Legends%29.png",
+    "hints": [
+      "From: Video Games (League of Legends)",
+      "About: A wandering samurai from Ionia who wields the wind, accused of a crime he didn't commit."
+    ],
+    "aliases": [
+      "Yasuo"
+    ]
+  },
+  {
+    "name": "Ahri",
+    "image": "https://upload.wikimedia.org/wikipedia/en/3/34/Ahri_%28League_of_Legends%29.png",
+    "hints": [
+      "From: Video Games (League of Legends)",
+      "About: A nine-tailed fox from Ionia who consumes the life force of her prey, seeking to become human."
+    ],
+    "aliases": [
+      "Ahri"
+    ]
+  },
+  {
+    "name": "Lux",
+    "image": "https://upload.wikimedia.org/wikipedia/en/3/34/Lux_%28League_of_Legends%29.png",
+    "hints": [
+      "From: Video Games (League of Legends)",
+      "About: A Demacian girl who masters light magic, hiding her powers from the anti-magic kingdom."
+    ],
+    "aliases": [
+      "Lux"
+    ]
+  },
+  {
+    "name": "Paimon",
+    "image": "https://upload.wikimedia.org/wikipedia/en/1/12/Paimon_%28Genshin_Impact%29.png",
+    "hints": [
+      "From: Video Games (Genshin Impact)",
+      "About: A fairy-like companion who serves as the Traveler's guide, always hungry and always talking."
+    ],
+    "aliases": [
+      "Paimon"
+    ]
+  },
+  {
+    "name": "Zhongli",
+    "image": "https://upload.wikimedia.org/wikipedia/en/1/17/Zhongli_%28Genshin_Impact%29.png",
+    "hints": [
+      "From: Video Games (Genshin Impact)",
+      "About: A consultant from the Wangsheng Funeral Parlor, who is actually the Geo Archon in disguise."
+    ],
+    "aliases": [
+      "Zhongli"
+    ]
+  },
+  {
+    "name": "Raiden Shogun",
+    "image": "https://upload.wikimedia.org/wikipedia/en/c/c4/Raiden_Shogun_%28Genshin_Impact%29.png",
+    "hints": [
+      "From: Video Games (Genshin Impact)",
+      "About: The Electro Archon of Inazuma, a puppet ruler who seeks eternity through isolation."
+    ],
+    "aliases": [
+      "Raiden Shogun",
+      "Ei"
+    ]
+  },
+  {
+    "name": "Freddy Fazbear",
+    "image": "https://upload.wikimedia.org/wikipedia/en/0/04/Freddy_Fazbear.png",
+    "hints": [
+      "From: Video Games (Five Nights at Freddy's)",
+      "About: The mascot of Freddy Fazbear's Pizza, an animatronic bear who roams the restaurant at night."
+    ],
+    "aliases": [
+      "Freddy"
+    ]
+  },
+  {
+    "name": "Vault Boy",
+    "image": "https://upload.wikimedia.org/wikipedia/en/c/cb/Vault_Boy.png",
+    "hints": [
+      "From: Video Games (Fallout)",
+      "About: The cheerful mascot of Vault-Tec, appearing in promotional material throughout the wasteland."
+    ],
+    "aliases": [
+      "Vault Boy"
+    ]
+  },
+  {
+    "name": "Dragonborn",
+    "image": "https://upload.wikimedia.org/wikipedia/en/9/99/Dragonborn_%28Skyrim%29.png",
+    "hints": [
+      "From: Video Games (The Elder Scrolls V: Skyrim)",
+      "About: The prophesied hero who can absorb dragon souls and use the Thu'um, the power of the Voice."
+    ],
+    "aliases": [
+      "Dovahkiin"
+    ]
+  },
+  {
+    "name": "Big Daddy",
+    "image": "https://upload.wikimedia.org/wikipedia/en/8/80/Big_Daddy_%28BioShock%29.png",
+    "hints": [
+      "From: Video Games (BioShock)",
+      "About: A hulking, armored figure in an underwater city, protecting Little Sisters at all costs."
+    ],
+    "aliases": [
+      "Big Daddy"
+    ]
+  },
+  {
+    "name": "Handsome Jack",
+    "image": "https://upload.wikimedia.org/wikipedia/en/6/6b/Handsome_Jack.png",
+    "hints": [
+      "From: Video Games (Borderlands)",
+      "About: A narcissistic, megalomaniacal corporate CEO who sees himself as the hero of his own story."
+    ],
+    "aliases": [
+      "Jack"
+    ]
+  },
+  {
+    "name": "Claptrap",
+    "image": "https://upload.wikimedia.org/wikipedia/en/6/66/Claptrap.png",
+    "hints": [
+      "From: Video Games (Borderlands)",
+      "About: A hyperactive, one-wheeled robot who is obsessed with stairs, doors, and being the center of attention."
+    ],
+    "aliases": [
+      "Claptrap"
+    ]
+  },
+  {
+    "name": "Cortana",
+    "image": "https://upload.wikimedia.org/wikipedia/en/4/47/Cortana_%28Halo%29.png",
+    "hints": [
+      "From: Video Games (Halo)",
+      "About: A blue holographic AI companion to Master Chief, providing tactical assistance and emotional support."
+    ],
+    "aliases": [
+      "Cortana"
+    ]
+  },
+  {
+    "name": "Arbiter",
+    "image": "https://upload.wikimedia.org/wikipedia/en/f/fc/Arbiter_%28Halo%29.png",
+    "hints": [
+      "From: Video Games (Halo)",
+      "About: The leader of the Elites, a Covenant warrior who rebels against the Prophets and allies with humanity."
+    ],
+    "aliases": [
+      "Arbiter",
+      "Thel 'Vadam"
+    ]
+  },
+  {
+    "name": "Isaac Clarke",
+    "image": "https://upload.wikimedia.org/wikipedia/en/a/a8/Isaac_Clarke.png",
+    "hints": [
+      "From: Video Games (Dead Space)",
+      "About: An engineer who uses his mining tools to dismember nightmarish alien creatures on a derelict spaceship."
+    ],
+    "aliases": [
+      "Isaac"
+    ]
+  },
+  {
+    "name": "Atreus",
+    "image": "https://upload.wikimedia.org/wikipedia/en/b/b0/Atreus_%28God_of_War%29.png",
+    "hints": [
+      "From: Video Games (God of War)",
+      "About: Kratos's son, a young archer who is actually Loki, learning to control his own godly heritage."
+    ],
+    "aliases": [
+      "Atreus"
+    ]
+  },
+  {
+    "name": "Yennefer of Vengerberg",
+    "image": "https://upload.wikimedia.org/wikipedia/en/0/0a/Yennefer_%28Witcher%29.png",
+    "hints": [
+      "From: Video Games (The Witcher)",
+      "About: A powerful sorceress, Geralt's true love, with a troubled past and a love for lilac and gooseberries."
+    ],
+    "aliases": [
+      "Yennefer",
+      "Yen"
+    ]
+  },
+  {
+    "name": "Triss Merigold",
+    "image": "https://upload.wikimedia.org/wikipedia/en/9/98/Triss_Merigold.png",
+    "hints": [
+      "From: Video Games (The Witcher)",
+      "About: A sorceress who is a close friend of Geralt, known for her fire magic and her red hair."
+    ],
+    "aliases": [
+      "Triss"
+    ]
+  },
+  {
+    "name": "Tali'Zorah nar Rayya",
+    "image": "https://upload.wikimedia.org/wikipedia/en/0/08/Tali%27Zorah.png",
+    "hints": [
+      "From: Video Games (Mass Effect)",
+      "About: A Quarian engineer who is a member of the Normandy crew, essential for her technical and combat skills."
+    ],
+    "aliases": [
+      "Tali"
+    ]
+  },
+  {
+    "name": "Liara T'Soni",
+    "image": "https://upload.wikimedia.org/wikipedia/en/9/90/Liara_T%27Soni.png",
+    "hints": [
+      "From: Video Games (Mass Effect)",
+      "About: An Asari archaeologist who becomes an expert on the Protheans, sharing her knowledge with the Normandy crew."
+    ],
+    "aliases": [
+      "Liara"
+    ]
+  }
+]
   }
 ]
