@@ -50,7 +50,7 @@ GROUP_SCHEDULES_FILE  = "group_schedules.json"
 GROUP_DATA_FILE   = "group_data.json"
 GROUPS_FILE       = "groups_db.txt"
 STATE_FILE        = "bot_state.json"
-CHAR_DB           = "characters_db.json"
+CHAR_DB           = "characters_db.json"           # not used directly
 MEDIA_DB          = "media_db.json"
 QUOTES_FILE       = "quotes.json"
 SCHEDULER_FILE    = "scheduler.json"
@@ -82,6 +82,7 @@ TIME_LIMIT_BUFFER = 3  # seconds of buffer for loading/network latency
 
 # --- POINTS ECONOMY ---
 POINTS_CHARACTER_GAME  = 50
+POINTS_SCRAMBLED_GAME  = 75
 POINTS_YEAR_GAME       = 50
 POINTS_TRIVIA          = 75
 POINTS_VERSUS_WIN      = 100
@@ -163,12 +164,26 @@ ANIME_FILMS_DB    = "anime_films_db.json"
 ANIMATION_DB      = "animation_db.json"
 MEDIA_ALL_DBS     = ["media_db.json", "anime_series_db.json", "anime_films_db.json", "animation_db.json"]
 
-CHAR_DB              = "characters_anime_db.json"
+# Character database files (all stored in generated/data/)
+CHAR_DB              = "characters_anime_db.json"      # legacy (will still work)
 CHAR_ANIME_DB        = "characters_anime_db.json"
-CHAR_DC_DB           = "characters_dc_db.json"
-CHAR_MARVEL_DB       = "characters_marvel_db.json"
+CHAR_DC_DB           = "characters_dc_db.json"         # now merged into COMICS
+CHAR_MARVEL_DB       = "characters_marvel_db.json"     # now merged into COMICS
 CHAR_GAMING_DB       = "characters_gaming_db.json"
-CHAR_ALL_DBS         = ["characters_anime_db.json", "characters_dc_db.json", "characters_marvel_db.json", "characters_gaming_db.json"]
+
+# NEW CATEGORY FILES
+CHAR_COMICS_DB       = "characters_comics_db.json"     # merged DC + Marvel + Other
+CHAR_MOVIES_DB       = "characters_movies_db.json"     # live-action movie characters
+CHAR_ANIMATION_DB    = "characters_animation_db.json"  # animated film characters
+
+# Full list of all character DB files (used by get_all_characters)
+CHAR_ALL_DBS = [
+    CHAR_ANIME_DB,
+    CHAR_COMICS_DB,
+    CHAR_GAMING_DB,
+    CHAR_MOVIES_DB,
+    CHAR_ANIMATION_DB,
+]
 
 TRIVIA_CATEGORIES = ["Gaming", "Anime", "Movies", "General", "Food", "Sports", "Technology", "Bible"]
 
@@ -179,11 +194,13 @@ YEAR_CATEGORIES = {
     "animation":    "animation_db.json",
 }
 
+# Category mappings for character games – each key corresponds to a subfolder under images/characters/
 CHAR_CATEGORIES = {
-    "anime":   "characters_anime_db.json",
-    "dc":      "characters_dc_db.json",
-    "marvel":  "characters_marvel_db.json",
-    "gaming":  "characters_gaming_db.json",
+    "anime":     CHAR_ANIME_DB,
+    "comics":    CHAR_COMICS_DB,
+    "gaming":    CHAR_GAMING_DB,
+    "movies":    CHAR_MOVIES_DB,
+    "animation": CHAR_ANIMATION_DB,
 }
 
 DEFAULT_ANSWER_TIME = 60
@@ -214,6 +231,7 @@ SHOP_TITLES = [
     {"id": "bible_scholar", "name": "📖 Bible Scholar",   "cost": 200},
     {"id": "anime_king",    "name": "👑 Anime King",      "cost": 200},
     {"id": "movie_buff",    "name": "🎬 Movie Buff",      "cost": 150},
+    {"id": "comic_nerd",    "name": "📚 Comic Nerd",      "cost": 150},
     {"id": "the_goat",      "name": "🐐 The GOAT",        "cost": 500},
     {"id": "night_owl",     "name": "🦉 Night Owl",       "cost": 150},
     {"id": "lightning",     "name": "⚡ Lightning",       "cost": 200},
