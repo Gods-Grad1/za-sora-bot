@@ -24,42 +24,42 @@ def _cache_image(key, image):
     return cache_path
 
 # ============================================================
-# UPDATED _get_font – loads from local or downloads from generated branch
+# UPDATED _get_font – loads Arial from generated branch
 # ============================================================
 
 def _get_font(size, bold=False):
     try:
+        # 1. Try local fonts folder (if you have it)
         font_name = "arial_bold.ttf" if bold else "arial.ttf"
-
-        # 1. Try local fonts folder (if cloned with generated branch)
         local_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fonts", font_name)
         if os.path.exists(local_path):
             return ImageFont.truetype(local_path, size)
 
-        # 2. Try to download from GitHub raw (generated branch)
+        # 2. Try to download from generated branch
         remote_url = f"https://raw.githubusercontent.com/{config.GITHUB_REPO}/generated/fonts/{font_name}"
         try:
             resp = requests.get(remote_url, timeout=5)
             if resp.status_code == 200:
                 from io import BytesIO
                 return ImageFont.truetype(BytesIO(resp.content), size)
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"Font download error: {e}")
 
-        # 3. System fonts fallback
-        system_fonts = [
+        # 3. Try system fonts
+        system_paths = [
             "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
             "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
             "/System/Library/Fonts/Helvetica.ttc",
-            "C:\\Windows\\Fonts\\Arial.ttf",
+            "C:\\Windows\\Fonts\\Arial.ttf"
         ]
-        for path in system_fonts:
+        for path in system_paths:
             if os.path.exists(path):
                 return ImageFont.truetype(path, size)
+
     except Exception as e:
         print(f"Font load error: {e}")
 
-    print("⚠️ No TrueType font found – using default bitmap font (may be pixelated).")
+    # 4. Ultimate fallback – default bitmap
     return ImageFont.load_default()
 
 # ---------------------------------------------------------------------------
@@ -259,10 +259,6 @@ def detect_fixtures_columns(rows):
             away_score_idx = i
     return home_idx, away_idx, matchday_idx, status_idx, home_score_idx, away_score_idx
 
-# ============================================================
-# UPDATED HIGH-RES _render_fixtures_image
-# ============================================================
-
 def _render_fixtures_image(fixtures, player, context, status, page, total_pages):
     cols = ["MATCHDAY", "HOME", "SCORE", "AWAY"]
     col_widths = [140, 260, 140, 260]
@@ -338,9 +334,9 @@ def _render_fixtures_image(fixtures, player, context, status, page, total_pages)
     img_bytes.seek(0)
     return img_bytes
 
-# ============================================================
-# UPDATED HIGH-RES _render_matchday_image
-# ============================================================
+# ---------------------------------------------------------------------------
+# MATCHDAY IMAGE – same high-res
+# ---------------------------------------------------------------------------
 
 def generate_matchday_image(bot, rows, matchday):
     if not rows or len(rows) <= 1:
@@ -401,7 +397,6 @@ def _render_matchday_image(fixtures, matchday):
         away_score = fixture.get("away_score", "")
         score_text = f"{home_score} - {away_score}" if (home_score or away_score) else "–"
 
-        # WINNER HIGHLIGHTING: Gold / Red / Amber
         score_color = config.THEME_TEXT_MUTED
         if home_score and away_score and home_score.isdigit() and away_score.isdigit():
             h, a = int(home_score), int(away_score)
