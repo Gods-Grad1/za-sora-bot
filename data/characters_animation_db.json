@@ -1,0 +1,887 @@
+[
+  {
+    "name": "Woody",
+    "image": "https://upload.wikimedia.org/wikipedia/en/b/b9/Woody_%28Toy_Story%29.png",
+    "hints": [
+      "From: Animation (Toy Story)",
+      "About: A pull-string cowboy doll and leader of Andy's toys, fiercely loyal and always trying to stay relevant."
+    ],
+    "aliases": [
+      "Sheriff Woody"
+    ]
+  },
+  {
+    "name": "Buzz Lightyear",
+    "image": "https://upload.wikimedia.org/wikipedia/en/7/7c/Buzz_Lightyear_%28Toy_Story%29.png",
+    "hints": [
+      "From: Animation (Toy Story)",
+      "About: A space ranger action figure who initially believes he's a real hero, learning the value of teamwork and friendship."
+    ],
+    "aliases": [
+      "Buzz"
+    ]
+  },
+  {
+    "name": "Jessie",
+    "image": "https://upload.wikimedia.org/wikipedia/en/b/b9/Jessie_%28Toy_Story%29.png",
+    "hints": [
+      "From: Animation (Toy Story)",
+      "About: A spirited cowgirl doll with a yodel, who was once abandoned by her owner and eventually finds a new family."
+    ],
+    "aliases": [
+      "Jessie the Cowgirl"
+    ]
+  },
+  {
+    "name": "Sulley",
+    "image": "https://upload.wikimedia.org/wikipedia/en/a/a6/Sulley_%28Monsters_Inc%29.png",
+    "hints": [
+      "From: Animation (Monsters Inc.)",
+      "About: A massive, blue-furred monster who works as a scarer but discovers laughter is more powerful than screams."
+    ],
+    "aliases": [
+      "James P. Sullivan"
+    ]
+  },
+  {
+    "name": "Mike Wazowski",
+    "image": "https://upload.wikimedia.org/wikipedia/en/1/19/Mike_Wazowski_%28Monsters_Inc%29.png",
+    "hints": [
+      "From: Animation (Monsters Inc.)",
+      "About: Sulley's one-eyed green best friend and assistant, known for his wisecracks and dreams of being a comedian."
+    ],
+    "aliases": [
+      "Mike"
+    ]
+  },
+  {
+    "name": "Nemo",
+    "image": "https://upload.wikimedia.org/wikipedia/en/b/b3/Nemo_%28Finding_Nemo%29.png",
+    "hints": [
+      "From: Animation (Finding Nemo)",
+      "About: A young clownfish with a small, fin, who is captured and taken to Sydney, prompting his father's epic journey."
+    ],
+    "aliases": [
+      "Nemo"
+    ]
+  },
+  {
+    "name": "Dory",
+    "image": "https://upload.wikimedia.org/wikipedia/en/8/8b/Dory_%28Finding_Nemo%29.png",
+    "hints": [
+      "From: Animation (Finding Nemo)",
+      "About: A cheerful blue tang fish with short-term memory loss, who helps Marlin find Nemo with her optimism and kindness."
+    ],
+    "aliases": [
+      "Dory"
+    ]
+  },
+  {
+    "name": "Marlin",
+    "image": "https://upload.wikimedia.org/wikipedia/en/d/d9/Marlin_%28Finding_Nemo%29.png",
+    "hints": [
+      "From: Animation (Finding Nemo)",
+      "About: An overprotective clownfish father who crosses the entire ocean to find his son Nemo, learning to let go."
+    ],
+    "aliases": [
+      "Marlin"
+    ]
+  },
+  {
+    "name": "Mr. Incredible",
+    "image": "https://upload.wikimedia.org/wikipedia/en/9/9a/Mr_Incredible_%28The_Incredibles%29.png",
+    "hints": [
+      "From: Animation (The Incredibles)",
+      "About: A retired superhero with super strength, forced back into action to save the world and rediscover his purpose."
+    ],
+    "aliases": [
+      "Bob Parr"
+    ]
+  },
+  {
+    "name": "Elastigirl",
+    "image": "https://upload.wikimedia.org/wikipedia/en/7/75/Elastigirl_%28The_Incredibles%29.png",
+    "hints": [
+      "From: Animation (The Incredibles)",
+      "About: An elastic superheroine who can stretch her body into any shape, balancing family life with crime-fighting."
+    ],
+    "aliases": [
+      "Helen Parr"
+    ]
+  },
+  {
+    "name": "Jack-Jack",
+    "image": "https://upload.wikimedia.org/wikipedia/en/f/f0/Jack-Jack_%28The_Incredibles%29.png",
+    "hints": [
+      "From: Animation (The Incredibles)",
+      "About: The baby of the Incredibles family, who unexpectedly develops a wide range of unpredictable superpowers."
+    ],
+    "aliases": [
+      "Jack-Jack"
+    ]
+  },
+  {
+    "name": "WALL-E",
+    "image": "https://upload.wikimedia.org/wikipedia/en/0/0c/WALL-E_%28character%29.png",
+    "hints": [
+      "From: Animation (WALL-E)",
+      "About: A lonely trash-compacting robot left on a desolate Earth, who discovers love and embarks on an interstellar adventure."
+    ],
+    "aliases": [
+      "WALL-E"
+    ]
+  },
+  {
+    "name": "EVE",
+    "image": "https://upload.wikimedia.org/wikipedia/en/3/3b/EVE_%28WALL-E%29.png",
+    "hints": [
+      "From: Animation (WALL-E)",
+      "About: A sleek, advanced probe robot sent to Earth to find signs of life, who captures WALL-E's heart and takes him to space."
+    ],
+    "aliases": [
+      "EVE"
+    ]
+  },
+  {
+    "name": "Carl Fredricksen",
+    "image": "https://upload.wikimedia.org/wikipedia/en/6/67/Carl_Fredricksen_%28Up%29.png",
+    "hints": [
+      "From: Animation (Up)",
+      "About: A grumpy elderly widower who ties thousands of balloons to his house to fulfill his dream of visiting South America."
+    ],
+    "aliases": [
+      "Carl",
+      "Mr. Fredricksen"
+    ]
+  },
+  {
+    "name": "Russell",
+    "image": "https://upload.wikimedia.org/wikipedia/en/5/5c/Russell_%28Up%29.png",
+    "hints": [
+      "From: Animation (Up)",
+      "About: A cheerful and talkative Wilderness Explorer scout who accidentally becomes Carl's companion on his journey."
+    ],
+    "aliases": [
+      "Russell"
+    ]
+  },
+  {
+    "name": "Dug",
+    "image": "https://upload.wikimedia.org/wikipedia/en/1/1c/Dug_%28Up%29.png",
+    "hints": [
+      "From: Animation (Up)",
+      "About: A golden retriever with a special collar that translates his thoughts into speech, who is loyal and easily distracted."
+    ],
+    "aliases": [
+      "Dug"
+    ]
+  },
+  {
+    "name": "Remy",
+    "image": "https://upload.wikimedia.org/wikipedia/en/3/3b/Remy_%28Ratatouille%29.png",
+    "hints": [
+      "From: Animation (Ratatouille)",
+      "About: A Parisian rat with a refined palate who dreams of becoming a chef, despite the obvious obstacles."
+    ],
+    "aliases": [
+      "Remy"
+    ]
+  },
+  {
+    "name": "Lightning McQueen",
+    "image": "https://upload.wikimedia.org/wikipedia/en/7/7c/Lightning_McQueen_%28Cars%29.png",
+    "hints": [
+      "From: Animation (Cars)",
+      "About: A young, arrogant race car who learns the value of friendship and community during a detour in a small town."
+    ],
+    "aliases": [
+      "McQueen",
+      "Lightning"
+    ]
+  },
+  {
+    "name": "Mater",
+    "image": "https://upload.wikimedia.org/wikipedia/en/3/33/Mater_%28Cars%29.png",
+    "hints": [
+      "From: Animation (Cars)",
+      "About: A rusty but lovable tow truck with a big heart and a Southern drawl, who becomes McQueen's best friend."
+    ],
+    "aliases": [
+      "Mater"
+    ]
+  },
+  {
+    "name": "Miguel",
+    "image": "https://upload.wikimedia.org/wikipedia/en/4/46/Miguel_%28Coco%29.png",
+    "hints": [
+      "From: Animation (Coco)",
+      "About: A young aspiring musician who finds himself in the Land of the Dead, uncovering his family's true history."
+    ],
+    "aliases": [
+      "Miguel"
+    ]
+  },
+  {
+    "name": "Shrek",
+    "image": "https://upload.wikimedia.org/wikipedia/en/4/4a/Shrek_%28character%29.png",
+    "hints": [
+      "From: Animation (Shrek)",
+      "About: A grumpy green ogre who loves his swamp and lives by his own rules, eventually finding love and friendship."
+    ],
+    "aliases": [
+      "Shrek"
+    ]
+  },
+  {
+    "name": "Fiona",
+    "image": "https://upload.wikimedia.org/wikipedia/en/f/ff/Fiona_%28Shrek%29.png",
+    "hints": [
+      "From: Animation (Shrek)",
+      "About: A princess cursed to turn into an ogre at night, who breaks the curse through true love and embraces her true self."
+    ],
+    "aliases": [
+      "Princess Fiona"
+    ]
+  },
+  {
+    "name": "Donkey",
+    "image": "https://upload.wikimedia.org/wikipedia/en/d/d0/Donkey_%28Shrek%29.png",
+    "hints": [
+      "From: Animation (Shrek)",
+      "About: A hyperactive and talkative donkey who becomes Shrek's loyal sidekick, often annoying him with endless chatter."
+    ],
+    "aliases": [
+      "Donkey"
+    ]
+  },
+  {
+    "name": "Puss in Boots",
+    "image": "https://upload.wikimedia.org/wikipedia/en/3/36/Puss_in_Boots_%28character%29.png",
+    "hints": [
+      "From: Animation (Shrek)",
+      "About: A charismatic and swashbuckling feline outlaw who uses his big eyes and tiny boots to charm his way out of trouble."
+    ],
+    "aliases": [
+      "Puss"
+    ]
+  },
+  {
+    "name": "Alex",
+    "image": "https://upload.wikimedia.org/wikipedia/en/1/10/Alex_%28Madagascar%29.png",
+    "hints": [
+      "From: Animation (Madagascar)",
+      "About: A pampered lion and star attraction of Central Park Zoo, who learns to embrace his wild side on an adventure."
+    ],
+    "aliases": [
+      "Alex"
+    ]
+  },
+  {
+    "name": "Marty",
+    "image": "https://upload.wikimedia.org/wikipedia/en/7/77/Marty_%28Madagascar%29.png",
+    "hints": [
+      "From: Animation (Madagascar)",
+      "About: A zebra who dreams of life in the wild and accidentally leads his zoo friends on an escape to Madagascar."
+    ],
+    "aliases": [
+      "Marty"
+    ]
+  },
+  {
+    "name": "Melman",
+    "image": "https://upload.wikimedia.org/wikipedia/en/e/e5/Melman_%28Madagascar%29.png",
+    "hints": [
+      "From: Animation (Madagascar)",
+      "About: A neurotic giraffe with a tendency to worry about everything, especially his own health."
+    ],
+    "aliases": [
+      "Melman"
+    ]
+  },
+  {
+    "name": "Gloria",
+    "image": "https://upload.wikimedia.org/wikipedia/en/a/a6/Gloria_%28Madagascar%29.png",
+    "hints": [
+      "From: Animation (Madagascar)",
+      "About: A confident and sassy hippo who acts as the voice of reason among her zoo friends."
+    ],
+    "aliases": [
+      "Gloria"
+    ]
+  },
+  {
+    "name": "Po",
+    "image": "https://upload.wikimedia.org/wikipedia/en/7/7b/Po_%28Kung_Fu_Panda%29.png",
+    "hints": [
+      "From: Animation (Kung Fu Panda)",
+      "About: A clumsy and food-loving panda who unexpectedly becomes the Dragon Warrior, learning kung fu to save his valley."
+    ],
+    "aliases": [
+      "Po"
+    ]
+  },
+  {
+    "name": "Tigress",
+    "image": "https://upload.wikimedia.org/wikipedia/en/1/1d/Tigress_%28Kung_Fu_Panda%29.png",
+    "hints": [
+      "From: Animation (Kung Fu Panda)",
+      "About: A fierce and disciplined kung fu master, the most skilled of the Furious Five, who initially doubts Po's abilities."
+    ],
+    "aliases": [
+      "Tigress"
+    ]
+  },
+  {
+    "name": "Toothless",
+    "image": "https://upload.wikimedia.org/wikipedia/en/3/3c/Toothless_%28How_to_Train_Your_Dragon%29.png",
+    "hints": [
+      "From: Animation (How to Train Your Dragon)",
+      "About: A night fury dragon who becomes the loyal companion of a Viking boy, known for his jet-black scales and retractable teeth."
+    ],
+    "aliases": [
+      "Toothless"
+    ]
+  },
+  {
+    "name": "Hiccup",
+    "image": "https://upload.wikimedia.org/wikipedia/en/d/d3/Hiccup_%28How_to_Train_Your_Dragon%29.png",
+    "hints": [
+      "From: Animation (How to Train Your Dragon)",
+      "About: An inventive and compassionate Viking boy who challenges his village's traditions by befriending a dragon."
+    ],
+    "aliases": [
+      "Hiccup"
+    ]
+  },
+  {
+    "name": "Astrid",
+    "image": "https://upload.wikimedia.org/wikipedia/en/4/45/Astrid_%28How_to_Train_Your_Dragon%29.png",
+    "hints": [
+      "From: Animation (How to Train Your Dragon)",
+      "About: A fierce Viking warrior and Hiccup's love interest, who initially sees him as a misfit but becomes his strongest ally."
+    ],
+    "aliases": [
+      "Astrid"
+    ]
+  },
+  {
+    "name": "Megamind",
+    "image": "https://upload.wikimedia.org/wikipedia/en/d/d4/Megamind_%28character%29.png",
+    "hints": [
+      "From: Animation (Megamind)",
+      "About: An alien supervillain with a gigantic blue head who discovers that being bad isn't all it's cracked up to be."
+    ],
+    "aliases": [
+      "Megamind"
+    ]
+  },
+  {
+    "name": "Gru",
+    "image": "https://upload.wikimedia.org/wikipedia/en/0/09/Gru_%28Despicable_Me%29.png",
+    "hints": [
+      "From: Animation (Despicable Me)",
+      "About: A supervillain with an Eastern European accent and a heart of gold, who adopts three girls and eventually goes straight."
+    ],
+    "aliases": [
+      "Gru"
+    ]
+  },
+  {
+    "name": "Kevin (Minion)",
+    "image": "https://upload.wikimedia.org/wikipedia/en/3/32/Kevin_%28Minion%29.png",
+    "hints": [
+      "From: Animation (Despicable Me)",
+      "About: A tall, one-eyed minion who often takes charge, known for his leadership and his love of bananas."
+    ],
+    "aliases": [
+      "Kevin"
+    ]
+  },
+  {
+    "name": "Stuart (Minion)",
+    "image": "https://upload.wikimedia.org/wikipedia/en/9/9a/Stuart_%28Minion%29.png",
+    "hints": [
+      "From: Animation (Despicable Me)",
+      "About: A short, one-eyed minion with a guitar, often the center of minion mischief and chaos."
+    ],
+    "aliases": [
+      "Stuart"
+    ]
+  },
+  {
+    "name": "Bob (Minion)",
+    "image": "https://upload.wikimedia.org/wikipedia/en/e/e3/Bob_%28Minion%29.png",
+    "hints": [
+      "From: Animation (Despicable Me)",
+      "About: A small, two-eyed minion with a teddy bear, known for his innocence and childlike antics."
+    ],
+    "aliases": [
+      "Bob"
+    ]
+  },
+  {
+    "name": "Manny",
+    "image": "https://upload.wikimedia.org/wikipedia/en/6/60/Manny_%28Ice_Age%29.png",
+    "hints": [
+      "From: Animation (Ice Age)",
+      "About: A grumpy but soft-hearted woolly mammoth who leads a herd of prehistoric animals during the ice age."
+    ],
+    "aliases": [
+      "Manny"
+    ]
+  },
+  {
+    "name": "Sid",
+    "image": "https://upload.wikimedia.org/wikipedia/en/2/2d/Sid_%28Ice_Age%29.png",
+    "hints": [
+      "From: Animation (Ice Age)",
+      "About: A clumsy and talkative ground sloth with a lisp, who has a big heart and often accidentally causes trouble."
+    ],
+    "aliases": [
+      "Sid the Sloth"
+    ]
+  },
+  {
+    "name": "Diego",
+    "image": "https://upload.wikimedia.org/wikipedia/en/2/27/Diego_%28Ice_Age%29.png",
+    "hints": [
+      "From: Animation (Ice Age)",
+      "About: A sharp-toothed saber-toothed tiger who starts as a predator but becomes a loyal member of the herd."
+    ],
+    "aliases": [
+      "Diego"
+    ]
+  },
+  {
+    "name": "Scrat",
+    "image": "https://upload.wikimedia.org/wikipedia/en/f/f2/Scrat_%28Ice_Age%29.png",
+    "hints": [
+      "From: Animation (Ice Age)",
+      "About: A nut-obsessed prehistoric squirrel-rat whose desperate quest for acorns often triggers continental-scale disasters."
+    ],
+    "aliases": [
+      "Scrat"
+    ]
+  },
+  {
+    "name": "Mickey Mouse",
+    "image": "https://upload.wikimedia.org/wikipedia/en/f/f9/Mickey_Mouse_%28character%29.png",
+    "hints": [
+      "From: Animation (Disney)",
+      "About: The cheerful and iconic Disney mascot, a red-shorted mouse who is always ready for a musical adventure."
+    ],
+    "aliases": [
+      "Mickey"
+    ]
+  },
+  {
+    "name": "Donald Duck",
+    "image": "https://upload.wikimedia.org/wikipedia/en/a/a9/Donald_Duck_%28character%29.png",
+    "hints": [
+      "From: Animation (Disney)",
+      "About: A temperamental white duck with a blue sailor shirt, who often has explosive outbursts of anger."
+    ],
+    "aliases": [
+      "Donald"
+    ]
+  },
+  {
+    "name": "Goofy",
+    "image": "https://upload.wikimedia.org/wikipedia/en/f/fe/Goofy_%28character%29.png",
+    "hints": [
+      "From: Animation (Disney)",
+      "About: A tall, clumsy, and good-natured anthropomorphic dog who always tries his best, with hilarious results."
+    ],
+    "aliases": [
+      "Goofy"
+    ]
+  },
+  {
+    "name": "Simba",
+    "image": "https://upload.wikimedia.org/wikipedia/en/4/4f/Simba_%28Lion_King%29.png",
+    "hints": [
+      "From: Animation (The Lion King)",
+      "About: A young lion prince who must overcome guilt and embrace his destiny to become the rightful king of the Pride Lands."
+    ],
+    "aliases": [
+      "Simba"
+    ]
+  },
+  {
+    "name": "Mufasa",
+    "image": "https://upload.wikimedia.org/wikipedia/en/d/db/Mufasa_%28Lion_King%29.png",
+    "hints": [
+      "From: Animation (The Lion King)",
+      "About: The wise and powerful king of the Pride Lands, Simba's beloved father, who appears as a spirit to guide his son."
+    ],
+    "aliases": [
+      "Mufasa"
+    ]
+  },
+  {
+    "name": "Scar",
+    "image": "https://upload.wikimedia.org/wikipedia/en/b/b9/Scar_%28Lion_King%29.png",
+    "hints": [
+      "From: Animation (The Lion King)",
+      "About: The sinister and manipulative brother of Mufasa, who seizes the throne by treachery, marking his reign with tyranny."
+    ],
+    "aliases": [
+      "Scar"
+    ]
+  },
+  {
+    "name": "Timon",
+    "image": "https://upload.wikimedia.org/wikipedia/en/5/56/Timon_%28Lion_King%29.png",
+    "hints": [
+      "From: Animation (The Lion King)",
+      "About: A wisecracking meerkat who adopts the philosophy of 'Hakuna Matata', living with his warthog best friend."
+    ],
+    "aliases": [
+      "Timon"
+    ]
+  },
+  {
+    "name": "Pumbaa",
+    "image": "https://upload.wikimedia.org/wikipedia/en/5/55/Pumbaa_%28Lion_King%29.png",
+    "hints": [
+      "From: Animation (The Lion King)",
+      "About: A loving and flatulent warthog who adopts Simba and teaches him the carefree lifestyle of 'no worries'."
+    ],
+    "aliases": [
+      "Pumbaa"
+    ]
+  },
+  {
+    "name": "Aladdin",
+    "image": "https://upload.wikimedia.org/wikipedia/en/8/82/Aladdin_%28character%29.png",
+    "hints": [
+      "From: Animation (Aladdin)",
+      "About: A clever street rat who finds a magical lamp and uses his wishes to win the heart of Princess Jasmine."
+    ],
+    "aliases": [
+      "Aladdin"
+    ]
+  },
+  {
+    "name": "Genie",
+    "image": "https://upload.wikimedia.org/wikipedia/en/8/8d/Genie_%28Aladdin%29.png",
+    "hints": [
+      "From: Animation (Aladdin)",
+      "About: A larger-than-life magical being trapped in a lamp, with incredible powers and a fast-talking personality."
+    ],
+    "aliases": [
+      "Genie"
+    ]
+  },
+  {
+    "name": "Jasmine",
+    "image": "https://upload.wikimedia.org/wikipedia/en/b/b0/Jasmine_%28Aladdin%29.png",
+    "hints": [
+      "From: Animation (Aladdin)",
+      "About: The spirited princess of Agrabah who seeks independence and falls in love with a street rat, marrying for love."
+    ],
+    "aliases": [
+      "Princess Jasmine"
+    ]
+  },
+  {
+    "name": "Ariel",
+    "image": "https://upload.wikimedia.org/wikipedia/en/b/b4/Ariel_%28The_Little_Mermaid%29.png",
+    "hints": [
+      "From: Animation (The Little Mermaid)",
+      "About: A curious and adventurous mermaid princess who trades her voice for legs to explore the human world and find love."
+    ],
+    "aliases": [
+      "Ariel"
+    ]
+  },
+  {
+    "name": "Ursula",
+    "image": "https://upload.wikimedia.org/wikipedia/en/8/87/Ursula_%28The_Little_Mermaid%29.png",
+    "hints": [
+      "From: Animation (The Little Mermaid)",
+      "About: A manipulative and scheming sea witch who strikes deals with desperate merfolk, using tentacles and dramatic flair."
+    ],
+    "aliases": [
+      "Ursula"
+    ]
+  },
+  {
+    "name": "Belle",
+    "image": "https://upload.wikimedia.org/wikipedia/en/b/b9/Belle_%28Beauty_and_the_Beast%29.png",
+    "hints": [
+      "From: Animation (Beauty and the Beast)",
+      "About: A book-loving village girl who sees beyond a beast's monstrous appearance, falling in love with the man inside."
+    ],
+    "aliases": [
+      "Belle"
+    ]
+  },
+  {
+    "name": "Beast",
+    "image": "https://upload.wikimedia.org/wikipedia/en/c/ce/Beast_%28Beauty_and_the_Beast%29.png",
+    "hints": [
+      "From: Animation (Beauty and the Beast)",
+      "About: A prince cursed to look like a beast, who must learn to love and be loved to break the spell."
+    ],
+    "aliases": [
+      "Beast"
+    ]
+  },
+  {
+    "name": "Mulan",
+    "image": "https://upload.wikimedia.org/wikipedia/en/7/7a/Mulan_%28character%29.png",
+    "hints": [
+      "From: Animation (Mulan)",
+      "About: A fearless young woman who disguises herself as a man to take her father's place in the Chinese army, saving her country."
+    ],
+    "aliases": [
+      "Mulan"
+    ]
+  },
+  {
+    "name": "Mushu",
+    "image": "https://upload.wikimedia.org/wikipedia/en/b/b8/Mushu_%28Mulan%29.png",
+    "hints": [
+      "From: Animation (Mulan)",
+      "About: A small, fire-breathing dragon who serves as Mulan's guardian spirit, often causing more trouble than he solves."
+    ],
+    "aliases": [
+      "Mushu"
+    ]
+  },
+  {
+    "name": "Elsa",
+    "image": "https://upload.wikimedia.org/wikipedia/en/7/78/Elsa_%28Frozen%29.png",
+    "hints": [
+      "From: Animation (Frozen)",
+      "About: The Snow Queen of Arendelle, who struggles to control her powerful ice magic while protecting her kingdom."
+    ],
+    "aliases": [
+      "Elsa"
+    ]
+  },
+  {
+    "name": "Peter Pan",
+    "image": "https://upload.wikimedia.org/wikipedia/en/8/85/Peter_Pan_%28character%29.png",
+    "hints": [
+      "From: Animation (Peter Pan)",
+      "About: A mischievous boy who can fly and never grows up, leading the Lost Boys on adventures in Neverland."
+    ],
+    "aliases": [
+      "Peter"
+    ]
+  },
+  {
+    "name": "Tinker Bell",
+    "image": "https://upload.wikimedia.org/wikipedia/en/4/48/Tinker_Bell_%28character%29.png",
+    "hints": [
+      "From: Animation (Peter Pan)",
+      "About: A feisty pixie who is Peter's loyal companion, known for her jealousy, her tinkering, and her dust that lets people fly."
+    ],
+    "aliases": [
+      "Tink"
+    ]
+  },
+  {
+    "name": "Captain Hook",
+    "image": "https://upload.wikimedia.org/wikipedia/en/d/da/Captain_Hook_%28character%29.png",
+    "hints": [
+      "From: Animation (Peter Pan)",
+      "About: A vengeful pirate captain with a hook for a hand, who is obsessed with capturing Peter Pan and terrified of the crocodile."
+    ],
+    "aliases": [
+      "Hook"
+    ]
+  },
+  {
+    "name": "Jack Skellington",
+    "image": "https://upload.wikimedia.org/wikipedia/en/e/ee/Jack_Skellington_%28character%29.png",
+    "hints": [
+      "From: Animation (The Nightmare Before Christmas)",
+      "About: The Pumpkin King of Halloween Town, a lanky, charismatic skeleton who discovers Christmas and tries to claim it for himself."
+    ],
+    "aliases": [
+      "Jack",
+      "Pumpkin King"
+    ]
+  },
+  {
+    "name": "Sally",
+    "image": "https://upload.wikimedia.org/wikipedia/en/a/aa/Sally_%28Nightmare_Before_Christmas%29.png",
+    "hints": [
+      "From: Animation (The Nightmare Before Christmas)",
+      "About: A ragdoll creation who is in love with Jack, with a kind heart and the ability to see his good intentions."
+    ],
+    "aliases": [
+      "Sally"
+    ]
+  },
+  {
+    "name": "Oogie Boogie",
+    "image": "https://upload.wikimedia.org/wikipedia/en/c/cd/Oogie_Boogie_%28character%29.png",
+    "hints": [
+      "From: Animation (The Nightmare Before Christmas)",
+      "About: A burlap sack filled with bugs and greed, the villain of Halloween Town who loves gambling and causing fear."
+    ],
+    "aliases": [
+      "Oogie"
+    ]
+  },
+  {
+    "name": "Coraline",
+    "image": "https://upload.wikimedia.org/wikipedia/en/8/8b/Coraline_%28character%29.png",
+    "hints": [
+      "From: Animation (Coraline)",
+      "About: A curious and brave young girl who discovers a parallel world behind a hidden door, where her 'Other Mother' has sinister plans."
+    ],
+    "aliases": [
+      "Coraline"
+    ]
+  },
+  {
+    "name": "Wallace",
+    "image": "https://upload.wikimedia.org/wikipedia/en/5/5a/Wallace_%28Wallace_and_Gromit%29.png",
+    "hints": [
+      "From: Animation (Wallace & Gromit)",
+      "About: A cheese-loving, eccentric inventor from northern England, who often gets his dog Gromit into trouble with his inventions."
+    ],
+    "aliases": [
+      "Wallace"
+    ]
+  },
+  {
+    "name": "Gromit",
+    "image": "https://upload.wikimedia.org/wikipedia/en/8/8c/Gromit_%28Wallace_and_Gromit%29.png",
+    "hints": [
+      "From: Animation (Wallace & Gromit)",
+      "About: A silent, intelligent beagle who is Wallace's loyal companion, often saving the day with his sharp mind."
+    ],
+    "aliases": [
+      "Gromit"
+    ]
+  },
+  {
+    "name": "Shaun the Sheep",
+    "image": "https://upload.wikimedia.org/wikipedia/en/0/03/Shaun_the_Sheep_%28character%29.png",
+    "hints": [
+      "From: Animation (Shaun the Sheep)",
+      "About: A mischievous, intelligent sheep who is the leader of the flock at Mossy Bottom Farm, always looking for fun."
+    ],
+    "aliases": [
+      "Shaun"
+    ]
+  },
+  {
+    "name": "Aang",
+    "image": "https://upload.wikimedia.org/wikipedia/en/9/94/Aang_%28Avatar%29.png",
+    "hints": [
+      "From: Animation (Avatar: The Last Airbender)",
+      "About: The last Airbender and the Avatar, a young, playful monk destined to bring balance to the world."
+    ],
+    "aliases": [
+      "Aang"
+    ]
+  },
+  {
+    "name": "Katara",
+    "image": "https://upload.wikimedia.org/wikipedia/en/b/b4/Katara_%28Avatar%29.png",
+    "hints": [
+      "From: Animation (Avatar: The Last Airbender)",
+      "About: A determined and compassionate Waterbender from the Southern Water Tribe, who travels with Aang to master the elements."
+    ],
+    "aliases": [
+      "Katara"
+    ]
+  },
+  {
+    "name": "Sokka",
+    "image": "https://upload.wikimedia.org/wikipedia/en/b/b4/Sokka_%28Avatar%29.png",
+    "hints": [
+      "From: Animation (Avatar: The Last Airbender)",
+      "About: Katara's sarcastic older brother, a non-bender who uses his wit and boomerang to support his friends."
+    ],
+    "aliases": [
+      "Sokka"
+    ]
+  },
+  {
+    "name": "Toph Beifong",
+    "image": "https://upload.wikimedia.org/wikipedia/en/1/1d/Toph_Beifong_%28Avatar%29.png",
+    "hints": [
+      "From: Animation (Avatar: The Last Airbender)",
+      "About: A blind Earthbending prodigy who learns from the badgermoles, becoming one of the most powerful benders in the world."
+    ],
+    "aliases": [
+      "Toph"
+    ]
+  },
+  {
+    "name": "Zuko",
+    "image": "https://upload.wikimedia.org/wikipedia/en/e/ec/Zuko_%28Avatar%29.png",
+    "hints": [
+      "From: Animation (Avatar: The Last Airbender)",
+      "About: The exiled prince of the Fire Nation, determined to capture the Avatar to restore his honor, but eventually finds his own path."
+    ],
+    "aliases": [
+      "Zuko"
+    ]
+  },
+  {
+    "name": "Iroh",
+    "image": "https://upload.wikimedia.org/wikipedia/en/d/d8/Iroh_%28Avatar%29.png",
+    "hints": [
+      "From: Animation (Avatar: The Last Airbender)",
+      "About: Zuko's wise and tea-loving uncle, a retired Fire Nation general who offers guidance and humor in equal measure."
+    ],
+    "aliases": [
+      "Iroh",
+      "Uncle Iroh"
+    ]
+  },
+  {
+    "name": "Totoro",
+    "image": "https://upload.wikimedia.org/wikipedia/en/9/9d/Totoro_%28character%29.png",
+    "hints": [
+      "From: Animation (My Neighbor Totoro)",
+      "About: A large, furry forest spirit who befriends two young girls, helping them navigate their new surroundings in rural Japan."
+    ],
+    "aliases": [
+      "Totoro"
+    ]
+  },
+  {
+    "name": "No-Face",
+    "image": "https://upload.wikimedia.org/wikipedia/en/6/66/No-Face_%28Spirited_Away%29.png",
+    "hints": [
+      "From: Animation (Spirited Away)",
+      "About: A mysterious, faceless spirit who absorbs the greed of others and devours them, redeemed by the kindness of a young girl."
+    ],
+    "aliases": [
+      "No-Face"
+    ]
+  },
+  {
+    "name": "Chihiro",
+    "image": "https://upload.wikimedia.org/wikipedia/en/3/35/Chihiro_%28Spirited_Away%29.png",
+    "hints": [
+      "From: Animation (Spirited Away)",
+      "About: A young girl trapped in a spirit world, who works in a bathhouse to save her parents and learn self-belief."
+    ],
+    "aliases": [
+      "Chihiro",
+      "Sen"
+    ]
+  },
+  {
+    "name": "Haku",
+    "image": "https://upload.wikimedia.org/wikipedia/en/5/5a/Haku_%28Spirited_Away%29.png",
+    "hints": [
+      "From: Animation (Spirited Away)",
+      "About: A boy who can turn into a dragon, acting as an ally to Chihiro in the spirit world, hiding a secret past."
+    ],
+    "aliases": [
+      "Haku"
+    ]
+  }
+]
