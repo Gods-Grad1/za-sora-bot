@@ -499,6 +499,18 @@ def _update_scheduler_last_game(chat_id=None):
 # SEND HELPERS
 # ---------------------------------------------------------------------------
 
+def _character_has_image(bot, name, subfolder=None):
+    """Check if a character has an image on GitHub (any extension)."""
+    if not name:
+        return False
+    safe_name = _name_to_filename(name)
+    remote_folder = "characters"
+    if subfolder:
+        remote_folder += f"/{subfolder}"
+    remote_base = f"{remote_folder}/{safe_name}"
+    exists, _ = _image_exists_github(remote_base)
+    return exists
+
 def _game_markup(chat_id, game_type):
     import telebot
     markup = telebot.types.InlineKeyboardMarkup()
@@ -745,7 +757,6 @@ def start_character_game(bot, chat_id, category=None, user_id=None):
     db_path = config.CHAR_CATEGORIES.get((category or "random").lower())
     if db_path and category != "random":
         characters = load_json_file(db_path)
-        # FIXED: Use the category directly as the subfolder, instead of a hardcoded list
         subfolder = category.lower() if category and category != "random" else None
     else:
         characters = get_all_characters()
@@ -755,12 +766,41 @@ def start_character_game(bot, chat_id, category=None, user_id=None):
         send_and_delete(bot, chat_id, "⚠️ No characters found.")
         return None
 
-    # Get characters excluding recently seen ones
-    available = _get_character_pool(chat_id, characters)
-    q = random.choice(available)
-    name = str(q.get('name', 'Unknown')).strip()
+    # Get pool of characters excluding recently seen ones
+    pool = _get_character_pool(chat_id, characters)
     
-    # Track this character as seen
+    # --- Try to find a character with a valid image ---
+    q = None
+    attempts = 0
+    max_attempts = 15
+    # Shuffle the pool so we don't always pick the same order
+    shuffled_pool = pool[:]
+    random.shuffle(shuffled_pool)
+    
+    for candidate in shuffled_pool:
+        if attempts >= max_attempts:
+            break
+        name = candidate.get('name', '').strip()
+        if not name:
+            continue
+        # Check if image exists on GitHub
+        if _character_has_image(bot, name, subfolder):
+            q = candidate
+            break
+        attempts += 1
+    
+    # If no image found, fallback – pick one anyway (will use text-only)
+    if q is None:
+        q = random.choice(pool)
+        print(f"⚠️ [CHARACTER] No valid image found in {category or 'all'}, falling back to {q.get('name', 'Unknown')}")
+        # Notify admin via log only (don't spam)
+        try:
+            bot.send_message(config.ADMIN_ID, f"⚠️ No image found for any character in {category or 'all'}. Game will show text only.", parse_mode=None)
+        except Exception:
+            pass
+
+    # --- Proceed with the selected character ---
+    name = str(q.get('name', 'Unknown')).strip()
     _add_seen_character(chat_id, name)
     
     hints = q.get('hints') or q.get('hint', 'No hints available.')
@@ -939,19 +979,68 @@ def start_picture_game(bot, chat_id, category=None, user_id=None):
         subfolder = None
     else:
         items = load_json_file(db_path) or []
-        # FIXED: Use the category directly as the subfolder
         subfolder = category.lower() if category and category != "random" else None
 
     if not items:
         send_and_delete(bot, chat_id, "⚠️ No items found.")
         return None
 
-    # Get characters excluding recently seen ones
-    available = _get_character_pool(chat_id, items)
-    q = random.choice(available)
-    name = str(q.get('name', 'Unknown')).strip()
+    # Get pool excluding recently seen characters
+    pool = _get_character_pool(chat_id, items)
+
+    # --- Try to find a character with a valid **scrambled** image ---
+    q = None
+    attempts = 0
+    max_attempts = 15
+    shuffled_pool = pool[:]
+    random.shuffle(shuffled_pool)
     
-    # Track this character as seen
+    for candidate in shuffled_pool:
+        if attempts >= max_attempts:
+            break
+        name = candidate.get('name', '').strip()
+        if not name:
+            continue
+        # For scrambled, we need to check if the **scrambled** image exists
+        # We can use the same helper, but we must check against scrambled path.
+        # Let's use get_scrambled_image_bytes which does this check internally
+        # But to avoid downloading the whole image, we check existence via HEAD request.
+        safe_name = _name_to_filename(name)
+        remote_folder = "characters"
+        if subfolder:
+            remote_folder += f"/{subfolder}"
+        remote_base = f"scrambled/{remote_folder}/{safe_name}"
+        exists, _ = _image_exists_github(remote_base)
+        if exists:
+            q = candidate
+            break
+        attempts += 1
+
+    # If no scrambled image found, try to find one that at least has an original image
+    # so the bot can generate a scrambled one on the fly
+    if q is None:
+        # Try original image existence
+        for candidate in shuffled_pool:
+            if attempts >= max_attempts:
+                break
+            name = candidate.get('name', '').strip()
+            if not name:
+                continue
+            if _character_has_image(bot, name, subfolder):
+                q = candidate
+                break
+            attempts += 1
+
+    # Ultimate fallback
+    if q is None:
+        q = random.choice(pool)
+        print(f"⚠️ [SCRAMBLED] No valid image found in {category or 'all'}, falling back to {q.get('name', 'Unknown')}")
+        try:
+            bot.send_message(config.ADMIN_ID, f"⚠️ No scrambled or original image found for any character in {category or 'all'}. Game may fail.", parse_mode=None)
+        except Exception:
+            pass
+
+    name = str(q.get('name', 'Unknown')).strip()
     _add_seen_character(chat_id, name)
 
     img_url = q.get('image') or q.get('image_url') or q.get('img')
