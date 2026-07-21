@@ -1,0 +1,752 @@
+[
+  {
+    "name": "Indiana Jones",
+    "image": "https://upload.wikimedia.org/wikipedia/en/4/4b/Indiana_Jones_%28character%29.png",
+    "hints": [
+      "From: Movies (Indiana Jones)",
+      "About: A globe-trotting archaeologist who battles Nazis, curses, and ancient traps while recovering legendary artifacts."
+    ],
+    "aliases": [
+      "Indy",
+      "Henry Jones Jr."
+    ]
+  },
+  {
+    "name": "James Bond",
+    "image": "https://upload.wikimedia.org/wikipedia/en/9/9a/Daniel_Craig_as_James_Bond_in_Skyfall_%282012%29.png",
+    "hints": [
+      "From: Movies (James Bond)",
+      "About: A debonair British spy with a license to kill, known for his martinis, gadgets, and high-stakes missions."
+    ],
+    "aliases": [
+      "Bond",
+      "007"
+    ]
+  },
+  {
+    "name": "John Wick",
+    "image": "https://upload.wikimedia.org/wikipedia/en/5/5c/John_Wick_%28character%29.png",
+    "hints": [
+      "From: Movies (John Wick)",
+      "About: A legendary hitman who comes out of retirement to avenge his dog, unleashing a trail of bullets across the underworld."
+    ],
+    "aliases": [
+      "Wick",
+      "Baba Yaga"
+    ]
+  },
+  {
+    "name": "Jason Bourne",
+    "image": "https://upload.wikimedia.org/wikipedia/en/9/92/Jason_Bourne_%28character%29.png",
+    "hints": [
+      "From: Movies (Bourne)",
+      "About: A former CIA assassin suffering from amnesia who travels the globe uncovering his past and exposing government conspiracies."
+    ],
+    "aliases": [
+      "Bourne",
+      "David Webb"
+    ]
+  },
+  {
+    "name": "John Rambo",
+    "image": "https://upload.wikimedia.org/wikipedia/en/e/e1/Rambo_character.png",
+    "hints": [
+      "From: Movies (Rambo)",
+      "About: A highly skilled Vietnam War veteran who is pushed to the brink, using his survival and combat training to fight against oppression."
+    ],
+    "aliases": [
+      "Rambo"
+    ]
+  },
+  {
+    "name": "John McClane",
+    "image": "https://upload.wikimedia.org/wikipedia/en/f/f9/John_McClane_%28Die_Hard%29.png",
+    "hints": [
+      "From: Movies (Die Hard)",
+      "About: A tough NYPD detective who always ends up in the wrong place at the wrong time, taking down terrorists with wit and grit."
+    ],
+    "aliases": [
+      "McClane"
+    ]
+  },
+  {
+    "name": "Max Rockatansky",
+    "image": "https://upload.wikimedia.org/wikipedia/en/2/23/Max_Rockatansky_%28Mad_Max%29.png",
+    "hints": [
+      "From: Movies (Mad Max)",
+      "About: A lone wanderer in a post-apocalyptic wasteland who drives a souped-up car and fights for survival against ruthless warlords."
+    ],
+    "aliases": [
+      "Mad Max"
+    ]
+  },
+  {
+    "name": "The Bride",
+    "image": "https://upload.wikimedia.org/wikipedia/en/6/6a/Kill_Bill_Volume_1_poster.jpg",
+    "hints": [
+      "From: Movies (Kill Bill)",
+      "About: A former assassin who wakes from a coma and seeks bloody revenge against her former colleagues, wielding a Hattori Hanzo sword."
+    ],
+    "aliases": [
+      "Beatrix Kiddo",
+      "Black Mamba"
+    ]
+  },
+  {
+    "name": "Neo",
+    "image": "https://upload.wikimedia.org/wikipedia/en/c/c1/Neo_%28The_Matrix%29.png",
+    "hints": [
+      "From: Movies (The Matrix)",
+      "About: A hacker who discovers reality is a simulation and becomes 'The One' destined to free humanity from machine control."
+    ],
+    "aliases": [
+      "Thomas Anderson"
+    ]
+  },
+  {
+    "name": "The Terminator",
+    "image": "https://upload.wikimedia.org/wikipedia/en/4/4f/Terminator_%28character%29.png",
+    "hints": [
+      "From: Movies (Terminator)",
+      "About: A cyborg assassin sent from the future to eliminate a key figure, known for its catchphrase and relentless pursuit."
+    ],
+    "aliases": [
+      "T-800",
+      "Arnold's Terminator"
+    ]
+  },
+  {
+    "name": "RoboCop",
+    "image": "https://upload.wikimedia.org/wikipedia/en/3/3f/RoboCop_%28character%29.png",
+    "hints": [
+      "From: Movies (RoboCop)",
+      "About: A critically injured police officer resurrected as a cyborg law enforcer, struggling with his humanity while fighting crime."
+    ],
+    "aliases": [
+      "Alex Murphy"
+    ]
+  },
+  {
+    "name": "Ellen Ripley",
+    "image": "https://upload.wikimedia.org/wikipedia/en/7/7e/Ellen_Ripley_%28character%29.png",
+    "hints": [
+      "From: Movies (Alien)",
+      "About: A tough and resourceful warrant officer who becomes the sole survivor of a space mission and faces a deadly alien creature."
+    ],
+    "aliases": [
+      "Ripley"
+    ]
+  },
+  {
+    "name": "Dutch",
+    "image": "https://upload.wikimedia.org/wikipedia/en/d/d1/Dutch_%28Predator%29.png",
+    "hints": [
+      "From: Movies (Predator)",
+      "About: A special forces team leader who hunts a extraterrestrial predator in a jungle, using his wits and raw strength."
+    ],
+    "aliases": [
+      "Alan Schaefer"
+    ]
+  },
+  {
+    "name": "The Predator",
+    "image": "https://upload.wikimedia.org/wikipedia/en/3/35/Predator_%28creature%29.png",
+    "hints": [
+      "From: Movies (Predator)",
+      "About: An extraterrestrial hunter that stalks and hunts worthy prey for sport, equipped with advanced weaponry and cloaking technology."
+    ],
+    "aliases": [
+      "Yautja"
+    ]
+  },
+  {
+    "name": "Marty McFly",
+    "image": "https://upload.wikimedia.org/wikipedia/en/7/7e/Marty_McFly_%28Back_to_the_Future%29.png",
+    "hints": [
+      "From: Movies (Back to the Future)",
+      "About: A teenager who accidentally travels back in time and must ensure his parents fall in love to save his own existence."
+    ],
+    "aliases": [
+      "Marty"
+    ]
+  },
+  {
+    "name": "Luke Skywalker",
+    "image": "https://upload.wikimedia.org/wikipedia/en/3/31/Luke_Skywalker_%28character%29.png",
+    "hints": [
+      "From: Movies (Star Wars)",
+      "About: A farm boy who becomes a Jedi Knight and leads the Rebellion against the Galactic Empire, redeeming his father."
+    ],
+    "aliases": [
+      "Luke"
+    ]
+  },
+  {
+    "name": "Darth Vader",
+    "image": "https://upload.wikimedia.org/wikipedia/en/7/76/Darth_Vader_%28character%29.png",
+    "hints": [
+      "From: Movies (Star Wars)",
+      "About: A Sith Lord encased in black armor, former Jedi hero turned to the dark side, and father of Luke Skywalker."
+    ],
+    "aliases": [
+      "Vader",
+      "Anakin Skywalker"
+    ]
+  },
+  {
+    "name": "Han Solo",
+    "image": "https://upload.wikimedia.org/wikipedia/en/7/7f/Han_Solo_%28character%29.png",
+    "hints": [
+      "From: Movies (Star Wars)",
+      "About: A smuggler and rogue who becomes a key figure in the Rebellion, piloting the Millennium Falcon with his Wookiee co-pilot."
+    ],
+    "aliases": [
+      "Han"
+    ]
+  },
+  {
+    "name": "Princess Leia",
+    "image": "https://upload.wikimedia.org/wikipedia/en/1/1b/Princess_Leia_%28character%29.png",
+    "hints": [
+      "From: Movies (Star Wars)",
+      "About: A princess and rebel leader who fights against the Empire, known for her courage, wit, and iconic hairstyle."
+    ],
+    "aliases": [
+      "Leia",
+      "General Organa"
+    ]
+  },
+  {
+    "name": "Obi-Wan Kenobi",
+    "image": "https://upload.wikimedia.org/wikipedia/en/8/8c/Obi-Wan_Kenobi_%28character%29.png",
+    "hints": [
+      "From: Movies (Star Wars)",
+      "About: A wise Jedi Master who trains both Anakin and Luke Skywalker, serving as a mentor and guardian of the Force."
+    ],
+    "aliases": [
+      "Ben Kenobi"
+    ]
+  },
+  {
+    "name": "Yoda",
+    "image": "https://upload.wikimedia.org/wikipedia/en/9/98/Yoda_%28character%29.png",
+    "hints": [
+      "From: Movies (Star Wars)",
+      "About: A small, green Jedi Grand Master with immense wisdom and power, who trains Luke in the ways of the Force."
+    ],
+    "aliases": [
+      "Yoda"
+    ]
+  },
+  {
+    "name": "Darth Maul",
+    "image": "https://upload.wikimedia.org/wikipedia/en/1/16/Darth_Maul_%28character%29.png",
+    "hints": [
+      "From: Movies (Star Wars)",
+      "About: A menacing Sith apprentice with a double-bladed lightsaber and a relentless drive for revenge."
+    ],
+    "aliases": [
+      "Maul"
+    ]
+  },
+  {
+    "name": "Rey",
+    "image": "https://upload.wikimedia.org/wikipedia/en/6/64/Rey_%28Star_Wars%29.png",
+    "hints": [
+      "From: Movies (Star Wars)",
+      "About: A scavenger who discovers her Force sensitivity and becomes the last hope of the Jedi, opposing the First Order."
+    ],
+    "aliases": [
+      "Rey"
+    ]
+  },
+  {
+    "name": "Kylo Ren",
+    "image": "https://upload.wikimedia.org/wikipedia/en/3/37/Kylo_Ren_%28character%29.png",
+    "hints": [
+      "From: Movies (Star Wars)",
+      "About: The conflicted son of Han Solo and Leia, who falls to the dark side and leads the Knights of Ren."
+    ],
+    "aliases": [
+      "Ben Solo"
+    ]
+  },
+  {
+    "name": "Frodo Baggins",
+    "image": "https://upload.wikimedia.org/wikipedia/en/1/15/Frodo_Baggins_%28Lord_of_the_Rings%29.png",
+    "hints": [
+      "From: Movies (Lord of the Rings)",
+      "About: A humble hobbit who bears the One Ring on a perilous journey to destroy it in the fires of Mount Doom."
+    ],
+    "aliases": [
+      "Frodo"
+    ]
+  },
+  {
+    "name": "Samwise Gamgee",
+    "image": "https://upload.wikimedia.org/wikipedia/en/5/5d/Samwise_Gamgee_%28Lord_of_the_Rings%29.png",
+    "hints": [
+      "From: Movies (Lord of the Rings)",
+      "About: Frodo's loyal gardener and companion, whose unwavering support and courage help carry the quest to its end."
+    ],
+    "aliases": [
+      "Sam"
+    ]
+  },
+  {
+    "name": "Gandalf",
+    "image": "https://upload.wikimedia.org/wikipedia/en/0/0a/Gandalf_%28Lord_of_the_Rings%29.png",
+    "hints": [
+      "From: Movies (Lord of the Rings)",
+      "About: A wise and powerful wizard who guides the Fellowship, wielding immense magic and a sword that glows in the presence of enemies."
+    ],
+    "aliases": [
+      "Gandalf the Grey",
+      "Gandalf the White"
+    ]
+  },
+  {
+    "name": "Aragorn",
+    "image": "https://upload.wikimedia.org/wikipedia/en/7/7a/Aragorn_%28Lord_of_the_Rings%29.png",
+    "hints": [
+      "From: Movies (Lord of the Rings)",
+      "About: The heir of Gondor, a ranger who leads the forces of Men against Sauron, wielding the reforged sword Andúril."
+    ],
+    "aliases": [
+      "Strider"
+    ]
+  },
+  {
+    "name": "Legolas",
+    "image": "https://upload.wikimedia.org/wikipedia/en/7/7f/Legolas_%28Lord_of_the_Rings%29.png",
+    "hints": [
+      "From: Movies (Lord of the Rings)",
+      "About: An elven prince and skilled archer, member of the Fellowship, who can see far and move with unmatched agility."
+    ],
+    "aliases": [
+      "Legolas Greenleaf"
+    ]
+  },
+  {
+    "name": "Gimli",
+    "image": "https://upload.wikimedia.org/wikipedia/en/8/88/Gimli_%28Lord_of_the_Rings%29.png",
+    "hints": [
+      "From: Movies (Lord of the Rings)",
+      "About: A dwarf warrior and member of the Fellowship, wielding a broad axe and known for his loyalty and stubbornness."
+    ],
+    "aliases": [
+      "Gimli, son of Glóin"
+    ]
+  },
+  {
+    "name": "Harry Potter",
+    "image": "https://upload.wikimedia.org/wikipedia/en/8/8d/Harry_Potter_%28character%29.png",
+    "hints": [
+      "From: Movies (Harry Potter)",
+      "About: The Boy Who Lived, a young wizard who discovers his magical heritage and confronts the dark wizard who killed his parents."
+    ],
+    "aliases": [
+      "Harry"
+    ]
+  },
+  {
+    "name": "Hermione Granger",
+    "image": "https://upload.wikimedia.org/wikipedia/en/e/e5/Hermione_Granger_%28character%29.png",
+    "hints": [
+      "From: Movies (Harry Potter)",
+      "About: A brilliant muggle-born witch and Harry's best friend, known for her intelligence, logic, and fierce loyalty."
+    ],
+    "aliases": [
+      "Hermione"
+    ]
+  },
+  {
+    "name": "Ron Weasley",
+    "image": "https://upload.wikimedia.org/wikipedia/en/b/b5/Ron_Weasley_%28character%29.png",
+    "hints": [
+      "From: Movies (Harry Potter)",
+      "About: Harry's loyal best friend, a pure-blood wizard from a large family, who often feels overshadowed but proves his bravery."
+    ],
+    "aliases": [
+      "Ron"
+    ]
+  },
+  {
+    "name": "Lord Voldemort",
+    "image": "https://upload.wikimedia.org/wikipedia/en/4/4e/Lord_Voldemort_%28character%29.png",
+    "hints": [
+      "From: Movies (Harry Potter)",
+      "About: The dark wizard who seeks immortality and total dominance over the wizarding world, feared even by his own followers."
+    ],
+    "aliases": [
+      "Voldemort",
+      "He-Who-Must-Not-Be-Named",
+      "Tom Riddle"
+    ]
+  },
+  {
+    "name": "Albus Dumbledore",
+    "image": "https://upload.wikimedia.org/wikipedia/en/2/22/Albus_Dumbledore_%28character%29.png",
+    "hints": [
+      "From: Movies (Harry Potter)",
+      "About: The wise and powerful headmaster of Hogwarts, mentor to Harry, and the only wizard Voldemort ever feared."
+    ],
+    "aliases": [
+      "Dumbledore"
+    ]
+  },
+  {
+    "name": "Optimus Prime",
+    "image": "https://upload.wikimedia.org/wikipedia/en/3/36/Optimus_Prime_%28Transformers%29.png",
+    "hints": [
+      "From: Movies (Transformers)",
+      "About: The noble leader of the Autobots, a sentient truck who fights to protect Earth from the Decepticons."
+    ],
+    "aliases": [
+      "Optimus"
+    ]
+  },
+  {
+    "name": "Bumblebee",
+    "image": "https://upload.wikimedia.org/wikipedia/en/4/44/Bumblebee_%28Transformers%29.png",
+    "hints": [
+      "From: Movies (Transformers)",
+      "About: The friendly yellow Autobot scout who transforms into a Chevrolet Camaro, often serving as a guardian to humans."
+    ],
+    "aliases": [
+      "Bumblebee"
+    ]
+  },
+  {
+    "name": "Megatron",
+    "image": "https://upload.wikimedia.org/wikipedia/en/6/65/Megatron_%28Transformers%29.png",
+    "hints": [
+      "From: Movies (Transformers)",
+      "About: The ruthless leader of the Decepticons who transforms into a Cybertronian tank, seeking to conquer the universe."
+    ],
+    "aliases": [
+      "Megatron"
+    ]
+  },
+  {
+    "name": "Starscream",
+    "image": "https://upload.wikimedia.org/wikipedia/en/e/e1/Starscream_%28Transformers%29.png",
+    "hints": [
+      "From: Movies (Transformers)",
+      "About: Megatron's scheming second-in-command, a sleek jet fighter who constantly plots to usurp his leader."
+    ],
+    "aliases": [
+      "Starscream"
+    ]
+  },
+  {
+    "name": "Soundwave",
+    "image": "https://upload.wikimedia.org/wikipedia/en/8/83/Soundwave_%28Transformers%29.png",
+    "hints": [
+      "From: Movies (Transformers)",
+      "About: Megatron's loyal communications officer, who transforms into a Cybertronian boombox and deploys cassette-like minions."
+    ],
+    "aliases": [
+      "Soundwave"
+    ]
+  },
+  {
+    "name": "Grimlock",
+    "image": "https://upload.wikimedia.org/wikipedia/en/d/d7/Grimlock_%28Transformers%29.png",
+    "hints": [
+      "From: Movies (Transformers)",
+      "About: The fierce leader of the Dinobots who transforms into a robotic Tyrannosaurus Rex, powerful and stubborn."
+    ],
+    "aliases": [
+      "Grimlock"
+    ]
+  },
+  {
+    "name": "Forrest Gump",
+    "image": "https://upload.wikimedia.org/wikipedia/en/d/d5/Forrest_Gump_%28character%29.png",
+    "hints": [
+      "From: Movies (Forrest Gump)",
+      "About: A simple-minded but kind-hearted man from Alabama who inadvertently influences several major historical events."
+    ],
+    "aliases": [
+      "Forrest"
+    ]
+  },
+  {
+    "name": "Austin Powers",
+    "image": "https://upload.wikimedia.org/wikipedia/en/1/1b/Austin_Powers_%28character%29.png",
+    "hints": [
+      "From: Movies (Austin Powers)",
+      "About: A groovy British spy from the 1960s who is cryogenically frozen and thawed to fight his nemesis in the 1990s."
+    ],
+    "aliases": [
+      "Austin"
+    ]
+  },
+  {
+    "name": "Willy Wonka",
+    "image": "https://upload.wikimedia.org/wikipedia/en/a/a8/Willy_Wonka_%28character%29.png",
+    "hints": [
+      "From: Movies (Willy Wonka)",
+      "About: The eccentric and whimsical owner of a magical chocolate factory, known for his golden tickets and quirky inventions."
+    ],
+    "aliases": [
+      "Wonka"
+    ]
+  },
+  {
+    "name": "Edward Scissorhands",
+    "image": "https://upload.wikimedia.org/wikipedia/en/a/a9/Edward_Scissorhands_%28character%29.png",
+    "hints": [
+      "From: Movies (Edward Scissorhands)",
+      "About: A gentle artificial creation with scissors for hands, who struggles to fit into a suburban community."
+    ],
+    "aliases": [
+      "Edward"
+    ]
+  },
+  {
+    "name": "Beetlejuice",
+    "image": "https://upload.wikimedia.org/wikipedia/en/5/5c/Beetlejuice_%28character%29.png",
+    "hints": [
+      "From: Movies (Beetlejuice)",
+      "About: A mischievous and crude ghost who is summoned to help haunt a house, causing chaos with his dark humour."
+    ],
+    "aliases": [
+      "Betelgeuse"
+    ]
+  },
+  {
+    "name": "Buddy the Elf",
+    "image": "https://upload.wikimedia.org/wikipedia/en/4/4f/Buddy_the_Elf_%28character%29.png",
+    "hints": [
+      "From: Movies (Elf)",
+      "About: A human raised by elves at the North Pole who travels to New York to find his biological father, spreading Christmas cheer."
+    ],
+    "aliases": [
+      "Buddy"
+    ]
+  },
+  {
+    "name": "Ferris Bueller",
+    "image": "https://upload.wikimedia.org/wikipedia/en/1/14/Ferris_Bueller_%28character%29.png",
+    "hints": [
+      "From: Movies (Ferris Bueller's Day Off)",
+      "About: A charming and clever high school senior who skips school for a day of adventure in Chicago, breaking the fourth wall."
+    ],
+    "aliases": [
+      "Ferris"
+    ]
+  },
+  {
+    "name": "Ace Ventura",
+    "image": "https://upload.wikimedia.org/wikipedia/en/8/8c/Ace_Ventura_%28character%29.png",
+    "hints": [
+      "From: Movies (Ace Ventura)",
+      "About: A zany animal detective who communicates with animals and solves pet-related crimes with his outlandish personality."
+    ],
+    "aliases": [
+      "Ace"
+    ]
+  },
+  {
+    "name": "Lloyd Christmas",
+    "image": "https://upload.wikimedia.org/wikipedia/en/f/f6/Lloyd_Christmas_%28Dumb_and_Dumber%29.png",
+    "hints": [
+      "From: Movies (Dumb and Dumber)",
+      "About: One half of a dim-witted duo who embark on a cross-country trip to return a lost briefcase, full of ridiculous moments."
+    ],
+    "aliases": [
+      "Lloyd"
+    ]
+  },
+  {
+    "name": "Harry Dunne",
+    "image": "https://upload.wikimedia.org/wikipedia/en/5/55/Harry_Dunne_%28Dumb_and_Dumber%29.png",
+    "hints": [
+      "From: Movies (Dumb and Dumber)",
+      "About: Lloyd's equally clueless best friend, who drives a van and gets into hilarious trouble alongside him."
+    ],
+    "aliases": [
+      "Harry"
+    ]
+  },
+  {
+    "name": "Napoleon Dynamite",
+    "image": "https://upload.wikimedia.org/wikipedia/en/4/41/Napoleon_Dynamite_%28character%29.png",
+    "hints": [
+      "From: Movies (Napoleon Dynamite)",
+      "About: A quirky high school outcast who navigates rural Idaho with his best friend, known for his dance moves and deadpan delivery."
+    ],
+    "aliases": [
+      "Napoleon"
+    ]
+  },
+  {
+    "name": "Tyler Durden",
+    "image": "https://upload.wikimedia.org/wikipedia/en/4/43/Tyler_Durden_%28Fight_Club%29.png",
+    "hints": [
+      "From: Movies (Fight Club)",
+      "About: The charismatic and anarchic alter ego of a disillusioned office worker, who starts an underground fight club and plans a global revolt."
+    ],
+    "aliases": [
+      "Tyler"
+    ]
+  },
+  {
+    "name": "Hannibal Lecter",
+    "image": "https://upload.wikimedia.org/wikipedia/en/2/2d/Hannibal_Lecter_%28character%29.png",
+    "hints": [
+      "From: Movies (Silence of the Lambs)",
+      "About: A brilliant psychiatrist and cannibalistic serial killer who assists the FBI in catching other killers while playing a psychological game."
+    ],
+    "aliases": [
+      "Lecter",
+      "Hannibal"
+    ]
+  },
+  {
+    "name": "Michael Corleone",
+    "image": "https://upload.wikimedia.org/wikipedia/en/6/66/Michael_Corleone_%28character%29.png",
+    "hints": [
+      "From: Movies (The Godfather)",
+      "About: The youngest son of a mafia don who transforms from a reluctant outsider to a ruthless crime boss."
+    ],
+    "aliases": [
+      "Michael"
+    ]
+  },
+  {
+    "name": "Vito Corleone",
+    "image": "https://upload.wikimedia.org/wikipedia/en/0/00/Vito_Corleone_%28character%29.png",
+    "hints": [
+      "From: Movies (The Godfather)",
+      "About: The patriarch of the Corleone mafia family, known for his wisdom, respect, and the offer one cannot refuse."
+    ],
+    "aliases": [
+      "Don Vito"
+    ]
+  },
+  {
+    "name": "E.T.",
+    "image": "https://upload.wikimedia.org/wikipedia/en/6/6e/E.T._%28character%29.png",
+    "hints": [
+      "From: Movies (E.T. the Extra-Terrestrial)",
+      "About: A gentle alien botanist stranded on Earth who befriends a young boy and tries to phone home."
+    ],
+    "aliases": [
+      "E.T."
+    ]
+  },
+  {
+    "name": "Elliot",
+    "image": "https://upload.wikimedia.org/wikipedia/en/8/80/Elliot_%28E.T.%29.png",
+    "hints": [
+      "From: Movies (E.T. the Extra-Terrestrial)",
+      "About: The young boy who discovers E.T. and forms a deep telepathic bond, helping the alien find its way home."
+    ],
+    "aliases": [
+      "Elliot"
+    ]
+  },
+  {
+    "name": "Jack Sparrow",
+    "image": "https://upload.wikimedia.org/wikipedia/en/3/30/Jack_Sparrow_%28character%29.png",
+    "hints": [
+      "From: Movies (Pirates of the Caribbean)",
+      "About: An eccentric and cunning pirate captain with a love for rum and a unique sense of freedom, always seeking treasure."
+    ],
+    "aliases": [
+      "Captain Jack Sparrow"
+    ]
+  },
+  {
+    "name": "Will Turner",
+    "image": "https://upload.wikimedia.org/wikipedia/en/0/0c/Will_Turner_%28Pirates%29.png",
+    "hints": [
+      "From: Movies (Pirates of the Caribbean)",
+      "About: A skilled blacksmith and pirate who is the son of a legendary pirate, fighting for freedom and love."
+    ],
+    "aliases": [
+      "Will"
+    ]
+  },
+  {
+    "name": "Davy Jones",
+    "image": "https://upload.wikimedia.org/wikipedia/en/6/6e/Davy_Jones_%28Pirates%29.png",
+    "hints": [
+      "From: Movies (Pirates of the Caribbean)",
+      "About: The cursed captain of the Flying Dutchman, with a squid-like face, who ferries souls and rules the sea."
+    ],
+    "aliases": [
+      "Jones"
+    ]
+  },
+  {
+    "name": "Alan Grant",
+    "image": "https://upload.wikimedia.org/wikipedia/en/2/2e/Alan_Grant_%28Jurassic_Park%29.png",
+    "hints": [
+      "From: Movies (Jurassic Park)",
+      "About: A renowned paleontologist who is invited to tour a dinosaur theme park, only to face the horrors of living dinosaurs."
+    ],
+    "aliases": [
+      "Grant"
+    ]
+  },
+  {
+    "name": "Ian Malcolm",
+    "image": "https://upload.wikimedia.org/wikipedia/en/2/2b/Ian_Malcolm_%28Jurassic_Park%29.png",
+    "hints": [
+      "From: Movies (Jurassic Park)",
+      "About: A mathematician and chaos theorist who warns of the dangers of cloning dinosaurs, using his wit and sarcasm."
+    ],
+    "aliases": [
+      "Malcolm",
+      "Dr. Malcolm"
+    ]
+  },
+  {
+    "name": "Rexy (T-Rex)",
+    "image": "https://upload.wikimedia.org/wikipedia/en/2/2f/Rexy_%28Jurassic_Park%29.png",
+    "hints": [
+      "From: Movies (Jurassic Park)",
+      "About: The iconic Tyrannosaurus Rex from Jurassic Park, a massive predator that protects its territory and provides thrilling rescues."
+    ],
+    "aliases": [
+      "T-Rex"
+    ]
+  },
+  {
+    "name": "Edward Cullen",
+    "image": "https://upload.wikimedia.org/wikipedia/en/0/0b/Edward_Cullen_%28Twilight%29.png",
+    "hints": [
+      "From: Movies (Twilight)",
+      "About: A handsome and brooding vampire who falls in love with a human girl, struggling with his predatory instincts."
+    ],
+    "aliases": [
+      "Edward"
+    ]
+  },
+  {
+    "name": "Bella Swan",
+    "image": "https://upload.wikimedia.org/wikipedia/en/9/90/Bella_Swan_%28Twilight%29.png",
+    "hints": [
+      "From: Movies (Twilight)",
+      "About: A human girl who moves to a rainy town and falls into a dangerous romance with a vampire, eventually becoming one herself."
+    ],
+    "aliases": [
+      "Bella"
+    ]
+  },
+  {
+    "name": "Jacob Black",
+    "image": "https://upload.wikimedia.org/wikipedia/en/3/39/Jacob_Black_%28Twilight%29.png",
+    "hints": [
+      "From: Movies (Twilight)",
+      "About: A werewolf shape-shifter and Bella's childhood friend, who is protective of her and rivals Edward for her affection."
+    ],
+    "aliases": [
+      "Jacob"
+    ]
+  }
+]
