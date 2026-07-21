@@ -2361,10 +2361,11 @@ def notify_missing_images():
     missing_chars = {}
     missing_media = {}
 
-    # Scan character databases (fetch from generated branch)
+    # Scan character databases (fetch from generated branch /data/ folder)
     for cat_name, db_file in config.CHAR_CATEGORIES.items():
         try:
-            url = f"https://raw.githubusercontent.com/{config.GITHUB_REPO}/generated/{db_file}"
+            # FIX: Added data/ prefix
+            url = f"https://raw.githubusercontent.com/{config.GITHUB_REPO}/generated/data/{db_file}"
             resp = requests.get(url, timeout=10)
             if resp.status_code != 200:
                 print(f"⚠️ Could not fetch {db_file} from generated branch")
@@ -2387,10 +2388,11 @@ def notify_missing_images():
         except Exception as e:
             print(f"Error scanning {db_file}: {e}")
 
-    # Scan media databases (fetch from generated branch)
+    # Scan media databases (fetch from generated branch /data/ folder)
     for cat_name, db_file in config.YEAR_CATEGORIES.items():
         try:
-            url = f"https://raw.githubusercontent.com/{config.GITHUB_REPO}/generated/{db_file}"
+            # FIX: Added data/ prefix
+            url = f"https://raw.githubusercontent.com/{config.GITHUB_REPO}/generated/data/{db_file}"
             resp = requests.get(url, timeout=10)
             if resp.status_code != 200:
                 print(f"⚠️ Could not fetch {db_file} from generated branch")
