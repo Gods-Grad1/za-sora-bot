@@ -527,9 +527,10 @@ def send_character_category_picker(bot, chat_id):
     markup = telebot.types.InlineKeyboardMarkup(row_width=2)
     markup.add(
         telebot.types.InlineKeyboardButton("🌸 Anime", callback_data="charcat_anime"),
-        telebot.types.InlineKeyboardButton("🦸 DC", callback_data="charcat_dc"),
-        telebot.types.InlineKeyboardButton("⚡ Marvel", callback_data="charcat_marvel"),
+        telebot.types.InlineKeyboardButton("📚 Comics", callback_data="charcat_comics"),
         telebot.types.InlineKeyboardButton("🎮 Gaming", callback_data="charcat_gaming"),
+        telebot.types.InlineKeyboardButton("🎬 Movies", callback_data="charcat_movies"),
+        telebot.types.InlineKeyboardButton("🎨 Animation", callback_data="charcat_animation"),
         telebot.types.InlineKeyboardButton("🎲 Random", callback_data="charcat_random"),
     )
     send_and_delete(bot, chat_id, "👤 *GUESS THE CHARACTER*\n\nChoose a category:",
@@ -540,9 +541,10 @@ def send_scrambled_category_picker(bot, chat_id):
     markup = telebot.types.InlineKeyboardMarkup(row_width=2)
     markup.add(
         telebot.types.InlineKeyboardButton("🌸 Anime", callback_data="scrambledcat_anime"),
-        telebot.types.InlineKeyboardButton("🦸 DC", callback_data="scrambledcat_dc"),
-        telebot.types.InlineKeyboardButton("⚡ Marvel", callback_data="scrambledcat_marvel"),
+        telebot.types.InlineKeyboardButton("📚 Comics", callback_data="scrambledcat_comics"),
         telebot.types.InlineKeyboardButton("🎮 Gaming", callback_data="scrambledcat_gaming"),
+        telebot.types.InlineKeyboardButton("🎬 Movies", callback_data="scrambledcat_movies"),
+        telebot.types.InlineKeyboardButton("🎨 Animation", callback_data="scrambledcat_animation"),
         telebot.types.InlineKeyboardButton("🎲 Random", callback_data="scrambledcat_random"),
     )
     send_and_delete(bot, chat_id, "🖼️ *SCRAMBLED CHARACTER GUESS*\n\nChoose a category:",
@@ -734,7 +736,8 @@ def start_character_game(bot, chat_id, category=None, user_id=None):
     db_path = config.CHAR_CATEGORIES.get((category or "random").lower())
     if db_path and category != "random":
         characters = load_json_file(db_path)
-        subfolder = category.lower() if category in ["anime", "dc", "marvel", "gaming"] else None
+        # FIXED: Use the category directly as the subfolder, instead of a hardcoded list
+        subfolder = category.lower() if category and category != "random" else None
     else:
         characters = get_all_characters()
         subfolder = None
@@ -783,7 +786,7 @@ def start_character_game(bot, chat_id, category=None, user_id=None):
     _start_timer(bot, chat_id, time_limit)
     _update_scheduler_last_game(chat_id)
     return q
-
+    
 # ---------------------------------------------------------------------------
 # YEAR GAME
 # ---------------------------------------------------------------------------
@@ -927,7 +930,8 @@ def start_picture_game(bot, chat_id, category=None, user_id=None):
         subfolder = None
     else:
         items = load_json_file(db_path) or []
-        subfolder = category.lower() if category in ["anime", "dc", "marvel", "gaming"] else None
+        # FIXED: Use the category directly as the subfolder
+        subfolder = category.lower() if category and category != "random" else None
 
     if not items:
         send_and_delete(bot, chat_id, "⚠️ No items found.")
@@ -986,7 +990,7 @@ def start_picture_game(bot, chat_id, category=None, user_id=None):
     _start_timer(bot, chat_id, time_limit)
     _update_scheduler_last_game(chat_id)
     return q
-
+    
 # ---------------------------------------------------------------------------
 # TIMER
 # ---------------------------------------------------------------------------
