@@ -1,17 +1,14 @@
 {
-    "date": "2026-07-21",
-    "question": "Which anime is set in a world where people have 'Alchemy' powers?",
+    "date": "2026-07-22",
+    "question": "Who played the title role in 'The King's Speech'?",
     "options": [
-        "Fullmetal Alchemist",
-        "Magi",
-        "Fairy Tail",
-        "Black Clover"
+        "Colin Firth",
+        "Geoffrey Rush",
+        "Helena Bonham Carter",
+        "Guy Pearce"
     ],
     "answer": "A",
-    "display": "Fullmetal Alchemist",
-    "category": "Anime",
-    "answered": [
-        8234402535,
-        6231510981
-    ]
+    "display": "Colin Firth",
+    "category": "Movies",
+    "answered": []
 }
