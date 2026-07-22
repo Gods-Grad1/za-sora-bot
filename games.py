@@ -338,7 +338,7 @@ def precache_scrambled_images(bot):
             if total % 10 == 0:
                 print(f"   → {total} images processed...")
     
-    print(f"✅ Scrambled images pre‑cached: {total} total across {len(categories)} categories."))
+    print(f"✅ Scrambled images pre‑cached: {total} total across {len(categories)} categories.")
 
 # ---------------------------------------------------------------------------
 # PRECACHE
