@@ -1,16 +1,14 @@
 {
-    "date": "2026-07-22",
-    "question": "Who played the title role in 'The King's Speech'?",
+    "date": "2026-07-23",
+    "question": "Which country is the world's largest car manufacturer?",
     "options": [
-        "Colin Firth",
-        "Geoffrey Rush",
-        "Helena Bonham Carter",
-        "Guy Pearce"
+        "China",
+        "Japan",
+        "Germany",
+        "USA"
     ],
     "answer": "A",
-    "display": "Colin Firth",
-    "category": "Movies",
-    "answered": [
-        6231510981
-    ]
+    "display": "China",
+    "category": "General",
+    "answered": []
 }
